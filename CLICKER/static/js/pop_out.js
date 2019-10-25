@@ -36,78 +36,72 @@ let locks = {
 
 let currentResizable = null;
 let clickedPoints = [];
-let trackTracker = [];
-
-
+let trackTracker = null;
+let numberOfCameras = 1;
 let masterCommunicator = null;
 let messageData = null;
 let videoSource = null;
-let clickedPoints = null;
 let dltCoefficents = null;
 let cameraProfile = null;
 let videoID = null;
-let globalVideoObject = {}
+let offset = 0;
+
 const communicator = new BroadcastChannel("unknown-video");
 
 let initPost = false;
 
-function changeHandler() {
-
+function messageCreator(type, data) {
+    return {"type": type, "data": data};
 }
 
-function addNewPoint(event) {
+function changeHandler() {}
+
+function getClickedPoints(index, trackIndex) {
+    return clickedPoints[trackIndex];
 }
 
-function setMousePos() {
-    if (e.target.id.startsWith("canvas")) {
-        currentResizable = e.target;
-    } else {
-        e.target = currentResizable;
-    }
+function setMousePos(e) {}
+function handleKeyboardInput(e) {}
 
-    if (!locks["resizing_mov"]) {
-        // Source : https://stackoverflow.com/a/17130415
-        let bounds = e.target.getBoundingClientRect();
-        let scaleX = e.target.width / bounds.width;   // relationship bitmap vs. element for X
-        let scaleY = e.target.height / bounds.height;
-
-        mouseTracker.x = (e.clientX - bounds.left) * scaleX;   // scale mouse coordinates after they have
-        mouseTracker.y = (e.clientY - bounds.top) * scaleY;
-        // drawZoomWindow(videoObject);
-    } else {
-        let bounds = e.target.getBoundingClientRect();
-
-        mouseTracker.x = e.clientX - bounds.left;
-        mouseTracker.y = e.clientY - bounds.top;
-        let currentClickCanvas = $(e.target);
-
-        currentClickCanvas.css("height", mouseTracker.y);
-        currentClickCanvas.css("width", mouseTracker.x);
-
-        let currentVideoCanvas = $(`#videoCanvas-${e.target.id.split("-")[1]}`);
-
-        currentVideoCanvas.css("height", mouseTracker.y);
-        currentVideoCanvas.css("width", mouseTracker.x);
-
-        let currenEpipolarCanvas = $(`#epipolarCanvas-${e.target.id.split("-")[1]}`);
-        currenEpipolarCanvas.css("height", mouseTracker.y);
-        currenEpipolarCanvas.css("width", mouseTracker.x);
-
-    }
+function getOffset(frame, videoObject){
+    return offset;
 }
 
+function sendNewPoint(event) {
+    addNewPoint(event);
+
+    masterCommunicator.post(
+        messageCreator("newPoint",
+            {
+                "point": clickedPoints[clickedPoints.length - 1],
+                "track": trackTracker["currentTrack"],
+                "videoID": videoID
+            }
+        )
+    )
+}
+
+function handleChange(message) {
+
+}
 
 function init_listener(message) {
     communicator.close();
     messageData = message["data"];
     videoSource = messageData["dataURL"];
-    clickedPoints = messageData["clickedPoints"];
+    // clickedPoints = messageData["clickedPoints"];
     dltCoefficents = messageData["dltCoefficents"];
     cameraProfile = messageData["cameraProfile"];
     document.title = messageData["videoTitle"];
     videoID = messageData["videoID"];
+    offset = messageData["offset"];
+    trackTracker = messageData["currentTracks"];
 
-    loadVideosIntoDOM(videoSource, videoID, document.title);
+    console.log(message);
+    loadVideosIntoDOM(videoSource, videoID, document.title,
+        sendNewPoint, false, {"offset": offset});
+    masterCommunicator = new BroadcastChannel(`${videoID}`);
+    masterCommunicator.onmessage = handleChange;
 }
 
 

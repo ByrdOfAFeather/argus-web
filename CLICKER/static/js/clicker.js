@@ -28,6 +28,8 @@ let currentFilter = "";
 
 let currentFrameGlobal = 0;
 
+let communicators = [];
+
 
 let settings = {
     "auto-advance": true,
@@ -134,20 +136,6 @@ function addNewTrack(trackName) {
 
 /// DRAWING ///
 
-function drawPoints(points, videoObject) {
-    for (let i = 0; i < points.length; i++) {
-        drawPoint(points[i].x, points[i].y, 2, videoObject);
-    }
-}
-
-function drawPoint(x, y, r, videoObject) {
-    let canvas = document.getElementById(videoObject["canvasID"]);
-    let ctx = canvas.getContext("2d");
-    ctx.strokeStyle = trackTracker["tracks"][trackTracker["currentTrack"]].color;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, 2 * Math.PI);
-    ctx.stroke();
-}
 
 
 function drawLines(points, videoObject) {
@@ -209,11 +197,8 @@ function drawDiamond(x, y, width, height, videoObject) {
 
 }
 
-function clearCanvasesBetweenFrames(videoObject) {
-    for (let cameraIndex = 0; cameraIndex < numberOfCameras; cameraIndex++) {
-        let epipolar = document.getElementById(videoObject["epipolarCanvasID"]);
-        epipolar.getContext("2d").clearRect(0, 0, epipolar.width, epipolar.height);
-    }
+function getClickedPoints(index, currentTrackIndex) {
+    return clickedPoints[index][currentTrackIndex];;
 }
 
 function attemptToDrawEpipolarLinesOrUnifedCoord(frameNumber, videoObject) {
@@ -301,25 +286,7 @@ function drawZoomWindow(videoObject) {
 
 /// END DRAWING ///
 
-function goToFrame(frameNumber, videoObject) {
-    //TODO: NOTE THAT WHEN A USER INPUTS A FRAME NUMBER IT WILL EXTEND ITSELF WITH A .01
-    let vidOffset = getOffset(frameNumber, videoObject);
-    frameNumber -= vidOffset;
 
-    clearCanvasesBetweenFrames(videoObject);
-    let video = document.getElementById(videoObject["videoID"]);
-
-
-    let estimatedTime = frameNumber / DEV_FRAME_RATE;
-    video.currentTime = estimatedTime;
-
-    let parsedLabel = parseVideoLabel(document.getElementById(videoObject["videoLabelID"]).innerText);
-    parsedLabel["frame"] = (estimatedTime * DEV_FRAME_RATE) + vidOffset;
-    document.getElementById(videoObject["videoLabelID"]).innerText = videoLabelDataToString(parsedLabel);
-    frameTracker[videoObject["index"]] = frameNumber;
-    // loadFrame(videoObject);
-    attemptToDrawEpipolarLinesOrUnifedCoord(frameNumber, videoObject);
-}
 
 function setMousePos(e) {
     // TODO: Error When Scrolling and not moving
@@ -360,25 +327,9 @@ function setMousePos(e) {
     }
 }
 
-// TODO This might be way to inefficient for the benefit in modifying string data
-function parseVideoLabel(videoLabelText) {
-    let parsedData = {};
-    let splicedData = videoLabelText.split(" ");
-    for (let i = 0; i < splicedData.length; i++) {
-        let localSplice = splicedData[i].split(":");
-        parsedData[localSplice[0]] = localSplice[1];
-    }
-    return parsedData;
-}
 
-function videoLabelDataToString(videoLabelObject) {
-    let keys = Object.keys(videoLabelObject);
-    let returnString = "";
-    for (let i = 0; i < keys.length; i++) {
-        returnString += `${keys[i]}:${videoLabelObject[keys[i]]} `;
-    }
-    return returnString;
-}
+
+
 
 function moveToNextFrame(videoObject) {
     let video = document.getElementById(videoObject["videoID"]);
@@ -389,18 +340,6 @@ function moveToNextFrame(videoObject) {
 
 
 
-
-function setCanvasSizes(canvas, video, index) {
-    canvas.height = video.videoHeight;
-    canvas.width = video.videoWidth;
-    if (video.videoWidth > 800 || video.videoHeight > 600) {
-        canvas.style.height = "600px";
-        canvas.style.width = "800px";
-    } else {
-        canvas.style.height = video.videoHeight + "px";
-        canvas.style.width = video.videoWidth + "px";
-    }
-}
 
 function triggerResizeMode() {
     let canvases = $(".clickable-canvas");
@@ -487,18 +426,44 @@ function changeColorSpace(colorSpace) {
 
 }
 
+function handleNewPoint(data) {
+    let videoIndex = data.videoID;
+    let pointData = data.point;
+    let track = data.track;
+}
+
+function handlePopoutChange(message) {
+    let messageContent = message.data;
+    if (messageContent.type === "newPoint") {
+        handleNewPoint(messageContent.data);
+    }
+    else {
+
+    }
+}
+
 function popVideoOut(event, videoURL) {
     // TODO this function will probably have to be defined in the template
     // TODO Needs to be locks so that a new video cannot be popped out until the current one has finished
     let init_communicator = new BroadcastChannel("unknown-video");
+    let videoIndex = event.target.id.split("-")[2];
     init_communicator.onmessage = function (_) {
-        console.log(_);
         init_communicator.postMessage({
-            "dataURL": videoURL
+            "dataURL": videoURL,
+            "videoID": videoIndex,
+            "videoTitle": parseVideoLabel(
+                document.getElementById(
+                    videoObjectSingletonFactory(videoIndex)["videoLabelID"]
+                ).innerText
+            ).title,
+            "clickedPoints": clickedPoints[videoIndex],
+            "offset": offsetTracker[videoIndex][0]["offset"],
+            "currentTracks": trackTracker
         });
         init_communicator.close();
-        let master_communicator = new BroadcastChannel("0");
-
+        let master_communicator = new BroadcastChannel(`${videoIndex}`);
+        master_communicator.onmessage = handlePopoutChange;
+        communicators.push(master_communicator);
     };
     window.open("http://127.0.0.1:8000/clicker/popped_window", `${event.target.id}`,
         'location=yes,height=600,width=800,scrollbars=yes,status=yes');
@@ -747,7 +712,7 @@ function loadVideos(files) {
     files.forEach((file, index) => {
         numberOfCameras += 1;
         let curURL = URL.createObjectURL(file);
-        loadVideosIntoDOM(curURL, index, file.name);
+        loadVideosIntoDOM(curURL, index, file.name, addNewPoint, true);
     });
 }
 

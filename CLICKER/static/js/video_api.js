@@ -1,5 +1,49 @@
 let videoObjects = [];
 
+function drawPoints(points, videoObject) {
+    for (let i = 0; i < points.length; i++) {
+        drawPoint(points[i].x, points[i].y, 2, videoObject);
+    }
+}
+
+function drawPoint(x, y, r, videoObject) {
+    let canvas = document.getElementById(videoObject["canvasID"]);
+    let ctx = canvas.getContext("2d");
+    ctx.strokeStyle = trackTracker["tracks"][trackTracker["currentTrack"]].color;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 2 * Math.PI);
+    ctx.stroke();
+}
+
+
+// TODO This might be way to inefficient for the benefit in modifying string data
+function parseVideoLabel(videoLabelText) {
+    let parsedData = {};
+    let splicedData = videoLabelText.split(" ");
+    for (let i = 0; i < splicedData.length; i++) {
+        let localSplice = splicedData[i].split(":");
+        parsedData[localSplice[0]] = localSplice[1];
+    }
+    return parsedData;
+}
+
+
+function videoLabelDataToString(videoLabelObject) {
+    let keys = Object.keys(videoLabelObject);
+    let returnString = "";
+    for (let i = 0; i < keys.length; i++) {
+        returnString += `${keys[i]}:${videoLabelObject[keys[i]]} `;
+    }
+    return returnString;
+}
+
+function clearCanvasesBetweenFrames(videoObject) {
+    for (let cameraIndex = 0; cameraIndex < numberOfCameras; cameraIndex++) {
+        let epipolar = document.getElementById(videoObject["epipolarCanvasID"]);
+        epipolar.getContext("2d").clearRect(0, 0, epipolar.width, epipolar.height);
+    }
+}
+
 function loadFrame(videoObject) {
     let video = document.getElementById(videoObject["videoID"]);
     let videoWidth;
@@ -17,6 +61,40 @@ function loadFrame(videoObject) {
     // drawZoomWindow(videoObject);
 }
 
+function goToFrame(frameNumber, videoObject) {
+    //TODO: NOTE THAT WHEN A USER INPUTS A FRAME NUMBER IT WILL EXTEND ITSELF WITH A .01
+    let vidOffset = getOffset(frameNumber, videoObject);
+    frameNumber -= vidOffset;
+
+    clearCanvasesBetweenFrames(videoObject);
+    let video = document.getElementById(videoObject["videoID"]);
+
+
+    let estimatedTime = frameNumber / DEV_FRAME_RATE;
+    video.currentTime = estimatedTime;
+
+    let parsedLabel = parseVideoLabel(document.getElementById(videoObject["videoLabelID"]).innerText);
+    parsedLabel["frame"] = (estimatedTime * DEV_FRAME_RATE) + vidOffset;
+    document.getElementById(videoObject["videoLabelID"]).innerText = videoLabelDataToString(parsedLabel);
+    frameTracker[videoObject["index"]] = frameNumber;
+    // loadFrame(videoObject);
+    // attemptToDrawEpipolarLinesOrUnifedCoord(frameNumber, videoObject);
+}
+
+
+function setCanvasSizes(canvas, video, index) {
+    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth;
+    if (video.videoWidth > 800 || video.videoHeight > 600) {
+        canvas.style.height = "600px";
+        canvas.style.width = "800px";
+    } else {
+        canvas.style.height = video.videoHeight + "px";
+        canvas.style.width = video.videoWidth + "px";
+    }
+}
+
+
 function addNewPoint(event) {
     if (!locks["can_click"]) {
         return;
@@ -33,7 +111,7 @@ function addNewPoint(event) {
 
 
     let indexOfAlreadyExisting = null;
-    let localPoints = clickedPoints[videoObject["index"]][currentTrackIndex];
+    let localPoints = getClickedPoints(videoObject["index"], currentTrackIndex);
     if (localPoints.some(function (point, curIndexs) {
         if (Math.floor(point.frame) === Math.floor(currentFrame)) {
             indexOfAlreadyExisting = curIndexs;
@@ -107,12 +185,13 @@ function videoObjectSingletonFactory(index) {
 
 
 
-function loadVideosIntoDOM(curURL, index, name) {
+function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, popUpArgs) {
+    // popUpArgs - {"offset": offset for the video being loaded}
     let curCanvas = $(`
             <div class="section">
 
               <div class="container">
-              <div class="columns has-text-centered is-multiline">
+              <div id="canvas-columns-${index}" class="columns has-text-centered is-multiline">
                     <div class="column is-12 video-label-container">
                     <p class="video-label" id="videoLabel-${index}"></p>
                     </div>
@@ -124,30 +203,34 @@ function loadVideosIntoDOM(curURL, index, name) {
                         <canvas class="zoom-canvas" id="zoomCanvas-${index}" style="z-index: 2;"></canvas>
                       </div>
                     </div>
-                    <div class="column">
-                        <button id="pop-video-${index}" class="button">Pop into new Window</button>
-                    </div>
                 </div>
                 </div>
               </div>
             </div>
         `);
 
-    if (index !== 0) {
-        let invalidOffset = 1;
-        while (invalidOffset) {
-            let curOffset = parseInt(window.prompt(`What is the offset for ${name}`), 10);
-            if (isNaN(curOffset)) {
-                alert("Offset must be a valid integer!");
-            } else {
-                offsetTracker[index] = [];
-                offsetTracker[index].push({"offset": curOffset, "frame": 1});
-                invalidOffset = 0;
+    if (isMainWindow) {
+        if (index !== 0) {
+            let invalidOffset = 1;
+            while (invalidOffset) {
+                let curOffset = parseInt(window.prompt(`What is the offset for ${name}`), 10);
+                if (isNaN(curOffset)) {
+                    alert("Offset must be a valid integer!");
+                } else {
+                    offsetTracker[index] = [];
+                    offsetTracker[index].push({"offset": curOffset, "frame": 1});
+                    invalidOffset = 0;
+                }
             }
+        } else {
+            offsetTracker[index] = [];
+            offsetTracker[index].push({"offset": 0, "frame": 1});
         }
-    } else {
-        offsetTracker[index] = [];
-        offsetTracker[index].push({"offset": 0, "frame": 1});
+        curCanvas.find(`#canvas-columns-${index}`).append($(`
+
+        <div class="column">
+            <button id="pop-video-${index}" class="button">Pop into new Window</button>
+        </div>`))
     }
 
     $("#canvases").append(curCanvas);
@@ -161,7 +244,7 @@ function loadVideosIntoDOM(curURL, index, name) {
         handleKeyboardInput,
         false);
     curCanvas = $(curCanvas);
-    curCanvas.on("click", addNewPoint);
+    curCanvas.on("click", canvasOnClick);
     curCanvas.on("mousemove", setMousePos);
     curCanvas.on("scroll", setMousePos);
 
@@ -190,9 +273,9 @@ function loadVideosIntoDOM(curURL, index, name) {
                 currentCanvasContainer.style.width = video.videoWidth + "px";
             }
 
-            setCanvasSizes(clickCanvas, video, index);
-            setCanvasSizes(videoCanvas, video, index);
-            setCanvasSizes(epipolarCanvas, video, index);
+            setCanvasSizes(clickCanvas, video);
+            setCanvasSizes(videoCanvas, video);
+            setCanvasSizes(epipolarCanvas, video);
 
             let zoomCanvas = document.getElementById(videoObject["zoomCanvasID"]);
             zoomCanvas.height = 400;
@@ -203,10 +286,17 @@ function loadVideosIntoDOM(curURL, index, name) {
             zoomCanvas.style.left = (clickCanvas.width - zoomCanvas.width) + "px";
 
             let videoLabel = document.getElementById(videoObject["videoLabelID"]);
+            let offset = 0;
+            if (isMainWindow) {
+                offset = offsetTracker[videoObject["index"]][0]["offset"];
+            }
+            else {
+                offset = popUpArgs["offset"];
+            }
             let data = {
                 "title": name,
                 "frame": 0,
-                "offset": index === 0 ? "n/a" : offsetTracker[videoObject["index"]][0]["offset"],
+                "offset": index === 0 ? "n/a" : offset,
             };
             videoLabel.innerText = videoLabelDataToString(data);
 
