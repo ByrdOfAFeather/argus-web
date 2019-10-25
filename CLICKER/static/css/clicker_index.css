@@ -1,0 +1,20 @@
+.hidden-video {
+    visibility: hidden;
+    height: 0;
+    width: 0;
+    position: absolute;
+}
+
+.video-label-container {
+    border: 1px solid gray;
+    border-radius: 3px;
+    background-color: rgba(0, 0, 0, .4)
+}
+
+
+
+canvas {
+    position: absolute;
+    left: 0;
+    /*top: 0;*/
+}
