@@ -1,18 +1,4 @@
-let COLORS = ["rgb(228, 26, 28)", "rgb(55, 126, 184)", "rgb(77, 175, 74)", "rgb(152, 78, 163)",
-    "rgb(255, 127, 0)", "rgb(255, 255, 51)", "rgb(166, 86, 40)", "rgb(247, 129, 191)"];
-let colorIndex = 0;
-
-let PINHOLE = 1;
-
-let LINETYPE_EPIPOLAR = 1;
-let LINETYPE_POINT_TO_POINT = 2;
-
 let DEV_FRAME_RATE = 30;
-let CAMERA_PROFILE = null;
-let DLT_COEFFICIENTS = null;
-
-let RGB = 0;
-let GREYSCALE = 1;
 let currentFilter = "";
 
 let currentFrameGlobal = 0;
@@ -70,7 +56,7 @@ function getOffset(frame, videoObject){
 function sendNewPoint(event) {
     addNewPoint(event);
 
-    masterCommunicator.post(
+    masterCommunicator.postMessage(
         messageCreator("newPoint",
             {
                 "point": clickedPoints[clickedPoints.length - 1],

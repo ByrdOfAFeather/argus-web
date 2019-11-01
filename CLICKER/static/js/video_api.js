@@ -1,5 +1,110 @@
 let videoObjects = [];
 
+let LINETYPE_EPIPOLAR = 1;
+let LINETYPE_POINT_TO_POINT = 2;
+
+function goToFrame(frameNumber, videoObject) {
+    //TODO: NOTE THAT WHEN A USER INPUTS A FRAME NUMBER IT WILL EXTEND ITSELF WITH A .01
+    let vidOffset = getOffset(frameNumber, videoObject);
+    frameNumber -= vidOffset;
+
+    clearCanvasesBetweenFrames(videoObject);
+    let video = document.getElementById(videoObject["videoID"]);
+
+
+    let estimatedTime = frameNumber / DEV_FRAME_RATE;
+    video.currentTime = estimatedTime;
+
+    let parsedLabel = parseVideoLabel(document.getElementById(videoObject["videoLabelID"]).innerText);
+    parsedLabel["frame"] = (estimatedTime * DEV_FRAME_RATE) + vidOffset;
+    document.getElementById(videoObject["videoLabelID"]).innerText = videoLabelDataToString(parsedLabel);
+    frameTracker[videoObject["index"]] = frameNumber;
+    // loadFrame(videoObject);
+    // attemptToDrawEpipolarLinesOrUnifedCoord(frameNumber, videoObject);
+}
+
+function moveToNextFrame(videoObject) {
+    let video = document.getElementById(videoObject["videoID"]);
+    let newFrame = (video.currentTime * DEV_FRAME_RATE) + 1;
+    goToFrame(newFrame, videoObject);
+}
+
+
+function drawLines(points, videoObject) {
+    for (let i = 0; i < points.length - 1; i++) {
+        drawLine(points[i], points[i + 1], videoObject);
+    }
+}
+
+function drawLine(point1, point2, videoObject, lineType = LINETYPE_POINT_TO_POINT) {
+    let canvasToDraw;
+    let ctx;
+    if (lineType === LINETYPE_EPIPOLAR) {
+        canvasToDraw = document.getElementById(videoObject["epipolarCanvasID"]);
+        ctx = canvasToDraw.getContext('2d');
+        ctx.clearRect(0, 0, canvasToDraw.width, canvasToDraw.height);
+        ctx.strokeStyle = "#99badd"
+
+    } else if (lineType === LINETYPE_POINT_TO_POINT) {
+        canvasToDraw = document.getElementById(videoObject["canvasID"]);
+        ctx = canvasToDraw.getContext("2d");
+        ctx.strokeStyle = trackTracker["tracks"][trackTracker["currentTrack"]].color;
+    }
+
+
+    ctx.beginPath();
+    ctx.moveTo(point1.x, point1.y);
+    ctx.lineTo(point2.x, point2.y);
+    ctx.stroke();
+}
+
+
+
+function setMousePos(e) {
+    // TODO: Error When Scrolling and not moving
+    if (e.target.id.startsWith("canvas")) {
+        currentResizable = e.target;
+    } else {
+        e.target = currentResizable;
+    }
+
+    if (!locks["resizing_mov"]) {
+        // Source : https://stackoverflow.com/a/17130415
+        let bounds = e.target.getBoundingClientRect();
+        let scaleX = e.target.width / bounds.width;   // relationship bitmap vs. element for X
+        let scaleY = e.target.height / bounds.height;
+
+        mouseTracker.x = (e.clientX - bounds.left) * scaleX;   // scale mouse coordinates after they have
+        mouseTracker.y = (e.clientY - bounds.top) * scaleY;
+        // drawZoomWindow(videoObject);
+    } else {
+        let bounds = e.target.getBoundingClientRect();
+
+        mouseTracker.x = e.clientX - bounds.left;
+        mouseTracker.y = e.clientY - bounds.top;
+        let currentClickCanvas = $(e.target);
+
+        currentClickCanvas.css("height", mouseTracker.y);
+        currentClickCanvas.css("width", mouseTracker.x);
+
+        let currentVideoCanvas = $(`#videoCanvas-${e.target.id.split("-")[1]}`);
+
+        currentVideoCanvas.css("height", mouseTracker.y);
+        currentVideoCanvas.css("width", mouseTracker.x);
+
+        let currenEpipolarCanvas = $(`#epipolarCanvas-${e.target.id.split("-")[1]}`);
+        currenEpipolarCanvas.css("height", mouseTracker.y);
+        currenEpipolarCanvas.css("width", mouseTracker.x);
+
+    }
+}
+
+
+function generateError(errorMessage) {
+    alert(errorMessage);
+}
+
+
 function drawPoints(points, videoObject) {
     for (let i = 0; i < points.length; i++) {
         drawPoint(points[i].x, points[i].y, 2, videoObject);
@@ -59,26 +164,6 @@ function loadFrame(videoObject) {
     ctx.fillRect(0, 0, videoWidth, videoHeight);
     ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
     // drawZoomWindow(videoObject);
-}
-
-function goToFrame(frameNumber, videoObject) {
-    //TODO: NOTE THAT WHEN A USER INPUTS A FRAME NUMBER IT WILL EXTEND ITSELF WITH A .01
-    let vidOffset = getOffset(frameNumber, videoObject);
-    frameNumber -= vidOffset;
-
-    clearCanvasesBetweenFrames(videoObject);
-    let video = document.getElementById(videoObject["videoID"]);
-
-
-    let estimatedTime = frameNumber / DEV_FRAME_RATE;
-    video.currentTime = estimatedTime;
-
-    let parsedLabel = parseVideoLabel(document.getElementById(videoObject["videoLabelID"]).innerText);
-    parsedLabel["frame"] = (estimatedTime * DEV_FRAME_RATE) + vidOffset;
-    document.getElementById(videoObject["videoLabelID"]).innerText = videoLabelDataToString(parsedLabel);
-    frameTracker[videoObject["index"]] = frameNumber;
-    // loadFrame(videoObject);
-    // attemptToDrawEpipolarLinesOrUnifedCoord(frameNumber, videoObject);
 }
 
 
@@ -163,7 +248,7 @@ function addNewPoint(event) {
         }
     }
 
-    attemptToDrawEpipolarLinesOrUnifedCoord(currentFrame, videoObject);
+    // attemptToDrawEpipolarLinesOrUnifedCoord(currentFrame, videoObject);
 }
 
 
@@ -215,7 +300,7 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
             while (invalidOffset) {
                 let curOffset = parseInt(window.prompt(`What is the offset for ${name}`), 10);
                 if (isNaN(curOffset)) {
-                    alert("Offset must be a valid integer!");
+                    generateError("Offset must be a valid integer!");
                 } else {
                     offsetTracker[index] = [];
                     offsetTracker[index].push({"offset": curOffset, "frame": 1});
@@ -248,6 +333,11 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
     curCanvas.on("mousemove", setMousePos);
     curCanvas.on("scroll", setMousePos);
 
+    curVideo.on("error", function () {
+        generateError(`${name} could not be loaded, see troubleshooting for more details!`);
+        // TODO: Implementation
+        // reloadInitState
+    });
 
     curVideo.on('canplay', function () {
         if (!locks[`initFrameLoaded ${index}`]) {

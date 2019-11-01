@@ -15,8 +15,7 @@ let colorIndex = 0;
 
 let PINHOLE = 1;
 
-let LINETYPE_EPIPOLAR = 1;
-let LINETYPE_POINT_TO_POINT = 2;
+
 
 let DEV_FRAME_RATE = 30;
 let CAMERA_PROFILE = null;
@@ -55,12 +54,24 @@ let numberOfCameras = 0;
 let clickedPoints = [];
 let trackTracker = [];
 
-
+/** @namespace */
 function getOffset(frame, videoObject) {
+    /**
+     * Gets camera's frame offset from the offsetTracker global variable based on the frame and video.
+     * @param {Number} frame Value representing the current frame
+     * @param {Object} videoObject @see videoObjectSingletonFactory
+     * @returns {Number} offset The offset given the current frame
+     */
+
+    // Gets a list of offset objects based on the passed video
     let offsets = offsetTracker[videoObject["index"]];
+
+    // TODO: This doesn't actually do anything
+    // If there are no offsets found for this video, return
     if (offsets.length === 0) {
         return offsets[0];
     } else {
+        // Gets the frame closest to the passed one and reads its offset
         let currentCalculation = NaN;
         let futureCalculation = 0;
         for (let offsetIndex = 0; offsetIndex < offsets.length; offsetIndex++) {
@@ -88,24 +99,42 @@ function getOffset(frame, videoObject) {
 }
 
 /// TRACK MANAGEMENT ///
+
+/** @namespace */
 function changeTracks(trackIndex) {
+    /**
+     * Changes the track based on the passed trackIndex
+     * @param {Number} trackIndex The index of the requested track
+     * @returns {undefined}
+     */
     trackTracker["currentTrack"] = trackIndex;
+
+    // Changes all cameras to the requested track
     for (let cameraIndex = 0; cameraIndex < numberOfCameras; cameraIndex++) {
         let localVideoObject = videoObjectSingletonFactory(cameraIndex);
 
         let pointCanvas = document.getElementById(localVideoObject["canvasID"]);
         let ctx = pointCanvas.getContext("2d");
+
         ctx.clearRect(0, 0, pointCanvas.width, pointCanvas.height);
         let localClickedPoints = clickedPoints[localVideoObject["index"]][trackIndex];
         if (localClickedPoints.length === 0) {
             return;
         }
+
+        // Redraws points
         drawPoints(localClickedPoints, localVideoObject);
         drawLines(localClickedPoints, localVideoObject);
     }
 }
 
+/** @namespace */
 function removeTrack(trackIndex) {
+    /**
+     * Removes a track from the trackTracker global variable
+     * @param {Number} trackIndex The index of the track requested to be deleted
+     * @returns {undefined}
+     */
     for (let cameraIndex = 0; cameraIndex < numberOfCameras; cameraIndex++) {
         clickedPoints[cameraIndex].splice(trackIndex, 1);
     }
@@ -115,7 +144,12 @@ function removeTrack(trackIndex) {
     trackTracker["tracks"].splice(trackIndex, 1);
 }
 
+/** @namespace */
 function addNewTrack(trackName) {
+    /**
+     * Adds a track to the trackTracker global variable
+     * @param{trackNumber} trackNumber
+     */
     let currentTrackIndex = trackTracker["tracks"].length;
     trackTracker["tracks"].push({"name": trackName, "index": currentTrackIndex, "color": COLORS[colorIndex]});
     colorIndex += 1;
@@ -136,35 +170,6 @@ function addNewTrack(trackName) {
 
 /// DRAWING ///
 
-
-
-function drawLines(points, videoObject) {
-    for (let i = 0; i < points.length - 1; i++) {
-        drawLine(points[i], points[i + 1], videoObject);
-    }
-}
-
-function drawLine(point1, point2, videoObject, lineType = LINETYPE_POINT_TO_POINT) {
-    let canvasToDraw;
-    let ctx;
-    if (lineType === LINETYPE_EPIPOLAR) {
-        canvasToDraw = document.getElementById(videoObject["epipolarCanvasID"]);
-        ctx = canvasToDraw.getContext('2d');
-        ctx.clearRect(0, 0, canvasToDraw.width, canvasToDraw.height);
-        ctx.strokeStyle = "#99badd"
-
-    } else if (lineType === LINETYPE_POINT_TO_POINT) {
-        canvasToDraw = document.getElementById(videoObject["canvasID"]);
-        ctx = canvasToDraw.getContext("2d");
-        ctx.strokeStyle = trackTracker["tracks"][trackTracker["currentTrack"]].color;
-    }
-
-
-    ctx.beginPath();
-    ctx.moveTo(point1.x, point1.y);
-    ctx.lineTo(point2.x, point2.y);
-    ctx.stroke();
-}
 
 function drawDiamond(x, y, width, height, videoObject) {
     //SOURCE: http://www.java2s.com/Tutorials/Javascript/Canvas_How_to/Shape/Draw_Spade_Heart_Club_Diamond.htm
@@ -198,7 +203,7 @@ function drawDiamond(x, y, width, height, videoObject) {
 }
 
 function getClickedPoints(index, currentTrackIndex) {
-    return clickedPoints[index][currentTrackIndex];;
+    return clickedPoints[index][currentTrackIndex];
 }
 
 function attemptToDrawEpipolarLinesOrUnifedCoord(frameNumber, videoObject) {
@@ -232,6 +237,13 @@ function attemptToDrawEpipolarLinesOrUnifedCoord(frameNumber, videoObject) {
                             let epipolarCanvas = document.getElementById(videoObjectSingletonFactory(j)["epipolarCanvasID"]);
                             epipolarCanvas.getContext("2d").clearRect(0, 0, epipolarCanvas.width, epipolarCanvas.height);
                             let currentPoint = reconstructUV(DLT_COEFFICIENTS[j], result[result.length - 1]);
+
+                            if (!checkCoordintes(currentPoint[0][0], currentPoint[0][1],
+                                epipolarCanvas.height, epipolarCanvas.width)) {
+                                generateError("Points that did not exist were calculated when locating the " +
+                                    "point in 2D space, please check your DLT coefficients and camera profiles");
+                            }
+
                             drawDiamond(
                                 currentPoint[0][0],
                                 currentPoint[1][0], 10, 10,
@@ -287,55 +299,6 @@ function drawZoomWindow(videoObject) {
 /// END DRAWING ///
 
 
-
-function setMousePos(e) {
-    // TODO: Error When Scrolling and not moving
-    if (e.target.id.startsWith("canvas")) {
-        currentResizable = e.target;
-    } else {
-        e.target = currentResizable;
-    }
-
-    if (!locks["resizing_mov"]) {
-        // Source : https://stackoverflow.com/a/17130415
-        let bounds = e.target.getBoundingClientRect();
-        let scaleX = e.target.width / bounds.width;   // relationship bitmap vs. element for X
-        let scaleY = e.target.height / bounds.height;
-
-        mouseTracker.x = (e.clientX - bounds.left) * scaleX;   // scale mouse coordinates after they have
-        mouseTracker.y = (e.clientY - bounds.top) * scaleY;
-        // drawZoomWindow(videoObject);
-    } else {
-        let bounds = e.target.getBoundingClientRect();
-
-        mouseTracker.x = e.clientX - bounds.left;
-        mouseTracker.y = e.clientY - bounds.top;
-        let currentClickCanvas = $(e.target);
-
-        currentClickCanvas.css("height", mouseTracker.y);
-        currentClickCanvas.css("width", mouseTracker.x);
-
-        let currentVideoCanvas = $(`#videoCanvas-${e.target.id.split("-")[1]}`);
-
-        currentVideoCanvas.css("height", mouseTracker.y);
-        currentVideoCanvas.css("width", mouseTracker.x);
-
-        let currenEpipolarCanvas = $(`#epipolarCanvas-${e.target.id.split("-")[1]}`);
-        currenEpipolarCanvas.css("height", mouseTracker.y);
-        currenEpipolarCanvas.css("width", mouseTracker.x);
-
-    }
-}
-
-
-
-
-
-function moveToNextFrame(videoObject) {
-    let video = document.getElementById(videoObject["videoID"]);
-    let newFrame = (video.currentTime * DEV_FRAME_RATE) + 1;
-    goToFrame(newFrame, videoObject);
-}
 
 
 
@@ -396,9 +359,10 @@ function handleKeyboardInput(e) {
 
             let frameToGoTo = parseInt(currentFrame, 10);
             if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
-                alert("Frame must be a valid integer!");
+                generateError("Frame must be valid integer!");
             } else {
                 invalidFrame = 0;
+                frameToGoTo += .00001;
                 if (settings["sync"]) {
                     for (let cameraIndex = 0; cameraIndex < numberOfCameras; cameraIndex++) {
                         goToFrame(frameToGoTo, videoObjectSingletonFactory(cameraIndex));
@@ -426,16 +390,32 @@ function changeColorSpace(colorSpace) {
 
 }
 
-function handleNewPoint(data) {
+function handlePopoutNewPoint(data) {
     let videoIndex = data.videoID;
     let pointData = data.point;
     let track = data.track;
+
+    let indexOfAlreadyExisting = null;
+    let localPoints = getClickedPoints(videoIndex, track);
+    if (localPoints.some(function (point, curIndexs) {
+        if (Math.floor(point.frame) === Math.floor(pointData.frame)) {
+            indexOfAlreadyExisting = curIndexs;
+            return true;
+        } else {
+            return false;
+        }
+    }) === true) {
+        clickedPoints[videoIndex][track][indexOfAlreadyExisting] = pointData;
+    }
+    else {
+        localPoints[localPoints.length] = pointData;
+    }
 }
 
 function handlePopoutChange(message) {
     let messageContent = message.data;
     if (messageContent.type === "newPoint") {
-        handleNewPoint(messageContent.data);
+        handlePopoutNewPoint(messageContent.data);
     }
     else {
 
@@ -478,7 +458,7 @@ function parseDLTCoefficents(text, separator) {
     for (let i = 0; i < numberOfCameras; i++) {
         returnVector[i] = [];
     }
-    for (let i = 0; i < loopText.length - 1; i++) {
+    for (let i = 0; i < loopText.length; i++) {
         loopText[i] = loopText[i].split(separator);
         for (let j = 0; j < numberOfCameras; j++) {
             returnVector[j].push(parseFloat(loopText[i][j]));
@@ -491,23 +471,43 @@ function parseCameraProfile(text, separator) {
     // NOTE: Only works with pinhole for now
 
 
-    let loopText = text.split("\n").filter((value) => value !== "");
-    console.log(separator);
+    const profiles = text.split("\n").filter((value) => value !== "");
+    const numberOfProfiles = profiles.length;
+
+    if (numberOfProfiles !== numberOfCameras) {
+        if (numberOfProfiles > numberOfCameras) {
+            // TODO: PROD: Remake into a modal
+            generateError(`I can't use ${numberOfProfiles} ${numberOfProfiles > 1 ? "profiles": "profile"} 
+            with only ${numberOfCameras} ${numberOfCameras > 1 ? "cameras": "camera"} `);
+        }
+        else {
+
+            // TODO: PROD: Remake into a modal
+            generateError(`I can't use only ${numberOfProfiles} ${numberOfProfiles > 1 ? "profiles": "profile"} 
+            with ${numberOfCameras} ${numberOfCameras > 1 ? "cameras": "camera"} `);
+        }
+    }
+
     let returnVector = [];
     for (let i = 0; i < numberOfCameras; i++) {
         returnVector[i] = [];
     }
-    for (let i = 0; i < loopText.length; i++) {
-        let localLoopText = loopText[i].split(separator).filter((value) => value !== "");
-        for (let j = 0; j < localLoopText.length; j++) {
-            returnVector[i].push(parseFloat(localLoopText[j]));
+    for (let i = 0; i < numberOfProfiles; i++) {
+        let localProfile = profiles[i].split(separator).filter((value) => value !== "");
+        for (let j = 0; j < localProfile.length; j++) {
+            if (localProfile[j].match(/[a-z]/i)) {
+                generateError(`ERROR PARSING CAMERA AT CAMERA ${i + 1} IN PARAMETER ${j + 1 }.
+                FOUND THE FOLLOW CHARACTERS: ${localProfile[j]}`);
+            }
+            returnVector[i].push(parseFloat(localProfile[j]));
         }
         // Remove Camera Index
         returnVector[i].splice(0, 1);
         // Remove the 2nd and 3rd values (width/height)
-        returnVector[i].splice(2, 2);
+        returnVector[i].splice(1, 2);
         // Remove the sixth value
-        returnVector[i].splice(6, 0);
+        returnVector[i].splice(3, 1);
+
     }
     return returnVector;
 }
@@ -528,6 +528,89 @@ function loadCameraProfile(file) {
     };
     reader.readAsText(file[0]);
 }
+
+
+function getIndexFromFrame(points, frame) {
+    if (Math.floor(points[0].frame) > frame) {
+        return null;
+    }
+
+    if (Math.floor(points[points.length - 1].frame) < frame) {
+        return null;
+    }
+
+    let currentIndex = Math.floor(points.length / 2);
+    let iterator = 0;
+    if (Math.floor(points[currentIndex].frame) < frame) {
+        iterator = 1;
+    }
+    else if (Math.floor(points[currentIndex].frame) > frame) {
+        iterator = - 1;
+    }
+    else {
+        return currentIndex;
+    }
+
+    let continueSearch = true;
+    while (continueSearch) {
+        currentIndex += iterator;
+        if (currentIndex < 0 || currentIndex >= points.length) {
+            continueSearch = false;
+            break;
+        }
+        else {
+            if (Math.floor(points[currentIndex].frame) === frame) {
+                return currentIndex;
+            }
+        }
+    }
+    return null;
+}
+
+function download(filename, text) {
+    // Source: https://ourcodeworld.com/articles/read/189/how-to-create-a-file-and-generate-a-download-with-javascript-in-the-browser-without-a-server
+    let element = document.createElement('a');
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+    element.setAttribute('download', filename);
+
+    element.style.display = 'none';
+    document.body.appendChild(element);
+
+    element.click();
+
+    document.body.removeChild(element);
+}
+
+
+
+function exportPoints() {
+    // TODO THIS ASSUMES IT IS SORTED
+    let duration = document.getElementById(videoObjectSingletonFactory(0).videoID).duration;
+    let frames = Math.floor(duration * DEV_FRAME_RATE);
+
+    let exportablePoints = [];
+    for (let i = 0; i<frames; i++) {
+        let frameArray = [];
+        for (let j = 0; j<numberOfCameras; j++) {
+            for (let q=0; q<trackTracker.tracks.length; q++) {
+                let localPoints = getClickedPoints(j, q);
+                let index = getIndexFromFrame(localPoints, i);
+                if (index === null) {
+                    frameArray.push(NaN);
+                    frameArray.push(NaN);
+                }
+                else {
+                    frameArray.push(localPoints[index].x);
+                    frameArray.push(localPoints[index].y);
+                }
+            }
+        }
+        exportablePoints.push(frameArray.join(",") + ",\n");
+    }
+
+    download("clickedpoints.csv", exportablePoints.join(""));
+}
+
 
 
 function loadSettings() {
@@ -613,6 +696,10 @@ function loadSettings() {
                     </div>
                 </div>
             </div>
+            
+            <div class="column has-text-centered">
+                <button id="save-points-button" class="button">Save Points</button>
+            </div>
         </div>
 `);
     $("#settingsInput").append(setupSettingsInput);
@@ -661,10 +748,10 @@ function loadSettings() {
     $("#add-track-button").on("click", function (_) {
         let newTrack = $("#new-track-input").val();
         if (newTrack.length === 0) {
-            alert("Track name can't be empty!");
+            generateError("Track name can't be empty!");
         }
-        // TODO Check if Track name already exists
-        else if (false) {
+        else if (trackTracker["tracks"].some((trackObject) => trackObject.name === newTrack)) {
+            generateError("You can't add a track with the same name twice!");
         } else {
             addNewTrack(newTrack);
             $("#current-track-display").text(`Current Track: ${newTrack}`);
@@ -699,6 +786,8 @@ function loadSettings() {
             color_container.removeClass("is-active");
         }
     });
+
+    $("#save-points-button").on("click", exportPoints);
 }
 
 
@@ -729,8 +818,77 @@ $(document).ready(function () {
 // ----- UNDERLYING MATHEMATICS ----- \\
 
 
-function undistortPoints(coordinatePair, cameraProfile) {
+function redistortPoints(coordinatePair, cameraProfile) {
+    // TODO: TAN DISTORTION UNTESTED
+    // TODO: Vectorize
+    let f = cameraProfile[0];
+    let cx = cameraProfile[1];
+    let cy = cameraProfile[2];
 
+    let distorted = [];
+
+
+    for (let i = 0; i<coordinatePair.length; i++) {
+        let u_v_pair = coordinatePair[i];
+        let u = u_v_pair[0];
+        let v = u_v_pair[1];
+
+        u = (u - cx) / f;
+        v = (v - cy) / f;
+
+        let r2 = u*u + v*v;
+        let r4 = r2 ** 2;
+        u = u * (1 + (cameraProfile[3] * r2) + (cameraProfile[4] * r4));
+        v = v * (1 + (cameraProfile[3] * r2) + (cameraProfile[4] * r4));
+
+        u = u + (2 * cameraProfile[5] * u * v + cameraProfile[6] * (r2 + 2 * u ** 2));
+        v = v + (cameraProfile[5] * (r2 + (2 * v ** 2)) + 2 * cameraProfile[6] * u * v);
+
+        u = u * f + cx;
+        v = v * f + cy;
+        distorted.push([u, v]);
+    }
+
+    return distorted;
+}
+
+function undistortPoints(coordinatePair, cameraProfile) {
+    // TODO: TAN DISTORTION UNTESTED
+    // TODO: Vectorize
+    let f = cameraProfile[0];
+    let cx = cameraProfile[1];
+    let cy = cameraProfile[2];
+
+    let iters = 3;
+
+    let undistorted = [];
+
+    for (let i = 0; i<coordinatePair.length; i++) {
+        let u_v_pair = coordinatePair[i];
+        let u = u_v_pair[0];
+        let v = u_v_pair[1];
+
+        let u_norm_org = (u - cx) / f;
+        let v_norm_org = (v - cy) / f;
+
+        let iter_norm_u = u_norm_org;
+        let iter_norm_v = v_norm_org;
+        for (let j = 1; j < iters; j++) {
+            let r2 = iter_norm_u*iter_norm_u + iter_norm_v*iter_norm_v;
+            let rad = 1 + (cameraProfile[3]*r2) + (cameraProfile[4] * r2 ** 2) + (cameraProfile[7]);
+            let tan_u = 2 * cameraProfile[5] * iter_norm_u * iter_norm_v + cameraProfile[6] * (r2 + 2*iter_norm_u**2);
+            let tan_v = cameraProfile[5] * (r2 + 2 * iter_norm_v ** 2) + 2 * cameraProfile[6] * iter_norm_u * iter_norm_v;
+
+            iter_norm_u = (u_norm_org - tan_u) / rad;
+            iter_norm_v = (v_norm_org - tan_v) / rad;
+        }
+
+        let final_u = iter_norm_u * f + cx;
+        let final_y = iter_norm_v * f + cy;
+        undistorted.push([final_u, final_y]);
+    }
+
+    return undistorted;
 }
 
 function reconstructUV(dltCoeff2, coordinateTriplet) {
@@ -821,21 +979,6 @@ function getDLTLine(xCoord, yCoord, dlcCoeff1, dltCoeff2) {
     return [m, b];
 }
 
-function redistortPoints(points, cameraProfile, type = PINHOLE) {
-    if (type === PINHOLE) {
-        if (cameraProfile.length === 8) {
-            let rotationVector = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
-            let translationVector = [0, 0, 0];
-            let cameraMatrix = [
-                [cameraProfile[0], 0, cameraProfile[1]],
-                [0, cameraProfile[0], cameraProfile[2]],
-                [0, 0, 1]];
-            // TODO: finish implementation
-        }
-    } else {
-        return numeric.transpose(cameraProfile.distortPoints(numeric.transpose(points)))
-    }
-}
 
 function getBezierCurve(slope, intercept, cameraProfile, videoObject) {
     let originalVideoWidth = document.getElementById(videoObject["videoCanvasID"]).width;
@@ -847,6 +990,11 @@ function getBezierCurve(slope, intercept, cameraProfile, videoObject) {
     let redistortedPoints = tf.Tensor(redistortPoints(bezierPoints, cameraProfile));
     redistortedPoints.reshape([bezierPoints.length, 2]);
     return redistortedPoints
+}
+
+function checkCoordintes(x, y, height, width) {
+    // Ensures that x is between width and height and y is between width and height
+    return 0 <= x <= width && 0 <= y <= height;
 }
 
 function getEpipolarLines(videoObject, DLTCoefficients, pointsIndex) {
@@ -876,7 +1024,7 @@ function getEpipolarLines(videoObject, DLTCoefficients, pointsIndex) {
             let yCoord = coord[1][1];
 
             if (CAMERA_PROFILE) {
-                let undistortPoints = undistortPoints([xCoord, yCoord], CAMERA_PROFILE[coord[0]][0]);
+                let undistortPoints = undistortPoints([[xCoord, yCoord]], CAMERA_PROFILE[coord[0]][0]);
                 xCoord = undistortPoints[0];
                 yCoord = undistortPoints[1];
 
@@ -889,13 +1037,32 @@ function getEpipolarLines(videoObject, DLTCoefficients, pointsIndex) {
                 let slopeAndIntercept = getDLTLine(xCoord, yCoord, dlcCoeff1, dltCoeff2);
                 let slope = slopeAndIntercept[0];
                 let intercept = slopeAndIntercept[1];
+
+                let originalHeight = document.getElementById(videoObject["videoCanvasID"]).height;
+                let originalWidth = document.getElementById(videoObject["videoCanvasID"]).width;
+
+                if (!checkCoordintes(0, intercept, originalHeight, originalWidth)) {
+                    generateError(
+                        "When attempting to draw an epipolar line, a coordinate was produced that didn't fit in the " +
+                        "video, please check your DLT coefficients and camera profiles!");
+                    return CAMERA_PROFILE;
+                }
                 tmp.push([0, intercept]);
-                let original_width = document.getElementById(videoObject["videoCanvasID"]).width;
-                tmp.push([original_width, numeric.add(numeric.mul(slope, original_width), intercept)])
+
+                let endYCoord = numeric.add(numeric.mul(slope, originalWidth), intercept);
+
+
+                if (!checkCoordintes(originalWidth, endYCoord, originalHeight, originalWidth)) {
+                    generateError(
+                        "When attempting to draw an epipolar line, a coordinate was produced that didn't fit in the " +
+                        "video, please check your DLT coefficients and camera profiles!");
+                    return CAMERA_PROFILE;
+                }
+
+                tmp.push([originalWidth, numeric.add(numeric.mul(slope, originalWidth), intercept)])
             }
 
             let currentObject = videoObjectSingletonFactory(i);
-
             drawEpipolarLine(tmp, currentObject);
         }
     }
