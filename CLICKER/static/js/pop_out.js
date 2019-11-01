@@ -5,7 +5,6 @@ let currentFrameGlobal = 0;
 
 let settings = {
     "auto-advance": true,
-    "sync": true
 };
 
 let mouseTracker = {
@@ -43,7 +42,7 @@ function messageCreator(type, data) {
 function changeHandler() {}
 
 function getClickedPoints(index, trackIndex) {
-    return clickedPoints[trackIndex];
+    return clickedPoints[index][trackIndex];
 }
 
 function setMousePos(e) {}
@@ -54,27 +53,56 @@ function getOffset(frame, videoObject){
 }
 
 function sendNewPoint(event) {
-    addNewPoint(event);
+    let newPoint = addNewPoint(event);
 
     masterCommunicator.postMessage(
         messageCreator("newPoint",
             {
-                "point": clickedPoints[clickedPoints.length - 1],
+                "point": newPoint,
                 "track": trackTracker["currentTrack"],
+                "currentFrame": settings["auto-advance"] ? newPoint.frame + 1 : newPoint.frame,
                 "videoID": videoID
             }
         )
     )
 }
 
-function handleChange(message) {
+function handleGoToFrame(data) {
+    goToFrame(data.frame, videoObjectSingletonFactory(videoID));
+}
 
+function handleChangeTrack(data) {
+    let track = data.track;
+    changeTracks(track, [videoID]);
+}
+
+function handleAddTrack(data) {
+    trackTracker["tracks"][data.track.index] = data.track.track;
+    trackTracker["currentTrack"] = data.track.index;
+    clickedPoints[videoID].push([]);
+    let track = {track: data.track.index};
+    handleChangeTrack(track);
+}
+
+function handleChange(message) {
+    console.log(message);
+    let messageContent = message.data;
+    if (messageContent.type === "goToFrame") {
+        handleGoToFrame(message.data.data);
+    }
+    if (messageContent.type === "changeTrack") {
+        handleChangeTrack(messageContent.data);
+    }
+    if (messageContent.type === "addNewTrack") {
+        handleAddTrack(messageContent.data);
+    }
 }
 
 function init_listener(message) {
     communicator.close();
     messageData = message["data"];
     videoSource = messageData["dataURL"];
+    settings["autoAdvance"] = messageData["audo-advance"];
     // clickedPoints = messageData["clickedPoints"];
     dltCoefficents = messageData["dltCoefficents"];
     cameraProfile = messageData["cameraProfile"];

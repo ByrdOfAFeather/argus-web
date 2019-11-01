@@ -3,6 +3,38 @@ let videoObjects = [];
 let LINETYPE_EPIPOLAR = 1;
 let LINETYPE_POINT_TO_POINT = 2;
 
+
+
+/** @namespace */
+function changeTracks(trackIndex, cameras) {
+    /**
+     * Changes the track based on the passed trackIndex
+     * @param {Number} trackIndex The index of the requested track
+     * @returns {undefined}
+     */
+    trackTracker["currentTrack"] = trackIndex;
+
+    // Changes all cameras to the requested track
+    for (let index = 0; index < cameras; index++) {
+        let cameraIndex = cameras[index];
+        let localVideoObject = videoObjectSingletonFactory(cameraIndex);
+
+        let pointCanvas = document.getElementById(localVideoObject["canvasID"]);
+        let ctx = pointCanvas.getContext("2d");
+
+        ctx.clearRect(0, 0, pointCanvas.width, pointCanvas.height);
+        let localClickedPoints = clickedPoints[localVideoObject["index"]][trackIndex];
+        if (localClickedPoints.length === 0) {
+            return;
+        }
+
+        // Redraws points
+        drawPoints(localClickedPoints, localVideoObject);
+        drawLines(localClickedPoints, localVideoObject);
+    }
+}
+
+
 function goToFrame(frameNumber, videoObject) {
     //TODO: NOTE THAT WHEN A USER INPUTS A FRAME NUMBER IT WILL EXTEND ITSELF WITH A .01
     let vidOffset = getOffset(frameNumber, videoObject);
@@ -32,7 +64,14 @@ function moveToNextFrame(videoObject) {
 
 function drawLines(points, videoObject) {
     for (let i = 0; i < points.length - 1; i++) {
-        drawLine(points[i], points[i + 1], videoObject);
+        let currentPoint = points[i];
+        // Check if there is a point after this one
+        if (points[i + 1] !== undefined) {
+            // Check if consecutive
+            if (Math.floor(currentPoint.frame) === Math.floor(points[i + 1].frame) - 1) {
+                drawLine(points[i], points[i + 1], videoObject);
+            }
+        }
     }
 }
 
@@ -57,7 +96,6 @@ function drawLine(point1, point2, videoObject, lineType = LINETYPE_POINT_TO_POIN
     ctx.lineTo(point2.x, point2.y);
     ctx.stroke();
 }
-
 
 
 function setMousePos(e) {
@@ -179,6 +217,9 @@ function setCanvasSizes(canvas, video, index) {
     }
 }
 
+function sortByFrame(aPoint, bPoint) {
+            return aPoint.frame - bPoint.frame;
+}
 
 function addNewPoint(event) {
     if (!locks["can_click"]) {
@@ -197,6 +238,7 @@ function addNewPoint(event) {
 
     let indexOfAlreadyExisting = null;
     let localPoints = getClickedPoints(videoObject["index"], currentTrackIndex);
+    let newPoint= null;
     if (localPoints.some(function (point, curIndexs) {
         if (Math.floor(point.frame) === Math.floor(currentFrame)) {
             indexOfAlreadyExisting = curIndexs;
@@ -208,31 +250,48 @@ function addNewPoint(event) {
         let drawCanvas = document.getElementById(videoObject["canvasID"]);
         let ctx = drawCanvas.getContext("2d");
         ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-        localPoints[indexOfAlreadyExisting] = {
+        newPoint = {
             "x": mouseAtClickX,
             "y": mouseAtClickY,
             "frame": video.currentTime * DEV_FRAME_RATE,
         };
+        localPoints[indexOfAlreadyExisting] = newPoint;
         drawPoints(localPoints, videoObject);
         drawLines(localPoints, videoObject);
 
     } else {
-        localPoints.push({
+        newPoint = {
             "x": mouseAtClickX,
             "y": mouseAtClickY,
             "frame": video.currentTime * DEV_FRAME_RATE,
-        });
+        };
+        localPoints.push(newPoint);
+        localPoints.sort(sortByFrame);
+        let newIndex = localPoints.indexOf(newPoint);
+
         let videoArea = parseInt(event.target.style.height, 10) * parseInt(event.target.style.width, 10);
         console.log(.01 * videoArea);
         console.log(videoArea);
         // TODO: Change to original height * original width
         drawPoint(mouseAtClickX, mouseAtClickY, (2704 * 2028 * 5) / videoArea, videoObject);
         if (localPoints.length > 1) {
-            drawLine(localPoints[localPoints.length - 2],
-                localPoints[localPoints.length - 1], videoObject);
+
+            // Check if there is a point after this one
+            if (localPoints[newIndex + 1] !== undefined) {
+                // Check if consecutive
+                if (Math.floor(newPoint.frame) === Math.floor(localPoints[newIndex + 1].frame) - 1) {
+                    drawLine(localPoints[newIndex], localPoints[newIndex + 1], videoObject);
+                }
+            }
+            // Check if there is a point before this one
+            if (localPoints[newIndex - 1] !== undefined) {
+                // Check if consecutive
+                if (Math.floor(newPoint.frame) === Math.floor(localPoints[newIndex - 1].frame) + 1) {
+                    drawLine(localPoints[newIndex - 1], localPoints[newIndex], videoObject);
+                }
+            }
         }
     }
-
 
     if (settings["auto-advance"]) {
         currentFrameGlobal += 1;
@@ -249,6 +308,7 @@ function addNewPoint(event) {
     }
 
     // attemptToDrawEpipolarLinesOrUnifedCoord(currentFrame, videoObject);
+    return newPoint;
 }
 
 
@@ -267,7 +327,6 @@ function videoObjectSingletonFactory(index) {
     }
     return videoObjects[index];
 }
-
 
 
 function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, popUpArgs) {
@@ -379,8 +438,7 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
             let offset = 0;
             if (isMainWindow) {
                 offset = offsetTracker[videoObject["index"]][0]["offset"];
-            }
-            else {
+            } else {
                 offset = popUpArgs["offset"];
             }
             let data = {
