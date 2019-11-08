@@ -8,10 +8,28 @@
 .video-label-container {
     border: 1px solid gray;
     border-radius: 3px;
-    background-color: rgba(0, 0, 0, .4)
+    color: white;
+    text-transform: uppercase;
+    background-color: rgba(0, 0, 0, .3)
+}
+
+.centered-file-input {
+    justify-content: center !important;
 }
 
 
+#generic-input-modal-content {
+    overflow: hidden;
+}
+
+#generic-input-modal-background {
+    background-color: rgba(0, 0, 0, .4);
+    color: transparent;
+}
+/*#generic-input-modal {*/
+/*    display: flex;*/
+/*    justify-content: center;*/
+/*}*/
 
 canvas {
     position: absolute;

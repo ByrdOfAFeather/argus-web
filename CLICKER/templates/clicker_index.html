@@ -1,75 +1,102 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Clicker</title>
-        {% load static %}
-        <script
-			  src="https://code.jquery.com/jquery-3.4.1.min.js"
-			  integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
-			  crossorigin="anonymous"></script>
-        <script src="{% static 'js/clicker.js' %}"></script>
-        <script src="{% static 'js/video_api.js' %}"></script>
-        <script src="{% static 'js/broadcast_channel.js' %}"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.2/dist/tf.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/6.2.2/math.js"></script>
-        <script src="https://docs.opencv.org/master/opencv.js"></script>
-        <link type="text/css" href="{% static 'css/clicker_index.css' %}" rel="stylesheet">
-        <link type="text/css"
-              href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css" rel="stylesheet">
-    </head>
+<head>
+    <title>Clicker</title>
+    {% load static %}
+    <script
+            src="https://code.jquery.com/jquery-3.4.1.min.js"
+            integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+            crossorigin="anonymous"></script>
+    <script src="{% static 'js/clicker.js' %}"></script>
+    <script src="{% static 'js/video_api.js' %}"></script>
+    <script src="{% static 'js/broadcast_channel.js' %}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.2/dist/tf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/6.2.2/math.js"></script>
+    <script src="https://docs.opencv.org/master/opencv.js"></script>
+    <script
+            src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"
+            integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU="
+            crossorigin="anonymous"></script>
+    <link type="text/css" href="{% static 'css/clicker_index.css' %}" rel="stylesheet">
+    <link type="text/css"
+          href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css" rel="stylesheet">
+</head>
 
-    <body>
-        <section id="file-input-section" class="section">
-            <section class="section">
-                <div class="columns is-desktop is-centered is-vcentered is-multiline">
-                    <div class="column is-5"></div>
-                    <div class="column has-text-centered is-2">
-                        <div class="file has-text-centered">
-                        <label class="file-label" style="left: 30%;">
-                            <input
-                                    id="video-file-input"
-                                    class="file-input is-expanded"
-                                    accept="video/*" type=file multiple
-                            >
-                            <span class="file-cta">
+<body>
+<div id="generic-input-modal" class="modal">
+    <div id="generic-input-modal-background" class="modal-background"></div>
+    <div id="generic-input-modal-content" class="modal-content">
+        <div id="modal-content-container" class="container">
+            <div class="columns is-centered is-multiline">
+                <div class="column is-12">
+                    <div class="controller">
+                        <div class="label">
+                            <label style="color: white;" id="generic-input-label"></label>
+                        </div>
+                        <input id="generic-modal-input" class="input" type="text">
+                    </div>
+                </div>
+
+                <div class="column">
+                    <button id="generic-input-modal-cancel" class="button">Cancel</button>
+                    <button id="generic-input-modal-ok" class="button">Ok</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section id="file-input-section" class="section">
+    <section class="section">
+        <div class="columns is-desktop is-centered is-vcentered is-multiline">
+            <div class="column is-5"></div>
+            <div class="column has-text-centered is-2">
+                <div class="file has-text-centered">
+                    <label class="file-label" style="left: 30%;">
+                        <input
+                                id="video-file-input"
+                                class="file-input is-expanded"
+                                accept="video/*" type=file multiple
+                        >
+                        <span class="file-cta">
                                   <span class="file-label">
                                     Load Videos
                                   </span>
                             </span>
-                        </label>
-                        </div>
-                    </div>
-                    <div class="column is-5"></div>
+                    </label>
                 </div>
-            </section>
+            </div>
+            <div class="column is-5"></div>
+        </div>
+    </section>
 
-            <section class="section">
-                <div class="columns is-desktop is-centered is-vcentered is-multiline">
-                    <div class="column is-5"></div>
-                    <div class="column has-text-centered is-2">
-                        <div class="file has-text-centered">
-                        <label class="file-label" style="left: 26%;">
-                            <input
-                                    id="config-file-input"
-                                    class="file-input is-expanded"
-                                    accept=".yaml" type=file multiple
-                            >
-                            <span class="file-cta">
+    <section class="section">
+        <div class="columns is-desktop is-centered is-vcentered is-multiline">
+            <div class="column is-5"></div>
+            <div class="column has-text-centered is-2">
+                <div class="file has-text-centered">
+                    <label class="file-label" style="left: 26%;">
+                        <input
+                                id="config-file-input"
+                                class="file-input is-expanded"
+                                accept=".yaml" type=file multiple
+                        >
+                        <span class="file-cta">
                                   <span class="file-label">
                                     Load Config File
                                   </span>
                             </span>
-                        </label>
-                        </div>
-                    </div>
-                    <div class="column is-5"></div>
+                    </label>
                 </div>
-            </section>
+            </div>
+            <div class="column is-5"></div>
+        </div>
+    </section>
 
-        </section>
-        <div id="settingsInput"></div>
-        <div id="videos"></div>
-        <div id="canvases"></div>
-    </body>
+</section>
+<div id="settingsInput"></div>
+<div id="videos"></div>
+<div id="canvases"></div>
+</body>
 </html>

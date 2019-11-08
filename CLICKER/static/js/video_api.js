@@ -4,6 +4,46 @@ let LINETYPE_EPIPOLAR = 1;
 let LINETYPE_POINT_TO_POINT = 2;
 
 
+function getClickedPoints(index, currentTrackIndex) {
+    return clickedPoints[index][currentTrackIndex];
+}
+
+function drawDiamond(x, y, width, height, videoObject) {
+    //SOURCE: http://www.java2s.com/Tutorials/Javascript/Canvas_How_to/Shape/Draw_Spade_Heart_Club_Diamond.htm
+    let canvas = document.getElementById(videoObject["epipolarCanvasID"]);
+    let context = canvas.getContext("2d");
+
+
+    context.save();
+    context.beginPath();
+    let temp = y - height;
+    context.moveTo(x, temp);
+
+    // top left edge
+    context.lineTo(x - width / 2, y);
+
+    // bottom left edge
+    context.lineTo(x, y + height);
+
+    // bottom right edge
+    context.lineTo(x + width / 2, y);
+
+    // closing the path automatically creates
+    // the top right edge
+    context.closePath();
+
+    context.lineWidth = 3;
+    context.strokeStyle = "rgb(0,255,0)";
+    context.stroke();
+    context.restore();
+
+}
+
+function clearPoints(videoObject) {
+    let pointCanvas = document.getElementById(videoObject.canvasID);
+    let ctx = pointCanvas.getContext("2d");
+    ctx.clearRect(0, 0, pointCanvas.width, pointCanvas.height);
+}
 
 /** @namespace */
 function changeTracks(trackIndex, cameras) {
@@ -15,7 +55,7 @@ function changeTracks(trackIndex, cameras) {
     trackTracker["currentTrack"] = trackIndex;
 
     // Changes all cameras to the requested track
-    for (let index = 0; index < cameras; index++) {
+    for (let index = 0; index < cameras.length; index++) {
         let cameraIndex = cameras[index];
         let localVideoObject = videoObjectSingletonFactory(cameraIndex);
 
@@ -39,6 +79,12 @@ function goToFrame(frameNumber, videoObject) {
     //TODO: NOTE THAT WHEN A USER INPUTS A FRAME NUMBER IT WILL EXTEND ITSELF WITH A .01
     let vidOffset = getOffset(frameNumber, videoObject);
     frameNumber -= vidOffset;
+    if (frameNumber <= 0) {
+        let canvas = document.getElementById(videoObject.videoCanvasID);
+        let ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+    }
 
     clearCanvasesBetweenFrames(videoObject);
     let video = document.getElementById(videoObject["videoID"]);
@@ -48,7 +94,7 @@ function goToFrame(frameNumber, videoObject) {
     video.currentTime = estimatedTime;
 
     let parsedLabel = parseVideoLabel(document.getElementById(videoObject["videoLabelID"]).innerText);
-    parsedLabel["frame"] = (estimatedTime * DEV_FRAME_RATE) + vidOffset;
+    parsedLabel["FRAME"] = (estimatedTime * DEV_FRAME_RATE) + vidOffset;
     document.getElementById(videoObject["videoLabelID"]).innerText = videoLabelDataToString(parsedLabel);
     frameTracker[videoObject["index"]] = frameNumber;
     // loadFrame(videoObject);
@@ -142,6 +188,10 @@ function generateError(errorMessage) {
     alert(errorMessage);
 }
 
+function messageCreator(type, data) {
+    return {"type": type, "data": data};
+}
+
 
 function drawPoints(points, videoObject) {
     for (let i = 0; i < points.length; i++) {
@@ -204,6 +254,21 @@ function loadFrame(videoObject) {
     // drawZoomWindow(videoObject);
 }
 
+function drawEpipolarLine(points, videoObject) {
+    for (let i = 0; i < points.length - 1; i++) {
+        drawLine(
+            {
+                "x": points[i][0],
+                "y": points[i][1]
+            },
+            {
+                "x": points[i + 1][0],
+                "y": points[i + 1][1]
+            },
+            videoObject, LINETYPE_EPIPOLAR);
+    }
+}
+
 
 function setCanvasSizes(canvas, video, index) {
     canvas.height = video.videoHeight;
@@ -218,7 +283,7 @@ function setCanvasSizes(canvas, video, index) {
 }
 
 function sortByFrame(aPoint, bPoint) {
-            return aPoint.frame - bPoint.frame;
+    return aPoint.frame - bPoint.frame;
 }
 
 function addNewPoint(event) {
@@ -238,7 +303,7 @@ function addNewPoint(event) {
 
     let indexOfAlreadyExisting = null;
     let localPoints = getClickedPoints(videoObject["index"], currentTrackIndex);
-    let newPoint= null;
+    let newPoint = null;
     if (localPoints.some(function (point, curIndexs) {
         if (Math.floor(point.frame) === Math.floor(currentFrame)) {
             indexOfAlreadyExisting = curIndexs;
@@ -270,8 +335,6 @@ function addNewPoint(event) {
         let newIndex = localPoints.indexOf(newPoint);
 
         let videoArea = parseInt(event.target.style.height, 10) * parseInt(event.target.style.width, 10);
-        console.log(.01 * videoArea);
-        console.log(videoArea);
         // TODO: Change to original height * original width
         drawPoint(mouseAtClickX, mouseAtClickY, (2704 * 2028 * 5) / videoArea, videoObject);
         if (localPoints.length > 1) {
@@ -307,7 +370,6 @@ function addNewPoint(event) {
         }
     }
 
-    // attemptToDrawEpipolarLinesOrUnifedCoord(currentFrame, videoObject);
     return newPoint;
 }
 
@@ -329,7 +391,45 @@ function videoObjectSingletonFactory(index) {
 }
 
 
-function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, popUpArgs) {
+function getGenericInput(inputLabel, callbackOkay, callbackCancel) {
+    let cancelButton = $("#generic-input-modal-cancel");
+    let okButton = $("#generic-input-modal-ok");
+    let modal = $("#generic-input-modal");
+        // curCanvas.tabIndex = 1000;
+
+
+    cancelButton.off();
+    okButton.off();
+    modal.off();
+    // modal[0].removeEventListener("keydown");
+
+    modal.on("keydown", function (e) {
+        let code = (e.keyCode ? e.keyCode : e.which);
+        if (code === 13) {
+            callbackOkay(e);
+        }
+    });
+
+    $("#generic-input-label").text(inputLabel);
+    $("#modal-content-container").hide();
+    modal.addClass("is-active");
+
+    let input = $("#generic-modal-input");
+    input.val(" ");
+
+    $("#modal-content-container").slideDown(500, function () {
+        input.focus();
+    });
+
+    cancelButton.on("click", callbackCancel);
+    okButton.on("click", callbackOkay);
+
+
+}
+
+
+function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, popUpArgs,
+                           videoFinishedLoadingCallback = null) {
     // popUpArgs - {"offset": offset for the video being loaded}
     let curCanvas = $(`
             <div class="section">
@@ -355,17 +455,39 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
 
     if (isMainWindow) {
         if (index !== 0) {
-            let invalidOffset = 1;
-            while (invalidOffset) {
-                let curOffset = parseInt(window.prompt(`What is the offset for ${name}`), 10);
+            offsetTracker[index] = [];
+            offsetTracker[index].push({"offset": 0, "frame": 1});
+
+
+            let label = `Offset for video ${name}`;
+
+            let invalid = function (event) {
+                generateError("You must provide an offset! (It can be 0!)");
+            };
+
+            let validate = function (event) {
+                let offset = $("#generic-modal-input").val();
+                let curOffset = parseInt(offset, 10);
                 if (isNaN(curOffset)) {
                     generateError("Offset must be a valid integer!");
                 } else {
                     offsetTracker[index] = [];
                     offsetTracker[index].push({"offset": curOffset, "frame": 1});
-                    invalidOffset = 0;
+                    let videoObject = videoObjectSingletonFactory(index);
+
+
+                    let label = document.getElementById(videoObject.videoLabelID);
+                    let parsed = parseVideoLabel(label.innerText);
+                    parsed.OFFSET = curOffset;
+                    label.innerText = videoLabelDataToString(parsed);
+
+                    goToFrame(frameTracker[0], videoObject);
+                    $("#generic-input-modal").removeClass("is-active");
                 }
-            }
+            };
+
+            getGenericInput(label, validate, invalid);
+
         } else {
             offsetTracker[index] = [];
             offsetTracker[index].push({"offset": 0, "frame": 1});
@@ -403,7 +525,7 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
             let videoObject = videoObjectSingletonFactory(index);
 
             $(`#${videoObject["popVideoID"]}`).on("click", function (event) {
-                popVideoOut(event, curURL)
+                popOutvideo(event, curURL)
             });
 
             let video = document.getElementById(videoObject["videoID"]);
@@ -452,6 +574,9 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
             loadFrame(videoObject);
 
             locks[`initFrameLoaded ${index}`] = true;
+            if (videoFinishedLoadingCallback !== null) {
+                videoFinishedLoadingCallback();
+            }
         }
         if (!locks["can_click"]) {
             locks["can_click"] = true;
@@ -460,3 +585,314 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
     });
 }
 
+
+// ----- UNDERLYING MATHEMATICS ----- \\
+
+
+function redistortPoints(coordinatePair, cameraProfile) {
+    // TODO: TAN DISTORTION UNTESTED
+    // TODO: Vectorize
+    let f = cameraProfile[0];
+    let cx = cameraProfile[1];
+    let cy = cameraProfile[2];
+
+    let distorted = [];
+
+
+    for (let i = 0; i < coordinatePair.length; i++) {
+        let u_v_pair = coordinatePair[i];
+        let u = u_v_pair[0];
+        let v = u_v_pair[1];
+
+        u = (u - cx) / f;
+        v = (v - cy) / f;
+
+        let r2 = u * u + v * v;
+        let r4 = r2 ** 2;
+        u = u * (1 + (cameraProfile[3] * r2) + (cameraProfile[4] * r4));
+        v = v * (1 + (cameraProfile[3] * r2) + (cameraProfile[4] * r4));
+
+        u = u + (2 * cameraProfile[5] * u * v + cameraProfile[6] * (r2 + 2 * u ** 2));
+        v = v + (cameraProfile[5] * (r2 + (2 * v ** 2)) + 2 * cameraProfile[6] * u * v);
+
+        u = u * f + cx;
+        v = v * f + cy;
+        distorted.push([u, v]);
+    }
+
+    return distorted;
+}
+
+function undistortPoints(coordinatePair, cameraProfile) {
+    // TODO: TAN DISTORTION UNTESTED
+    // TODO: Vectorize
+    let f = cameraProfile[0];
+    let cx = cameraProfile[1];
+    let cy = cameraProfile[2];
+
+    let iters = 3;
+
+    let undistorted = [];
+
+    for (let i = 0; i < coordinatePair.length; i++) {
+        let u_v_pair = coordinatePair[i];
+        let u = u_v_pair[0];
+        let v = u_v_pair[1];
+
+        let u_norm_org = (u - cx) / f;
+        let v_norm_org = (v - cy) / f;
+
+        let iter_norm_u = u_norm_org;
+        let iter_norm_v = v_norm_org;
+        for (let j = 1; j < iters; j++) {
+            let r2 = iter_norm_u * iter_norm_u + iter_norm_v * iter_norm_v;
+            let rad = 1 + (cameraProfile[3] * r2) + (cameraProfile[4] * r2 ** 2) + (cameraProfile[7]);
+            let tan_u = 2 * cameraProfile[5] * iter_norm_u * iter_norm_v + cameraProfile[6] * (r2 + 2 * iter_norm_u ** 2);
+            let tan_v = cameraProfile[5] * (r2 + 2 * iter_norm_v ** 2) + 2 * cameraProfile[6] * iter_norm_u * iter_norm_v;
+
+            iter_norm_u = (u_norm_org - tan_u) / rad;
+            iter_norm_v = (v_norm_org - tan_v) / rad;
+        }
+
+        let final_u = iter_norm_u * f + cx;
+        let final_y = iter_norm_v * f + cy;
+        undistorted.push([final_u, final_y]);
+    }
+
+    return undistorted;
+}
+
+function reconstructUV(dltCoeff2, coordinateTriplet) {
+    if (dltCoeff2.length !== 11) {
+        return [null, "There must be exaclty 11 DLT coefficients in a 1d array or list"];
+    }
+    let u = numeric.div(
+        numeric.add(
+            numeric.dot(
+                [dltCoeff2[0], dltCoeff2[1], dltCoeff2[2]],
+                coordinateTriplet
+            ),
+            dltCoeff2[3]),
+        numeric.add(
+            numeric.dot(
+                [dltCoeff2[8], dltCoeff2[9], dltCoeff2[10]],
+                coordinateTriplet),
+            1)
+    );
+
+    let v = numeric.div(
+        numeric.add(
+            numeric.dot(
+                [dltCoeff2[4], dltCoeff2[5], dltCoeff2[6]],
+                coordinateTriplet
+            ),
+            dltCoeff2[7]),
+        numeric.add(
+            numeric.dot(
+                [dltCoeff2[8], dltCoeff2[9], dltCoeff2[10]],
+                coordinateTriplet),
+            1)
+    );
+    return [u, v];
+}
+
+function getDLTLine(xCoord, yCoord, dlcCoeff1, dltCoeff2) {
+    let z = [500, -500];
+    let y = [0, 0];
+    let x = [0, 0];
+    for (let i = 0; i < z.length; i++) {
+        let Z = z[i];
+
+        y[i] = -(
+            xCoord * dlcCoeff1[8] * dlcCoeff1[6] * Z
+            + xCoord * dlcCoeff1[8] * dlcCoeff1[7]
+            - xCoord * dlcCoeff1[10] * Z * dlcCoeff1[4]
+            - xCoord * dlcCoeff1[4]
+            + dlcCoeff1[0] * yCoord * dlcCoeff1[10] * Z
+            + dlcCoeff1[0] * yCoord
+            - dlcCoeff1[0] * dlcCoeff1[6] * Z
+            - dlcCoeff1[0] * dlcCoeff1[7]
+            - dlcCoeff1[2] * Z * yCoord * dlcCoeff1[8]
+            + dlcCoeff1[2] * Z * dlcCoeff1[4]
+            - dlcCoeff1[3] * yCoord * dlcCoeff1[8]
+            + dlcCoeff1[3] * dlcCoeff1[4])
+            /
+            (
+                xCoord * dlcCoeff1[8] * dlcCoeff1[5]
+                - xCoord * dlcCoeff1[9] * dlcCoeff1[4]
+                + dlcCoeff1[0] * yCoord * dlcCoeff1[9]
+                - dlcCoeff1[0] * dlcCoeff1[5]
+                - dlcCoeff1[1] * yCoord * dlcCoeff1[8]
+                + dlcCoeff1[1] * dlcCoeff1[4]);
+        let Y = y[i];
+
+        x[i] = -(
+            yCoord * dlcCoeff1[9] * Y
+            + yCoord * dlcCoeff1[10] * Z
+            + yCoord - dlcCoeff1[5] * Y
+            - dlcCoeff1[6] * Z
+            - dlcCoeff1[7])
+            /
+            (yCoord * dlcCoeff1[8]
+                - dlcCoeff1[4]);
+
+    }
+
+    let xy = [[0, 0], [0, 0]];
+    for (let i = 0; i < 2; i++) {
+        let temp_xy = reconstructUV(dltCoeff2, [x[i], y[i], z[i]]);
+        xy[i][0] = temp_xy[0];
+        xy[i][1] = temp_xy[1];
+    }
+
+    let m = numeric.div(numeric.sub(xy[1][1], xy[0][1]), numeric.sub(xy[1][0], xy[0][0]));
+    let b = numeric.sub(xy[0][1], numeric.mul(m, xy[0][0]));
+    return [m, b];
+}
+
+
+function getBezierCurve(slope, intercept, cameraProfile, videoObject) {
+    let originalVideoWidth = document.getElementById(videoObject["videoCanvasID"]).width;
+    let bezierPoints = [];
+    for (let k = -10; k < 60; k++) {
+        bezierPoints.push([originalVideoWidth / 49, slope * (originalVideoWidth / 49) + intercept]);
+    }
+
+    let redistortedPoints = tf.Tensor(redistortPoints(bezierPoints, cameraProfile));
+    redistortedPoints.reshape([bezierPoints.length, 2]);
+    return redistortedPoints
+}
+
+function checkCoordintes(x, y, height, width) {
+    // Ensures that x is between width and height and y is between width and height
+    return 0 <= x <= width && 0 <= y <= height;
+}
+
+function getEpipolarLines(videoObject, DLTCoefficients, pointsIndex) {
+    let coords = [];
+    let tmp = [];
+    let dlcCoeff1 = DLTCoefficients[videoObject["index"]];
+    let currentTrack = trackTracker["currentTrack"];
+
+    let localPoints = clickedPoints[videoObject["index"]][currentTrack];
+    for (let cameraIndex = 0; cameraIndex < numberOfCameras; cameraIndex++) {
+        coords.push([
+                cameraIndex,
+                [
+                    localPoints[pointsIndex].x,
+                    localPoints[pointsIndex].y
+                ]
+            ]
+        );
+    }
+    coords.sort(
+        (coordsA, coordsB) => Math.max(
+            ...[coordsA[0], coordsA[1][0], coordsA[1][1]]
+        ) - Math.max(
+            ...[coordsB[0], coordsB[1][0], coordsB[1][1]]
+        ));
+    let returnObjects = [];
+    for (let i = 0; i < coords.length; i++) {
+        let coord = coords[i];
+        if (coord[0] !== parseInt(videoObject["index"], 10)) {
+            let dltCoeff2 = DLTCoefficients[coord[0]];
+
+            let xCoord = coord[1][0];
+            let yCoord = coord[1][1];
+
+            if (CAMERA_PROFILE) {
+                let undistortPoints = undistortPoints([[xCoord, yCoord]], CAMERA_PROFILE[coord[0]][0]);
+                xCoord = undistortPoints[0];
+                yCoord = undistortPoints[1];
+
+                let slopeAndIntercept = getDLTLine(xCoord, yCoord, dlcCoeff1, dltCoeff2);
+                let slope = slopeAndIntercept[0];
+                let intercept = slopeAndIntercept[1];
+
+                tmp = getBezierCurve(slope, intercept, CAMERA_PROFILE[coord[0]]);
+            } else {
+                let slopeAndIntercept = getDLTLine(xCoord, yCoord, dlcCoeff1, dltCoeff2);
+                let slope = slopeAndIntercept[0];
+                let intercept = slopeAndIntercept[1];
+
+                let originalHeight = document.getElementById(videoObject["videoCanvasID"]).height;
+                let originalWidth = document.getElementById(videoObject["videoCanvasID"]).width;
+
+                if (!checkCoordintes(0, intercept, originalHeight, originalWidth)) {
+                    generateError(
+                        "When attempting to draw an epipolar line, a coordinate was produced that didn't fit in the " +
+                        "video, please check your DLT coefficients and camera profiles!");
+                    return CAMERA_PROFILE;
+                }
+                tmp.push([0, intercept]);
+
+                let endYCoord = numeric.add(numeric.mul(slope, originalWidth), intercept);
+
+
+                if (!checkCoordintes(originalWidth, endYCoord, originalHeight, originalWidth)) {
+                    generateError(
+                        "When attempting to draw an epipolar line, a coordinate was produced that didn't fit in the " +
+                        "video, please check your DLT coefficients and camera profiles!");
+                    return CAMERA_PROFILE;
+                }
+
+                tmp.push([originalWidth, numeric.add(numeric.mul(slope, originalWidth), intercept)])
+            }
+            returnObjects.push([tmp, i]);
+        }
+    }
+    return returnObjects;
+}
+
+async function uvToXyz(points, profiles, dltCoefficents) {
+    /*
+    * param: points - [[camera_1_points], [camera_2_points], [camera_n_points]]
+     */
+    //TODO: Remove points that are NaN (are there ever any?)
+    let xyzs = [];
+
+    let uvs = [];
+    for (let pointIndex = 0; pointIndex < points[0].length; pointIndex++) {
+        uvs = [];
+        for (let cameraIndex = 0; cameraIndex < points.length; cameraIndex++) {
+            let currentPoint = points[cameraIndex][pointIndex];
+            // TODO: These are supposed to be undistorted
+            uvs.push([[currentPoint.x, currentPoint.y], cameraIndex]);
+        }
+
+        if (uvs.length > 1) {
+            let x = [];
+
+            for (let pointIndex = 0; pointIndex < uvs.length; pointIndex++) {
+                let currentIndex = pointIndex === 0 ? 0 : pointIndex + 1;
+                let currentIndex2 = currentIndex + 1;
+
+                x[currentIndex] = [uvs[pointIndex][0][0] * dltCoefficents[uvs[pointIndex][1]][8] - dltCoefficents[uvs[pointIndex][1]][0],
+                    uvs[pointIndex][0][0] * dltCoefficents[uvs[pointIndex][1]][9] - dltCoefficents[uvs[pointIndex][1]][1],
+                    uvs[pointIndex][0][0] * dltCoefficents[uvs[pointIndex][1]][10] - dltCoefficents[uvs[pointIndex][1]][2]];
+
+                x[currentIndex2] = [uvs[pointIndex][0][1] * dltCoefficents[uvs[pointIndex][1]][8] - dltCoefficents[uvs[pointIndex][1]][4],
+                    uvs[pointIndex][0][1] * dltCoefficents[uvs[pointIndex][1]][9] - dltCoefficents[uvs[pointIndex][1]][5],
+                    uvs[pointIndex][0][1] * dltCoefficents[uvs[pointIndex][1]][10] - dltCoefficents[uvs[pointIndex][1]][6]];
+            }
+
+            let y = [];
+            for (let pointIndex = 0; pointIndex < uvs.length; pointIndex++) {
+                let currentIndex = pointIndex === 0 ? 0 : pointIndex + 1;
+                let currentIndex2 = currentIndex + 1;
+                y[currentIndex] = [dltCoefficents[uvs[pointIndex][1]][3] - uvs[pointIndex][0][0]];
+                y[currentIndex2] = [dltCoefficents[uvs[pointIndex][1]][7] - uvs[pointIndex][0][1]];
+            }
+
+
+            y = tf.tensor(y);
+            x = tf.tensor(x);
+            let mediary = await x.transpose().matMul(x).array();
+            let inverse = tf.tensor(math.inv(mediary));
+            let mediary2 = x.transpose().matMul(y);
+            let final = inverse.matMul(mediary2);
+            xyzs.push(await final.array());
+        }
+    }
+    return xyzs
+}
