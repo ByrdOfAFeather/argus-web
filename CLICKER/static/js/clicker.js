@@ -135,6 +135,13 @@ function updateLocalOrCommunicator(index, localCallback, message) {
     }
 }
 
+function updateAllLocalOrCommunicator(localCallback, message) {
+    for (let i = 0; i < numberOfCameras; i++) {
+        updateLocalOrCommunicator(i, localCallback, message);
+    }
+}
+
+
 function exportConfig() {
     let videos = [];
     for (let i = 0; i < numberOfCameras; i++) {
@@ -946,16 +953,24 @@ function loadSettings() {
 }
 
 
+
 function mainWindowAddNewPoint(event) {
-    let point = addNewPoint(event);
-    if (communicators.length === 0) {
-        return;
-    } else {
-        if (settings["auto-advance"]) {
-            updateCommunicators({
-                type: "goToFrame",
-                data: {frame: point.frame + 1}
-            });
+    let index = event.target.id.split("-")[1];
+    let point = Video.createPointObject(index);
+    videos[index].addNewPoint(point);
+
+    if (settings["auto-advance"]) {
+        // videos[index].moveToNextFrame();
+
+        if (settings["sync"]) {
+
+            let localCallback = (index) => {
+                videos[index].goToFrame(point.frame + 1);
+            };
+
+            let message = messageCreator("goToFrame", {frame: point.frame + 1});
+
+            updateAllLocalOrCommunicator(localCallback, message);
         }
     }
 }
