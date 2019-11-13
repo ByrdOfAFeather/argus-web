@@ -4,6 +4,9 @@ let LINETYPE_EPIPOLAR = 1;
 let LINETYPE_POINT_TO_POINT = 2;
 let videos = [];
 
+let RGB = 0;
+let GREYSCALE = 1;
+
 class Video {
     constructor(videosIndex, offset) {
         this.index = videosIndex;
@@ -13,6 +16,7 @@ class Video {
 
         this.canvas = document.getElementById(`canvas-${videosIndex}`);
         this.canvasContext = this.canvas.getContext("2d");
+        this.currentStrokeStyle = "#FF0000";
 
         this.videoCanvas = document.getElementById(`videoCanvas-${videosIndex}`);
         this.videoCanvasContext = this.videoCanvas.getContext("2d");
@@ -30,11 +34,10 @@ class Video {
     }
 
     static createPointObject(index) {
-        let video = document.getElementById(`video-${index}`);
         return {
             x: mouseTracker.x,
             y: mouseTracker.y,
-            frame: video.currentTime * DEV_FRAME_RATE,
+            frame: frameTracker[index],
         };
     }
 
@@ -58,8 +61,6 @@ class Video {
 
 
     addNewPoint(point) {
-        this.canvasContext.strokeStyle = "#FF0000";
-
         if (!locks["can_click"]) {
             return;
         }
@@ -67,15 +68,15 @@ class Video {
         let currentTrackIndex = trackTracker.currentTrack;
         locks["can_click"] = !settings["auto-advance"];
 
-        let indexOfAlreadyExistingPoints = null;
         let localPoints = getClickedPoints(this.index, currentTrackIndex);
 
 
         // If there is already a point
-        if (Video.checkIfPointAlreadyExists(localPoints) !== null) {
+        let indexOfAlreadyExistingPoints = Video.checkIfPointAlreadyExists(localPoints, point.frame);
+        if (indexOfAlreadyExistingPoints !== null) {
             this.clearPoints();
             localPoints[indexOfAlreadyExistingPoints] = point;
-            this.redrawPoints();
+            this.redrawPoints(localPoints);
 
         } else {
             localPoints.push(point);
@@ -109,6 +110,13 @@ class Video {
                 }
             }
         }
+
+        // return the Index
+        if (indexOfAlreadyExistingPoints !== null) {
+            return indexOfAlreadyExistingPoints;
+        } else {
+            return localPoints.length - 1;
+        }
     }
 
 
@@ -126,7 +134,7 @@ class Video {
         let keys = Object.keys(videoLabelObject);
         let returnString = "";
         for (let i = 0; i < keys.length; i++) {
-            returnString += `${keys[i]}:${videoLabelObject[keys[i]] } `;
+            returnString += `${keys[i]}:${videoLabelObject[keys[i]]} `;
         }
         return returnString;
     }
@@ -152,7 +160,7 @@ class Video {
     }
 
     moveToNextFrame() {
-        let newFrame = (this.video.currentTime * DEV_FRAME_RATE) + 1;
+        let newFrame = frameTracker[this.index] + 1;
         this.goToFrame(newFrame);
     }
 
@@ -164,14 +172,19 @@ class Video {
         videoHeight = this.video.videoHeight;
         videoWidth = this.video.videoWidth;
 
-        this.videoCanvasContext.filter = currentFilter;
+        this.videoCanvasContext.filter = COLORSPACE;
         this.videoCanvasContext.fillRect(0, 0, videoWidth, videoHeight);
         this.videoCanvasContext.drawImage(this.video, 0, 0, videoWidth, videoHeight);
+
+        if (!locks["can_click"]) {
+            locks["can_click"] = true;
+        }
     }
 
 
     drawLine(point1, point2, lineType = LINETYPE_POINT_TO_POINT) {
         let ctx = lineType === LINETYPE_EPIPOLAR ? this.epipolarCanvasContext : this.canvasContext;
+        this.canvasContext.strokeStyle = this.currentStrokeStyle;
 
         ctx.beginPath();
         ctx.moveTo(point1.x, point1.y);
@@ -199,6 +212,8 @@ class Video {
     }
 
     drawPoint(x, y, r) {
+        this.canvasContext.strokeStyle = this.currentStrokeStyle;
+
         this.canvasContext.beginPath();
         this.canvasContext.arc(x, y, r, 0, 2 * Math.PI);
         this.canvasContext.stroke();
@@ -246,11 +261,13 @@ class Video {
     changeTracks(trackIndex) {
         this.clearPoints();
         let localClickedPoints = clickedPoints[this.index][trackIndex];
+        this.currentStrokeStyle = trackTracker["tracks"][trackIndex].color;
+
         if (localClickedPoints.length === 0) {
             return;
         }
-        // this.canvasContext.strokeStyle = trackTracker["tracks"][trackTracker["currentTrack"]].color;
 
+        this.canvasContext.strokeStyle = this.currentStrokeStyle;
 
         // Redraws points
         this.drawPoints(localClickedPoints);
@@ -265,6 +282,10 @@ class Video {
     static clearCanvases() {
         for (let cameraIndex = 0; cameraIndex < videos.length; cameraIndex++) {
             let curVideo = videos[cameraIndex];
+            if (curVideo === undefined) {
+                continue;
+            }
+
             videos[cameraIndex].epipolarCanvasContext.clearRect(
                 0,
                 0,
@@ -388,13 +409,11 @@ function getGenericInput(inputLabel, callbackOkay, callbackCancel) {
     let cancelButton = $("#generic-input-modal-cancel");
     let okButton = $("#generic-input-modal-ok");
     let modal = $("#generic-input-modal");
-    // curCanvas.tabIndex = 1000;
 
 
     cancelButton.off();
     okButton.off();
     modal.off();
-    // modal[0].removeEventListener("keydown");
 
     modal.on("keydown", function (e) {
         let code = (e.keyCode ? e.keyCode : e.which);
@@ -410,7 +429,7 @@ function getGenericInput(inputLabel, callbackOkay, callbackCancel) {
     let input = $("#generic-modal-input");
     input.val(" ");
 
-    $("#modal-content-container").slideDown(500, function () {
+    $("#modal-content-container").fadeIn(300, function () {
         input.focus();
     });
 
@@ -459,9 +478,17 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
     curCanvases.on("click", canvasOnClick);
     curCanvases.on("mousemove", setMousePos);
     curCanvases.on("scroll", setMousePos);
-    $(document.body).find(`#canvas-columns-${index}`).append($(`
+    if (isMainWindow) {
+        $(document.body).find(`#canvas-columns-${index}`).append($(`
                         <div class="column">
                            <button id="popVideo-${index}" class="button">Pop into new Window</button>
+                        </div>`));
+    }
+
+    // TODO
+    $(document.body).find(`#canvas-columns-${index}`).append($(`
+                        <div class="column">
+                           <button id="goToFrame-${index}" class="button">Pop into new Window</button>
                         </div>`));
 
     curVideo.on("error", function () {
@@ -472,7 +499,7 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
 
     curVideo.on('canplay', function () {
         if (!locks[`initFrameLoaded ${index}`]) {
-            videos.push(new Video(index, 0));
+            videos[index] = new Video(index, 0);
             // Get Offsets
             if (isMainWindow) {
                 if (index !== 0) {
@@ -506,6 +533,11 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
 
             $(`#${videos[index].popVideoID}`).on("click", function (event) {
                 popOutvideo(event, curURL)
+            });
+
+            // TODO
+            $(`#goToFrame-${index}`).on("click", function (event) {
+
             });
 
             let video = videos[index].video;
@@ -556,16 +588,13 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
             videoLabel.innerText = videoLabelDataToString(data);
 
             videos[index].goToFrame(1.001);
-            videos[index].loadFrame();
 
             locks[`initFrameLoaded ${index}`] = true;
             if (videoFinishedLoadingCallback !== null) {
                 videoFinishedLoadingCallback();
             }
         }
-        if (!locks["can_click"]) {
-            locks["can_click"] = true;
-        }
+
         videos[index].loadFrame();
     });
 }
@@ -760,7 +789,7 @@ function getEpipolarLines(videoObject, DLTCoefficients, pointsIndex) {
     let currentTrack = trackTracker["currentTrack"];
 
     let localPoints = clickedPoints[videoObject["index"]][currentTrack];
-    for (let cameraIndex = 0; cameraIndex < numberOfCameras; cameraIndex++) {
+    for (let cameraIndex = 0; cameraIndex < NUMBER_OF_CAMERAS; cameraIndex++) {
         coords.push([
                 cameraIndex,
                 [

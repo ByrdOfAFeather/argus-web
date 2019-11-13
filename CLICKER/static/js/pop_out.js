@@ -1,9 +1,6 @@
 let DEV_FRAME_RATE = 30;
-let currentFilter = "";
-
-let settings = {
-    "auto-advance": true,
-};
+let COLORSPACE = "";
+let settings = {"auto-advance": false};
 
 let mouseTracker = {
     x: 0,
@@ -22,7 +19,7 @@ let locks = {
 let currentResizable = null;
 let clickedPoints = [];
 let trackTracker = null;
-let numberOfCameras = 1;
+let NUMBER_OF_CAMERAS = 1;
 
 
 // GLOBALS CORRESPONDING TO LOCAL API
@@ -41,16 +38,17 @@ function getOffset(frame, videoObject) {
 }
 
 function sendNewPoint(event) {
-    let newPoint = Video.createPointObject(event);
-    video.addNewPoint(newPoint);
+    let id = parseInt(event.target.id.split("-")[1], 10);
+    let newPoint = Video.createPointObject(id);
+    let index = video.addNewPoint(newPoint);
 
     masterCommunicator.postMessage(
         messageCreator("newPoint",
             {
                 "point": newPoint,
                 "track": trackTracker["currentTrack"],
-                "currentFrame": settings["auto-advance"] ? newPoint.frame + 1 : newPoint.frame,
-                "videoID": index
+                "videoID": id,
+                "index": index,
             }
         )
     )
@@ -87,25 +85,27 @@ function handleLoadPoints(data) {
     video.drawLines(data.points);
 }
 
+function handleColorSpaceChange(data) {
+    COLORSPACE = data.colorSpace === RGB ? "grayscale(0%)" : "grayscale(100%)";
+    video.loadFrame();
+}
+
 function handleChange(message) {
     let messageContent = message.data;
     if (messageContent.type === "goToFrame") {
-        handleGoToFrame(message.data.data);
-    }
-    else if (messageContent.type === "changeTrack") {
+        handleGoToFrame(messageContent.data);
+    } else if (messageContent.type === "changeTrack") {
         handleChangeTrack(messageContent.data);
-    }
-    else if (messageContent.type === "addNewTrack") {
+    } else if (messageContent.type === "addNewTrack") {
         handleAddTrack(messageContent.data);
-    }
-    else if (messageContent.type === "drawEpipolarLine") {
+    } else if (messageContent.type === "drawEpipolarLine") {
         handleDrawEpipolarLine(messageContent.data);
-    }
-    else if (messageContent.type === "drawDiamond") {
+    } else if (messageContent.type === "drawDiamond") {
         handleDrawDiamond(messageContent.data);
-    }
-    else if (messageContent.type === "loadPoints") {
+    } else if (messageContent.type === "loadPoints") {
         handleLoadPoints(messageContent.data);
+    } else if (messageContent.type === "changeColorSpace") {
+        handleColorSpaceChange(messageContent.data);
     }
     else if (messageContent.type === "mainWindowDeath") {
         killSelf = true;
@@ -115,6 +115,7 @@ function handleChange(message) {
 
 function afterLoad(initFrame) {
     let currentPoints = getClickedPoints(index, trackTracker["currentTrack"]);
+    video = videos[index];
     video.drawPoints(currentPoints);
     video.drawLines(currentPoints);
     video.goToFrame(initFrame);
@@ -124,22 +125,20 @@ function init_listener(message) {
     initCommunicator.close();
     let messageData = message["data"];
     let videoSource = messageData["dataURL"];
-    settings["autoAdvance"] = messageData["audo-advance"];
     document.title = messageData["videoTitle"];
     trackTracker = messageData["currentTracks"];
-
+    COLORSPACE = messageData["currentColorSpace"];
 
     let offset = messageData["offset"];
     let initFrame = messageData["initFrame"];
 
-
     index = messageData["index"];
-    video = new Video(index, offset);
-
 
     loadVideosIntoDOM(videoSource, index, document.title,
         sendNewPoint, false, {"offset": offset},
-        function () { afterLoad(initFrame) });
+        function () {
+            afterLoad(initFrame)
+        });
 
     clickedPoints = messageData["clickedPoints"];
 

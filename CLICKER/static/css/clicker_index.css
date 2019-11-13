@@ -17,6 +17,11 @@
     justify-content: center !important;
 }
 
+.dropdown-item:hover {
+    opacity: .7;
+    cursor: pointer;
+}
+
 
 #generic-input-modal-content {
     overflow: hidden;

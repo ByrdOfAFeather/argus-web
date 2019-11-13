@@ -179,7 +179,7 @@ class Video {
         videoHeight = this.video.videoHeight;
         videoWidth = this.video.videoWidth;
 
-        this.canvasContext.filter = currentFilter;
+        this.canvasContext.filter = COLORSPACE;
         this.canvasContext.fillRect(0, 0, videoWidth, videoHeight);
         this.canvasContext.drawImage(this.video, 0, 0, videoWidth, videoHeight);
     }
@@ -278,7 +278,7 @@ class Video {
 
 
     static clearCanvases() {
-        for (let cameraIndex = 0; cameraIndex < numberOfCameras; cameraIndex++) {
+        for (let cameraIndex = 0; cameraIndex < NUMBER_OF_CAMERAS; cameraIndex++) {
             let curVideo = videos[cameraIndex];
             videos[cameraIndex].epipolarCanvasContext.clearRect(
                 0,
@@ -294,7 +294,7 @@ class Video {
 
 
 function updateAllLocalOrCommunicator(localCallback, message) {
-    for (let i = 0; i < numberOfCameras; i++) {
+    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
         updateLocalOrCommunicator(i, localCallback, message);
     }
 }
