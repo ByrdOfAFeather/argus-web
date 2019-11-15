@@ -76,6 +76,7 @@ function handleDrawEpipolarLine(data) {
 }
 
 function handleDrawDiamond(data) {
+    console.log("I got here");
     video.drawDiamond(data.point1, data.point2, 10, 10);
 }
 
@@ -119,6 +120,7 @@ function afterLoad(initFrame) {
     video.drawPoints(currentPoints);
     video.drawLines(currentPoints);
     video.goToFrame(initFrame);
+    masterCommunicator.postMessage(messageCreator("initLoadFinished", {index: index}));
 }
 
 function init_listener(message) {
@@ -195,7 +197,7 @@ function handleKeyboardInput(e) {
             if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
                 generateError("Frame must be valid integer!");
             } else {
-                frameToGoTo += .00001;
+                frameToGoTo += .001;
                 video.goToFrame(frameToGoTo);
                 sendNewFrame(frameToGoTo);
                 genericModal.removeClass("is-active");

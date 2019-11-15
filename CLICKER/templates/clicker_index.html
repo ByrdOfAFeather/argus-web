@@ -21,6 +21,7 @@
     <link type="text/css" href="{% static 'css/clicker_index.css' %}" rel="stylesheet">
     <link type="text/css"
           href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Julius+Sans+One|Roboto&display=swap" rel="stylesheet">
 </head>
 
 <body>
@@ -48,12 +49,20 @@
 </div>
 
 <section id="file-input-section" class="section">
-    <section class="section">
-        <div class="columns is-desktop is-centered is-vcentered is-multiline">
-            <div class="column is-5"></div>
-            <div class="column has-text-centered is-2">
-                <div class="file has-text-centered">
-                    <label class="file-label" style="left: 30%;">
+    <div class="container">
+        <div class="columns is-centered is-vcentered is-multiline">
+
+            <div class="column is-narrow has-text-centered">
+                <img class="image" src="{% static 'images/icon.gif' %}">
+            </div>
+
+            <div class="column is-narrow">
+                <h1 class="title-has-julius">CLICKER</h1>
+            </div>
+
+            <div class="column is-narrow">
+                <div class="file centered-file-input">
+                    <label class="file-label">
                         <input
                                 id="video-file-input"
                                 class="file-input is-expanded"
@@ -67,20 +76,13 @@
                     </label>
                 </div>
             </div>
-            <div class="column is-5"></div>
-        </div>
-    </section>
-
-    <section class="section">
-        <div class="columns is-desktop is-centered is-vcentered is-multiline">
-            <div class="column is-5"></div>
-            <div class="column has-text-centered is-2">
-                <div class="file has-text-centered">
-                    <label class="file-label" style="left: 26%;">
+            <div class="column is-narrow">
+                <div class="file centered-file-input">
+                    <label class="file-label">
                         <input
                                 id="config-file-input"
                                 class="file-input is-expanded"
-                                accept=".yaml" type=file multiple
+                                accept=".json" type=file multiple
                         >
                         <span class="file-cta">
                                   <span class="file-label">
@@ -90,10 +92,8 @@
                     </label>
                 </div>
             </div>
-            <div class="column is-5"></div>
         </div>
-    </section>
-
+    </div>
 </section>
 <div id="settingsInput"></div>
 <div id="videos"></div>

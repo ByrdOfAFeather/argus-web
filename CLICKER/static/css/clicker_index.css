@@ -41,3 +41,8 @@ canvas {
     left: 0;
     /*top: 0;*/
 }
+
+.title-has-julius {
+    font-family: 'Julius Sans One', sans-serif;
+    font-size: 2em;
+}

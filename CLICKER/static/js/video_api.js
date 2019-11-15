@@ -26,7 +26,6 @@ class Video {
 
         this.epipolarCanvas = document.getElementById(`epipolarCanvas-${videosIndex}`);
         this.epipolarCanvasContext = this.epipolarCanvas.getContext("2d");
-        this.epipolarCanvasContext.strokeStyle = "#99badd";
 
         this.videoLabelID = `videoLabel-${videosIndex}`;
 
@@ -223,28 +222,29 @@ class Video {
         //SOURCE: http://www.java2s.com/Tutorials/Javascript/Canvas_How_to/Shape/Draw_Spade_Heart_Club_Diamond.htm
         this.epipolarCanvasContext.beginPath();
         let temp = y - height;
-        this.epipolarCanvasContext.context.moveTo(x, temp);
+        this.epipolarCanvasContext.moveTo(x, temp);
 
         // top left edge
-        this.epipolarCanvasContext.context.lineTo(x - width / 2, y);
+        this.epipolarCanvasContext.lineTo(x - width / 2, y);
 
         // bottom left edge
-        this.epipolarCanvasContext.context.lineTo(x, y + height);
+        this.epipolarCanvasContext.lineTo(x, y + height);
 
         // bottom right edge
-        this.epipolarCanvasContext.context.lineTo(x + width / 2, y);
+        this.epipolarCanvasContext.lineTo(x + width / 2, y);
 
         // closing the path automatically creates
         // the top right edge
-        this.epipolarCanvasContext.context.closePath();
+        this.epipolarCanvasContext.closePath();
 
-        this.epipolarCanvasContext.context.lineWidth = 3;
-        this.epipolarCanvasContext.context.strokeStyle = "rgb(0,255,0)";
-        this.epipolarCanvasContext.context.stroke();
-        this.epipolarCanvasContext.context.restore();
+        this.epipolarCanvasContext.lineWidth = 3;
+        this.epipolarCanvasContext.strokeStyle = "rgb(0,255,0)";
+        this.epipolarCanvasContext.stroke();
+        this.epipolarCanvasContext.restore();
     }
 
     drawEpipolarLine(points) {
+        this.epipolarCanvasContext.strokeStyle = "#99badd";
         for (let i = 0; i < points.length - 1; i++) {
             this.drawLine(
                 {
@@ -312,7 +312,9 @@ function changeTracks(trackIndex, cameras) {
 
     // Changes all cameras to the requested track
     for (let index = 0; index < cameras.length; index++) {
-        videos[index].changeTracks(trackIndex);
+        if (videos[index] !== undefined) {
+            videos[index].changeTracks(trackIndex);
+        }
     }
 }
 
@@ -488,8 +490,11 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
     // TODO
     $(document.body).find(`#canvas-columns-${index}`).append($(`
                         <div class="column">
-                           <button id="goToFrame-${index}" class="button">Pop into new Window</button>
+                           <label class="label">Go To Frame</label>
+                           <input class="input" type="text">
+                           <button class="button">Go</button>
                         </div>`));
+
 
     curVideo.on("error", function () {
         generateError(`${name} could not be loaded, see troubleshooting for more details!`);
@@ -534,6 +539,7 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
             $(`#${videos[index].popVideoID}`).on("click", function (event) {
                 popOutvideo(event, curURL)
             });
+
 
             // TODO
             $(`#goToFrame-${index}`).on("click", function (event) {
@@ -598,7 +604,6 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
         videos[index].loadFrame();
     });
 }
-
 
 // ----- UNDERLYING MATHEMATICS ----- \\
 
@@ -782,13 +787,13 @@ function checkCoordintes(x, y, height, width) {
     return 0 <= x <= width && 0 <= y <= height;
 }
 
-function getEpipolarLines(videoObject, DLTCoefficients, pointsIndex) {
+function getEpipolarLines(videoIndex, DLTCoefficients, pointsIndex) {
     let coords = [];
     let tmp = [];
-    let dlcCoeff1 = DLTCoefficients[videoObject["index"]];
+    let dlcCoeff1 = DLTCoefficients[videoIndex];
     let currentTrack = trackTracker["currentTrack"];
 
-    let localPoints = clickedPoints[videoObject["index"]][currentTrack];
+    let localPoints = clickedPoints[videoIndex][currentTrack];
     for (let cameraIndex = 0; cameraIndex < NUMBER_OF_CAMERAS; cameraIndex++) {
         coords.push([
                 cameraIndex,
@@ -808,7 +813,7 @@ function getEpipolarLines(videoObject, DLTCoefficients, pointsIndex) {
     let returnObjects = [];
     for (let i = 0; i < coords.length; i++) {
         let coord = coords[i];
-        if (coord[0] !== parseInt(videoObject["index"], 10)) {
+        if (coord[0] !== parseInt(videoIndex, 10)) {
             let dltCoeff2 = DLTCoefficients[coord[0]];
 
             let xCoord = coord[1][0];
@@ -829,8 +834,8 @@ function getEpipolarLines(videoObject, DLTCoefficients, pointsIndex) {
                 let slope = slopeAndIntercept[0];
                 let intercept = slopeAndIntercept[1];
 
-                let originalHeight = document.getElementById(videoObject["videoCanvasID"]).height;
-                let originalWidth = document.getElementById(videoObject["videoCanvasID"]).width;
+                let originalHeight = videos[videoIndex].video.videoHeight;
+                let originalWidth = videos[videoIndex].video.videoWidth;
 
                 if (!checkCoordintes(0, intercept, originalHeight, originalWidth)) {
                     generateError(
