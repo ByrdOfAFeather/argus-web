@@ -7,24 +7,26 @@
             src="https://code.jquery.com/jquery-3.4.1.min.js"
             integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
             crossorigin="anonymous"></script>
+    <script
+            src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"
+            integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU="
+            crossorigin="anonymous"></script>
     <script src="{% static 'js/clicker.js' %}"></script>
+    <script src="{% static 'js/clicker_animations.js' %}"></script>
     <script src="{% static 'js/video_api.js' %}"></script>
     <script src="{% static 'js/broadcast_channel.js' %}"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.2/dist/tf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/6.2.2/math.js"></script>
-    <script src="https://docs.opencv.org/master/opencv.js"></script>
-    <script
-            src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"
-            integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU="
-            crossorigin="anonymous"></script>
     <link type="text/css" href="{% static 'css/clicker_index.css' %}" rel="stylesheet">
     <link type="text/css"
           href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css?family=Julius+Sans+One|Roboto&display=swap" rel="stylesheet">
+
 </head>
 
 <body>
+{% csrf_token %}
 <div id="generic-input-modal" class="modal">
     <div id="generic-input-modal-background" class="modal-background"></div>
     <div id="generic-input-modal-content" class="modal-content">
@@ -48,53 +50,106 @@
     </div>
 </div>
 
-<section id="file-input-section" class="section">
-    <div class="container">
+<section id="starter-menu">
+    <div id="title-section" class="section">
+        <!-- title section -->
+        {#    <div class="container">#}
         <div class="columns is-centered is-vcentered is-multiline">
-
-            <div class="column is-narrow has-text-centered">
-                <img class="image" src="{% static 'images/icon.gif' %}">
+            <div class="column has-text-centered is-narrow justify-right">
+                <img style="display: none" class="animated image" src="{% static 'images/icon.gif' %}">
             </div>
 
-            <div class="column is-narrow">
-                <h1 class="title-has-julius">CLICKER</h1>
+            <div id="title-div" class="column has-text-centered is-narrow justify-left">
+                <h1 class="title-has-julius animated">CLICKER</h1>
+                <h2 class="subtitle-has-julius animated has-text-grey">Software for clicking</h2>
             </div>
+        </div>
 
-            <div class="column is-narrow">
-                <div class="file centered-file-input">
-                    <label class="file-label">
-                        <input
-                                id="video-file-input"
-                                class="file-input is-expanded"
-                                accept="video/*" type=file multiple
-                        >
-                        <span class="file-cta">
+        {#    </div>#}
+    </div>
+
+    <section id="file-input-section" class="section">
+        <div class="container">
+            <div class="columns is-centered is-vcentered is-multiline">
+
+                <div class="column is-narrow">
+                    <div class="file centered-file-input">
+                        <label class="file-label">
+                            <input
+                                    id="video-file-input"
+                                    class="file-input is-expanded"
+                                    accept="video/*" type=file multiple
+                            >
+                            <span class="file-cta has-background-dark has-text-white is-size-4">
                                   <span class="file-label">
-                                    Load Videos
+                                    Get Started
                                   </span>
                             </span>
-                    </label>
+                        </label>
+                    </div>
                 </div>
-            </div>
-            <div class="column is-narrow">
-                <div class="file centered-file-input">
-                    <label class="file-label">
-                        <input
-                                id="config-file-input"
-                                class="file-input is-expanded"
-                                accept=".json" type=file multiple
-                        >
-                        <span class="file-cta">
-                                  <span class="file-label">
-                                    Load Config File
-                                  </span>
-                            </span>
-                    </label>
+                <div class="column is-narrow">
+                    <button id="continue-working-button"
+                            class="button has-background-dark has-text-white is-size-4">Continue Working
+                    </button>
                 </div>
             </div>
         </div>
-    </div>
+    </section>
+
+    <footer class="footer">
+        <div class="section">
+            <!-- fun facts section -->
+            <div class="columns">
+                <!-- TODO: REMOVE INLINE STYLE -->
+                <div class="column is-4" style="border-right: 2px solid">
+                    <div class="columns is-multiline">
+                        <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
+                            <h1 class="title-has-julius">ARGUS INFORMATION</h1>
+                        </div>
+                        <div class="column is-narrow">
+                            <img class="image" src="{% static 'images/icon.gif' %}">
+                        </div>
+                        <div class="column is-narrow">
+                            ARGUS INFORMATION
+                        </div>
+                    </div>
+                </div>
+                <div class="column is-4">
+                    <div class="columns is-multiline" style="border-right: 2px solid">
+                        <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
+                            <h1 class="title-has-julius">ARGUS INFORMATION</h1>
+                        </div>
+                        <div class="column is-narrow">
+                            <img class="image" src="{% static 'images/icon.gif' %}">
+                        </div>
+                        <div class="column is-narrow">
+                            ARGUS INFORMATION
+                        </div>
+                    </div>
+                </div>
+                <div class="column is-4">
+                    <div class="columns is-multiline">
+                        <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
+                            <h1 class="title-has-julius">ARGUS INFORMATION</h1>
+                        </div>
+                        <div class="column is-narrow">
+                            <img class="image" src="{% static 'images/icon.gif' %}">
+                        </div>
+                        <div class="column is-narrow">
+                            ARGUS INFORMATION
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
 </section>
+
+<section id="saved-states-section" class="section">
+
+</section>
+
 <div id="settingsInput"></div>
 <div id="videos"></div>
 <div id="canvases"></div>

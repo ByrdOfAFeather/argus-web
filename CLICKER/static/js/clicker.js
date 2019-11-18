@@ -72,6 +72,9 @@ let clickedPoints = [];
 // {[ {name: TRACK_NAME, index: TRACK_INDEX, color: TRACK_COLOR} ], currentTrack: TRACK_VALUE}
 let trackTracker = [];
 
+// Global to be set by user.
+let PROJECT_NAME = "";
+
 function loadPoints(text) {
     colorIndex = 0;
     clickedPoints = [];
@@ -167,7 +170,7 @@ function updateAllLocalOrCommunicator(localCallback, message, ignoreParam = null
 }
 
 
-function exportConfig() {
+function exportConfig(autoSaved=false) {
     let videoObjects = [];
     for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
 
@@ -193,7 +196,8 @@ function exportConfig() {
 
     let output_json = {
         videos: videoObjects,
-        test: fileObjects,
+        title: PROJECT_NAME,
+        dateSaved: Date(),
         points: clickedPoints,
         frameTracker: frameTracker,
         trackTracker: trackTracker,
@@ -202,11 +206,29 @@ function exportConfig() {
         settings: settings
     };
 
-    download("config.json", JSON.stringify(output_json));
+    let csrftoken = $("[name=csrfmiddlewaretoken]").val();
+
+    $.ajax({
+        // TODO: Change url
+        url: "http://127.0.0.1:8000/api/saved_states",
+        method: "POST",
+        data: {
+            json: JSON.stringify(output_json),
+            autosave: autoSaved === true ? "true": ""
+        },
+        headers: {
+            "X-CSRFToken": csrftoken
+        },
+
+        success: function () {
+            alert("Results Saved!");
+        },
+        error: function (error) {
+        }
+    });
 }
 
-function loadConfig(text) {
-    let config = JSON.parse(text);
+function loadSavedState(config) {
     colorIndex = 0;
     clickedPoints = [];
 
@@ -1059,7 +1081,7 @@ function mainWindowAddNewPoint(event) {
 
 
 function loadVideos(files) {
-    $("#file-input-section").remove();
+    $("#starter-menu").remove();
     loadSettings();
     trackTracker = {"tracks": [{"name": "Track 1", "index": 0, "color": COLORS[colorIndex]}], "currentTrack": 0};
     colorIndex += 1;
@@ -1186,23 +1208,50 @@ function sendKillNotification() {
     ))
 }
 
-
-function runAnimations() {
-
+function generateSavedState(result, results, index) {
+    return $(`
+                <div class="container">
+                    <p>${result.projectName}</p>
+                    <p>${result.savedDate}</p>
+                    <button class="result button" id=result-${index}">Load ${index}</button>
+                </div>
+    `)
 }
+
+function displaySavedStates(results) {
+    $("#starter-menu").remove();
+    let section = $("#saved-states-section");
+    for (let i = 0; i < results.length; i++) {
+        section.append(generateSavedState(results[i], results, i));
+        $(`.section`).on("click", ".result", function () {
+            loadSavedState(results[i])
+        });
+    }
+}
+
+
+function handleContinueWorking() {
+    //TODO Change url
+    $.ajax({
+            url: "http://127.0.0.1:8000/api/saved_states",
+            method: "GET",
+            success: (result) => {
+                displaySavedStates(result.states);
+            },
+            error: (error) => {
+                if (error.status === 401) {
+                    generateError("You have to login before you can access this feature!",
+                        $(`<button onclick="goToLogin()">Login</button>`));
+                }
+            }
+        }
+    )
+}
+
 
 $(document).ready(function () {
 
     runAnimations();
-
-    $("#config-file-input").on("change", function (_) {
-        let selectedFiles = Array.from($("#config-file-input").prop("files"));
-        let reader = new FileReader();
-        reader.onload = function () {
-            loadConfig(reader.result);
-        };
-        reader.readAsText(selectedFiles[0]);
-    });
 
     let fileInput = document.getElementById("video-file-input");
     fileInput.onchange = function (_) {
@@ -1210,5 +1259,10 @@ $(document).ready(function () {
         loadVideos(selectedFiles);
     };
 
+    $("#continue-working-button").on("click", handleContinueWorking);
+
     $(window).on('beforeunload', sendKillNotification);
+
+    setInterval(function() {exportConfig(true)},
+        600000);
 });

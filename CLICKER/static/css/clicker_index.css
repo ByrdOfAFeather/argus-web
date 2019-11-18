@@ -1,3 +1,8 @@
+html, body {
+    height: 100%;
+}
+
+
 .hidden-video {
     visibility: hidden;
     height: 0;
@@ -22,6 +27,9 @@
     cursor: pointer;
 }
 
+.animated {
+    display: none;
+}
 
 #generic-input-modal-content {
     overflow: hidden;
@@ -31,6 +39,7 @@
     background-color: rgba(0, 0, 0, .4);
     color: transparent;
 }
+
 /*#generic-input-modal {*/
 /*    display: flex;*/
 /*    justify-content: center;*/
@@ -44,5 +53,22 @@ canvas {
 
 .title-has-julius {
     font-family: 'Julius Sans One', sans-serif;
-    font-size: 2em;
+    font-size: 3em;
 }
+
+.subtitle-has-julius {
+    font-family: 'Julius Sans One', sans-serif;
+    font-size: 2.5em;
+}
+
+.has-julius {
+    font-family: 'Julius Sans One', sans-serif;
+    font-size: 1em;
+}
+
+footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+}
+

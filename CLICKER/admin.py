@@ -1,3 +1,7 @@
 from django.contrib import admin
+from CLICKER.models import SavedState
 
-# Register your models here.
+
+@admin.register(SavedState)
+class SavedStateAdmin(admin.ModelAdmin):
+    model = SavedState

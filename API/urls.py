@@ -3,5 +3,5 @@ from . import views
 
 namespace = "api"
 urlpatterns = [
-    # path("parse_config", views.parse_config, name="parse-config")
+    path("saved_states", views.saved_states, name="saved-states")
 ]
