@@ -23,6 +23,7 @@ const DEV_FRAME_RATE = 30;
 // GLOBALS FOR THE CAMERA PROFILE AND DLT COEFFICENTS
 let CAMERA_PROFILE = null;
 let DLT_COEFFICIENTS = null;
+let AUTO_SAVE_INTERVAL_ID = null;
 
 // COLORSPACE MANAGER
 let COLORSPACE = "";
@@ -55,6 +56,7 @@ let locks = {
     "can_click": true,
     "init_frame_loaded": false,
     "resizing_mov": false,
+    "can_pop_out": true,
 };
 
 // KEEPS TRACK OF THE NUMBER OF CAMERAS
@@ -170,12 +172,10 @@ function updateAllLocalOrCommunicator(localCallback, message, ignoreParam = null
 }
 
 
-function exportConfig(autoSaved=false) {
+function exportConfig(autoSaved = false) {
     let videoObjects = [];
     for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-
         let newVideo = {
-            src: videos[i].video.src,
             offset: videos[i].offset
         };
 
@@ -203,7 +203,7 @@ function exportConfig(autoSaved=false) {
         trackTracker: trackTracker,
         cameraProfile: CAMERA_PROFILE,
         dltCoefficents: DLT_COEFFICIENTS,
-        settings: settings
+        settings: settings,
     };
 
     let csrftoken = $("[name=csrfmiddlewaretoken]").val();
@@ -214,7 +214,7 @@ function exportConfig(autoSaved=false) {
         method: "POST",
         data: {
             json: JSON.stringify(output_json),
-            autosave: autoSaved === true ? "true": ""
+            autosave: autoSaved === true ? "true" : ""
         },
         headers: {
             "X-CSRFToken": csrftoken
@@ -224,57 +224,91 @@ function exportConfig(autoSaved=false) {
             alert("Results Saved!");
         },
         error: function (error) {
+            if (error.statusCode === 403) {
+                if (!autoSaved) {
+                    generateError("You have to be logged in to use this feature!");
+                }
+                clearInterval(AUTO_SAVE_INTERVAL_ID);
+                AUTO_SAVE_INTERVAL_ID = null;
+            }
         }
     });
 }
 
+function getSavedStateVideoPaths(videoConfigs, index, cameras, pointConfig, frameTrackerConfig) {
+    let invalid = function (event) {
+        generateError("You have to provide a path for this video!");
+    };
+
+    let validate = function (restorePoint) {
+        let selectedFile = Array.from($("#generic-file-input").prop("files"));
+        let curURL = URL.createObjectURL(selectedFile[0]);
+
+        let callback = null;
+        if (videoConfigs[index].poppedOut === true) {
+            callback = () => {
+                clickedPoints = pointConfig.slice(0);
+                frameTracker = Object.assign({}, frameTrackerConfig);
+                popOutvideo({target: {id: `popVideo-${index}`}}, curURL);
+            }
+        } else {
+            callback = () => {
+                clickedPoints = pointConfig.slice(0);
+                frameTracker = Object.assign({}, frameTrackerConfig);
+                videos[index].goToFrame(frameTracker[index]);
+                let points = getClickedPoints(index, trackTracker.currentTrack);
+                videos[index].drawPoints(points);
+                videos[index].drawLines(points);
+                getEpipolarLinesOrUnifiedCoord(index, frameTracker[index]);
+                changeTracks(trackTracker.currentTrack, cameras);
+            };
+        }
+
+
+        loadVideosIntoDOM(curURL, index, videoConfigs[index].name, mainWindowAddNewPoint, true,
+            {offset: videoConfigs[index].offset, askForOffset: false}, callback);
+        let modalContent = $("#modal-content-container");
+        modalContent.empty();
+        modalContent.append(restorePoint);
+        if (index + 1 < videoConfigs.length) {
+            getSavedStateVideoPaths(videoConfigs, index + 1, cameras, pointConfig, frameTrackerConfig);
+        } else {
+            let modal = $("#generic-input-modal");
+            modal.removeClass("is-active");
+        }
+    };
+
+    getGenericFileInput(`Remind me where ${videoConfigs[index].name} is`, validate, invalid);
+}
+
+
 function loadSavedState(config) {
+    PROJECT_NAME = config.title;
     colorIndex = 0;
     clickedPoints = [];
+    trackTracker = {tracks: [{name: "Track 1", color: COLORS[0], index: 0}], currentTrack: 0};
+    NUMBER_OF_CAMERAS = config.videos.length;
 
-    if (trackTracker.tracks !== undefined) {
-        let iterationLength = trackTracker.tracks.length - 1;
-        for (let i = 0; i < iterationLength; i++) {
-            removeTrackFromDropDown(1);
-        }
-        removeTrackFromDropDown(0);
-    } else {
-        loadSettings();
-    }
 
-    clickedPoints = config.points;
     for (let i = 1; i < config.trackTracker.tracks.length; i++) {
-        addTrackToDropDown(trackTracker.tracks[i].name);
+        addTrackToDropDown(config.trackTracker.tracks[i].name);
     }
+
+    trackTracker.currentTrack = config.trackTracker.currentTrack;
 
     let cameras = [];
     for (let i = 0; i < config.videos.length; i++) {
         cameras.push(i);
     }
 
-    frameTracker = config.frameTracker;
     CAMERA_PROFILE = config.cameraProfile;
     DLT_COEFFICIENTS = config.dltCoefficents;
     settings = config.settings;
 
-    for (let i = 0; i < config.videos.length; i++) {
-        let currentVideo = config.videos[i];
+    $("#saved-states-section").empty();
+    loadSettings();
 
-        let callback = null;
-        if (currentVideo.poppedOut === true) {
-            callback = () => {
-                popOutvideo({target: {id: `popVideo-${i}`}}, currentVideo.src);
-            }
-        } else {
-            callback = () => {
-                let points = getClickedPoints(i, trackTracker.currentTrack);
-                videos[i].drawPoints(points);
-                videos[i].drawLines(points);
-                changeTracks(config.trackTracker.currentTrack, cameras);
-            };
-        }
-        loadVideosIntoDOM(currentVideo.src, i, currentVideo.name, mainWindowAddNewPoint, true, null, callback);
-    }
+    getSavedStateVideoPaths(config.videos, 0, cameras, config.points, config.frameTracker);
 }
 
 /// TRACK MANAGEMENT ///
@@ -645,6 +679,11 @@ function handlePopoutChange(message) {
 function popOutvideo(event, videoURL) {
     // TODO this function will probably have to be defined in the template
     // TODO Needs to be locks so that a new video cannot be popped out until the current one has finished
+    if (!locks["can_pop_out"]) {
+        generateError("Video is already being popped out, please wait!");
+        return;
+    }
+
     let init_communicator = new BroadcastChannel("unknown-video");
     let videoIndex = parseInt(event.target.id.split("-")[1], 10);
     init_communicator.onmessage = function (_) {
@@ -663,6 +702,10 @@ function popOutvideo(event, videoURL) {
             "currentColorSpace": COLORSPACE,
         });
         init_communicator.close();
+        setTimeout(function() {
+                    locks["can_pop_out"] = true;
+        }, 750);
+
         let master_communicator = new BroadcastChannel(`${videoIndex}`);
         master_communicator.onmessage = handlePopoutChange;
         communicators.push({"communicator": master_communicator, "index": videoIndex});
@@ -674,6 +717,7 @@ function popOutvideo(event, videoURL) {
     currentSection.hide();
     window.open("http://127.0.0.1:8000/clicker/popped_window", `${event.target.id}`,
         `location=yes,height=${600},width=${800},scrollbars=yes,status=yes`);
+    locks["can_pop_out"] = false;
 }
 
 /// LOAD FILE FUNCTIONS ///
@@ -1088,7 +1132,6 @@ function loadVideos(files) {
 
 
     files.forEach((file, index) => {
-        window.localStorage.setItem("test", file);
         NUMBER_OF_CAMERAS += 1;
         let curURL = URL.createObjectURL(file);
         loadVideosIntoDOM(curURL, index, file.name, mainWindowAddNewPoint, true);
@@ -1208,12 +1251,12 @@ function sendKillNotification() {
     ))
 }
 
-function generateSavedState(result, results, index) {
+function generateSavedState(result, index) {
     return $(`
                 <div class="container">
                     <p>${result.projectName}</p>
                     <p>${result.savedDate}</p>
-                    <button class="result button" id=result-${index}">Load ${index}</button>
+                    <button id="result-${index}" lass="result button" id=result-${index}">Load ${index}</button>
                 </div>
     `)
 }
@@ -1222,10 +1265,11 @@ function displaySavedStates(results) {
     $("#starter-menu").remove();
     let section = $("#saved-states-section");
     for (let i = 0; i < results.length; i++) {
-        section.append(generateSavedState(results[i], results, i));
-        $(`.section`).on("click", ".result", function () {
-            loadSavedState(results[i])
+        let newState = generateSavedState(results[i], i);
+        newState.on("click", `#result-${i}`, function () {
+            loadSavedState(JSON.parse(results[i]));
         });
+        section.append(newState);
     }
 }
 
@@ -1251,8 +1295,6 @@ function handleContinueWorking() {
 
 $(document).ready(function () {
 
-    runAnimations();
-
     let fileInput = document.getElementById("video-file-input");
     fileInput.onchange = function (_) {
         let selectedFiles = Array.from(fileInput.files);
@@ -1263,6 +1305,10 @@ $(document).ready(function () {
 
     $(window).on('beforeunload', sendKillNotification);
 
-    setInterval(function() {exportConfig(true)},
+    AUTO_SAVE_INTERVAL_ID = setInterval(function () {
+            exportConfig(true)
+        },
         600000);
+
+    runAnimations();
 });

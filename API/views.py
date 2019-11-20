@@ -1,12 +1,14 @@
 import json
 
 from django.http import JsonResponse
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
 from CLICKER.models import SavedState
 
 
 @api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
 def saved_states(request):
     if request.method == "GET":
         user_states = SavedState.objects.filter(user=request.user)
@@ -18,6 +20,7 @@ def saved_states(request):
         response = JsonResponse({"states": json_objects})
         response.status_code = 200
         return response
+
     elif request.method == "POST":
         data = request.POST.get("json", "")
         auto_save = request.POST.get("autosave", "")
@@ -37,4 +40,3 @@ def saved_states(request):
         response = JsonResponse({"success": "none"})
         response.status_code = 200
         return response
-

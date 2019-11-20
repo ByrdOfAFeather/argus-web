@@ -76,7 +76,6 @@ function handleDrawEpipolarLine(data) {
 }
 
 function handleDrawDiamond(data) {
-    console.log("I got here");
     video.drawDiamond(data.point1, data.point2, 10, 10);
 }
 

@@ -412,7 +412,6 @@ function getGenericInput(inputLabel, callbackOkay, callbackCancel) {
     let okButton = $("#generic-input-modal-ok");
     let modal = $("#generic-input-modal");
 
-
     cancelButton.off();
     okButton.off();
     modal.off();
@@ -437,16 +436,52 @@ function getGenericInput(inputLabel, callbackOkay, callbackCancel) {
 
     cancelButton.on("click", callbackCancel);
     okButton.on("click", callbackOkay);
+}
+
+function getGenericFileInput(inputLabel, callBackOkay, callBackCancel) {
+    let modalContent = $("#modal-content-container");
+    let restorePoint = $(modalContent.children()[0]).clone();
+    let modal = $("#generic-input-modal");
+    modal.addClass("is-active");
+
+    modalContent.empty();
+
+    let fileInput = $(
+        `                    
+        <div class="file centered-file-input">
+            <label class="file-label">
+                <input
+                        id="generic-file-input"
+                        class="file-input is-expanded"
+                        accept="video/*" type=file
+                >
+                <span class="file-cta has-background-dark has-text-white is-size-4">
+                      <span class="file-label">
+                        ${inputLabel}
+                      </span>
+                </span>
+            </label>
+        </div>`
+    );
+
+    fileInput.find("#generic-file-input").on("change",
+        function (_) {
+            callBackOkay(restorePoint)
+        });
+    modalContent.append(fileInput);
 
 }
 
 
-function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, popUpArgs,
+function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, offsetArg = {
+                               offset: null,
+                               askForOffset: true
+                           },
                            videoFinishedLoadingCallback = null) {
-    // popUpArgs - {"offset": offset for the video being loaded}
+    // offsetArg - {"offset": offset for the video being loaded, "askForOffset": If it is the main window, should it
+    // ask for an offset? If not, it will expect "offset" to be set}
     let curCanvases = $(`
             <div class="section">
-
               <div class="container">
               <div id="canvas-columns-${index}" class="columns has-text-centered is-multiline">
                     <div class="column is-12 video-label-container">
@@ -507,7 +542,7 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
             videos[index] = new Video(index, 0);
             // Get Offsets
             if (isMainWindow) {
-                if (index !== 0) {
+                if (index !== 0 && offsetArg.askForOffset) {
                     let label = `Offset for video ${name}`;
 
                     let invalid = function (event) {
@@ -532,13 +567,19 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
                     };
 
                     getGenericInput(label, validate, invalid);
+                } else {
+                    videos[index].offset = offsetArg.offset;
+                    let originalText = document.getElementById(videos[index].videoLabelID);
+                    let label = Video.parseVideoLabel(originalText.innerText);
+                    label.OFFSET = offsetArg.offset;
+                    originalText.innerText = Video.videoLabelDataToString(label);
                 }
+
+
+                $(`#${videos[index].popVideoID}`).on("click", function (event) {
+                    popOutvideo(event, curURL)
+                });
             }
-
-
-            $(`#${videos[index].popVideoID}`).on("click", function (event) {
-                popOutvideo(event, curURL)
-            });
 
 
             // TODO
@@ -582,7 +623,7 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, pop
             let videoLabel = document.getElementById(videos[index].videoLabelID);
             let offset = 0;
             if (!isMainWindow) {
-                offset = popUpArgs["offset"];
+                offset = offsetArg["offset"];
             }
 
             let data = {

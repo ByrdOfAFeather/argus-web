@@ -56,12 +56,12 @@
         {#    <div class="container">#}
         <div class="columns is-centered is-vcentered is-multiline">
             <div class="column has-text-centered is-narrow justify-right">
-                <img style="display: none" class="animated image" src="{% static 'images/icon.gif' %}">
+                <img style="display:none; height: auto" class="animated image" src="{% static 'images/icon.gif' %}">
             </div>
 
             <div id="title-div" class="column has-text-centered is-narrow justify-left">
-                <h1 class="title-has-julius animated">CLICKER</h1>
-                <h2 class="subtitle-has-julius animated has-text-grey">Software for clicking</h2>
+                <h1 id="clicker-title" class="title-has-julius animated" style="height: auto;">CLICKER</h1>
+                <h2 id="clicker-subtitle" class="subtitle-has-julius  has-text-grey animated" style="height: auto;">Software for clicking</h2>
             </div>
         </div>
 
@@ -82,7 +82,7 @@
                             >
                             <span class="file-cta has-background-dark has-text-white is-size-4">
                                   <span class="file-label">
-                                    Get Started
+                                    New Project
                                   </span>
                             </span>
                         </label>
@@ -153,5 +153,20 @@
 <div id="settingsInput"></div>
 <div id="videos"></div>
 <div id="canvases"></div>
+
+<script type="text/javascript">
+    function autoHeightAnimate(element, time, callback) {
+    let autoHeight = element.css('height', 'auto').height(); // Get Auto Height
+    element.height(0); // Reset to Default Height
+    element.show(1, function() { element.stop().animate({height: autoHeight}, time, callback)} );
+}
+
+    autoHeightAnimate($($(".animated")[1]), 600, function () {
+        autoHeightAnimate($($(".animated")[2]), 600, function () {
+            autoHeightAnimate($($(".animated")[0]), 300, function () {
+            })
+        })
+    });
+</script>
 </body>
 </html>
