@@ -84,3 +84,19 @@ footer {
     width: 100%;
 }
 
+#file-input-container {
+    box-shadow: 0px 0px;
+}
+
+#file-input-container:hover {
+    opacity: .7;
+}
+
+#continue-working-button {
+    box-shadow: 0px 0px;
+    border-radius: 0px;
+}
+
+#continue-working-button:hover {
+    opacity: .7;
+}

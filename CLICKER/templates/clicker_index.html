@@ -18,6 +18,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.2/dist/tf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/6.2.2/math.js"></script>
+    <script src="//cdn.jsdelivr.net/jquery.shadow-animation/1/mainfile"></script>
     <link type="text/css" href="{% static 'css/clicker_index.css' %}" rel="stylesheet">
     <link type="text/css"
           href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css" rel="stylesheet">
@@ -31,142 +32,157 @@
     <div id="generic-input-modal-background" class="modal-background"></div>
     <div id="generic-input-modal-content" class="modal-content">
         <div id="modal-content-container" class="container">
-            <div class="columns is-centered is-multiline">
-                <div class="column is-12">
-                    <div class="controller">
-                        <div class="label">
-                            <label style="color: white;" id="generic-input-label"></label>
-                        </div>
-                        <input id="generic-modal-input" class="input" type="text">
-                    </div>
-                </div>
-
-                <div class="column">
-                    <button id="generic-input-modal-cancel" class="button">Cancel</button>
-                    <button id="generic-input-modal-ok" class="button">Ok</button>
-                </div>
-            </div>
         </div>
     </div>
 </div>
+<div id="blurrable" style="height: 100%">
+    <section id="starter-menu">
+        <div id="title-section" class="section">
+            <!-- title section -->
+            {#    <div class="container">#}
+            <div class="columns is-centered is-vcentered is-multiline">
+                <div class="column has-text-centered is-narrow justify-right">
+                    <img style="display:none; height: auto" class="animated image" src="{% static 'images/icon.gif' %}">
+                </div>
 
-<section id="starter-menu">
-    <div id="title-section" class="section">
-        <!-- title section -->
-        {#    <div class="container">#}
-        <div class="columns is-centered is-vcentered is-multiline">
-            <div class="column has-text-centered is-narrow justify-right">
-                <img style="display:none; height: auto" class="animated image" src="{% static 'images/icon.gif' %}">
+                <div id="title-div" class="column has-text-centered is-narrow justify-left">
+                    <h1 id="clicker-title" class="title-has-julius animated" style="height: auto;">CLICKER</h1>
+                    <h2 id="clicker-subtitle" class="subtitle-has-julius  has-text-grey animated" style="height: auto;">
+                        Software for clicking</h2>
+                </div>
             </div>
 
-            <div id="title-div" class="column has-text-centered is-narrow justify-left">
-                <h1 id="clicker-title" class="title-has-julius animated" style="height: auto;">CLICKER</h1>
-                <h2 id="clicker-subtitle" class="subtitle-has-julius  has-text-grey animated" style="height: auto;">Software for clicking</h2>
-            </div>
+            {#    </div>#}
         </div>
 
-        {#    </div>#}
-    </div>
+        <section id="file-input-section" class="section">
+            <div class="container">
+                <div class="columns is-centered is-vcentered is-multiline">
 
-    <section id="file-input-section" class="section">
-        <div class="container">
-            <div class="columns is-centered is-vcentered is-multiline">
-
-                <div class="column is-narrow">
-                    <div class="file centered-file-input">
-                        <label class="file-label">
-                            <input
-                                    id="video-file-input"
-                                    class="file-input is-expanded"
-                                    accept="video/*" type=file multiple
-                            >
-                            <span class="file-cta has-background-dark has-text-white is-size-4">
+                    <div class="column is-narrow">
+                        <div id="file-input-container" class="file centered-file-input">
+                            <label class="file-label">
+                                <input
+                                        id="video-file-input"
+                                        class="file-input is-expanded"
+                                        accept="video/*" type=file multiple
+                                >
+                                <span class="file-cta has-background-dark has-text-white is-size-4">
                                   <span class="file-label">
                                     New Project
                                   </span>
                             </span>
-                        </label>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="column is-narrow">
+                        <button id="continue-working-button"
+                                class="button has-background-dark has-text-white is-size-4">Continue Working
+                        </button>
                     </div>
                 </div>
-                <div class="column is-narrow">
-                    <button id="continue-working-button"
-                            class="button has-background-dark has-text-white is-size-4">Continue Working
-                    </button>
-                </div>
             </div>
+        </section>
+
+        <script type="text/javascript">
+            function goToLogin() {
+                window.location = "{% url 'login' %}";
+            }
+
+            function handleContinueWorking() {
+                //TODO Change url
+                $.ajax({
+                        url: "{% url 'api:saved-states' %}",
+                        method: "GET",
+                        success: (result) => {
+                            displaySavedStates(result.states);
+                        },
+                        error: (error) => {
+                            if (error.status === 403) {
+                                generateError("You have to login before you can access this feature!",
+                                    $(`<button class="button" onclick="goToLogin()">Login</button>
+                           <button class="button" onclick="genericStringLikeInputCleanUp($('#modal-content-container'), $('#generic-input-modal'));">Cancel</button>`))
+                            }
+                        }
+                    }
+                )
+            }
+
+            function autoHeightAnimate(element, time, callback) {
+                // citation: https://codepen.io/JTParrett/pen/CAglw
+                let autoHeight = element.css('height', 'auto').height(); // Get Auto Height
+                element.height(0); // Reset to Default Height
+                element.show(1, function () {
+                    element.stop().animate({height: autoHeight}, time, callback)
+                });
+            }
+
+            autoHeightAnimate($($(".animated")[1]), 600, function () {
+                autoHeightAnimate($($(".animated")[2]), 600, function () {
+                    autoHeightAnimate($($(".animated")[0]), 300, function () {
+                        $('#file-input-container').stop().animate({boxShadow: '10px 10px #000'});
+                        $('#continue-working-button').stop().animate({boxShadow: '10px 10px #000'});
+                    })
+                })
+            });
+        </script>
+        <footer class="footer">
+            <section class="section">
+                <!-- fun facts section -->
+                <div class="columns">
+                    <!-- TODO: REMOVE INLINE STYLE -->
+                    <div class="column is-4" style="border-right: 2px solid">
+                        <div class="columns is-multiline">
+                            <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
+                                <h1 class="title-has-julius">ARGUS INFORMATION</h1>
+                            </div>
+                            <div class="column is-narrow">
+                                <img class="image" src="{% static 'images/icon.gif' %}">
+                            </div>
+                            <div class="column is-narrow">
+                                ARGUS INFORMATION
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-4">
+                        <div class="columns is-multiline" style="border-right: 2px solid">
+                            <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
+                                <h1 class="title-has-julius">ARGUS INFORMATION</h1>
+                            </div>
+                            <div class="column is-narrow">
+                                <img class="image" src="{% static 'images/icon.gif' %}">
+                            </div>
+                            <div class="column is-narrow">
+                                ARGUS INFORMATION
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-4">
+                        <div class="columns is-multiline">
+                            <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
+                                <h1 class="title-has-julius">ARGUS INFORMATION</h1>
+                            </div>
+                            <div class="column is-narrow">
+                                <img class="image" src="{% static 'images/icon.gif' %}">
+                            </div>
+                            <div class="column is-narrow">
+                                ARGUS INFORMATION
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </footer>
+    </section>
+
+    <section id="saved-states-section" class="section">
+        <div id="saved-states-columns" class="columns is-centered">
         </div>
     </section>
 
-    <footer class="footer">
-        <div class="section">
-            <!-- fun facts section -->
-            <div class="columns">
-                <!-- TODO: REMOVE INLINE STYLE -->
-                <div class="column is-4" style="border-right: 2px solid">
-                    <div class="columns is-multiline">
-                        <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
-                            <h1 class="title-has-julius">ARGUS INFORMATION</h1>
-                        </div>
-                        <div class="column is-narrow">
-                            <img class="image" src="{% static 'images/icon.gif' %}">
-                        </div>
-                        <div class="column is-narrow">
-                            ARGUS INFORMATION
-                        </div>
-                    </div>
-                </div>
-                <div class="column is-4">
-                    <div class="columns is-multiline" style="border-right: 2px solid">
-                        <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
-                            <h1 class="title-has-julius">ARGUS INFORMATION</h1>
-                        </div>
-                        <div class="column is-narrow">
-                            <img class="image" src="{% static 'images/icon.gif' %}">
-                        </div>
-                        <div class="column is-narrow">
-                            ARGUS INFORMATION
-                        </div>
-                    </div>
-                </div>
-                <div class="column is-4">
-                    <div class="columns is-multiline">
-                        <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
-                            <h1 class="title-has-julius">ARGUS INFORMATION</h1>
-                        </div>
-                        <div class="column is-narrow">
-                            <img class="image" src="{% static 'images/icon.gif' %}">
-                        </div>
-                        <div class="column is-narrow">
-                            ARGUS INFORMATION
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </footer>
-</section>
-
-<section id="saved-states-section" class="section">
-
-</section>
-
-<div id="settingsInput"></div>
-<div id="videos"></div>
-<div id="canvases"></div>
-
-<script type="text/javascript">
-    function autoHeightAnimate(element, time, callback) {
-    let autoHeight = element.css('height', 'auto').height(); // Get Auto Height
-    element.height(0); // Reset to Default Height
-    element.show(1, function() { element.stop().animate({height: autoHeight}, time, callback)} );
-}
-
-    autoHeightAnimate($($(".animated")[1]), 600, function () {
-        autoHeightAnimate($($(".animated")[2]), 600, function () {
-            autoHeightAnimate($($(".animated")[0]), 300, function () {
-            })
-        })
-    });
-</script>
+    <div id="settingsInput"></div>
+    <div id="videos"></div>
+    <div id="canvases"></div>
+</div>
 </body>
 </html>

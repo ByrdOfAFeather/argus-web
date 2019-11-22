@@ -106,8 +106,7 @@ function handleChange(message) {
         handleLoadPoints(messageContent.data);
     } else if (messageContent.type === "changeColorSpace") {
         handleColorSpaceChange(messageContent.data);
-    }
-    else if (messageContent.type === "mainWindowDeath") {
+    } else if (messageContent.type === "mainWindowDeath") {
         killSelf = true;
         window.close();
     }
@@ -135,10 +134,12 @@ function init_listener(message) {
 
     index = messageData["index"];
 
+    console.log(offset);
+
     loadVideosIntoDOM(videoSource, index, document.title,
-        sendNewPoint, false, {"offset": offset},
+        sendNewPoint, false, offset,
         function () {
-            afterLoad(initFrame)
+            afterLoad(initFrame);
         });
 
     clickedPoints = messageData["clickedPoints"];
@@ -188,27 +189,24 @@ function handleKeyboardInput(e) {
             sendNewFrame(frameNumber);
         }
     } else if (String.fromCharCode(e.which) === "G") {
-        let genericModal = $("#generic-input-modal");
-
-        let validate = (_) => {
-            let currentFrame = $("#generic-modal-input").val();
-            let frameToGoTo = parseInt(currentFrame, 10);
+        let validate = (input) => {
+            let frameToGoTo = parseInt(input, 10);
             if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
-                generateError("Frame must be valid integer!");
+                return {input: null, valid: false};
             } else {
                 frameToGoTo += .001;
-                video.goToFrame(frameToGoTo);
-                sendNewFrame(frameToGoTo);
-                genericModal.removeClass("is-active");
+                return {input: frameToGoTo, valid: true};
             }
         };
 
-        let close = (_) => {
-            genericModal.removeClass("is-active");
+        let callback = (parseInput) => {
+            video.goToFrame(parseInput);
+            sendNewFrame(parseInput);
         };
 
         let label = "What frame would you like to go to?";
-        getGenericInput(label, validate, close);
+        let errorText = "You must input a valid integer!";
+        getGenericStringLikeInput(validate, callback, label, errorText);
     }
 }
 

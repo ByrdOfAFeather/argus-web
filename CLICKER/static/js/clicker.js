@@ -249,7 +249,7 @@ function getSavedStateVideoPaths(videoConfigs, index, cameras, pointConfig, fram
             callback = () => {
                 clickedPoints = pointConfig.slice(0);
                 frameTracker = Object.assign({}, frameTrackerConfig);
-                popOutvideo({target: {id: `popVideo-${index}`}}, curURL);
+                popOutVideo({target: {id: `popVideo-${index}`}}, curURL);
             }
         } else {
             callback = () => {
@@ -266,7 +266,7 @@ function getSavedStateVideoPaths(videoConfigs, index, cameras, pointConfig, fram
 
 
         loadVideosIntoDOM(curURL, index, videoConfigs[index].name, mainWindowAddNewPoint, true,
-            {offset: videoConfigs[index].offset, askForOffset: false}, callback);
+            videoConfigs[index].offset, callback);
         let modalContent = $("#modal-content-container");
         modalContent.empty();
         modalContent.append(restorePoint);
@@ -676,7 +676,7 @@ function handlePopoutChange(message) {
     }
 }
 
-function popOutvideo(event, videoURL) {
+function popOutVideo(event, videoURL) {
     // TODO this function will probably have to be defined in the template
     // TODO Needs to be locks so that a new video cannot be popped out until the current one has finished
     if (!locks["can_pop_out"]) {
@@ -702,8 +702,8 @@ function popOutvideo(event, videoURL) {
             "currentColorSpace": COLORSPACE,
         });
         init_communicator.close();
-        setTimeout(function() {
-                    locks["can_pop_out"] = true;
+        setTimeout(function () {
+            locks["can_pop_out"] = true;
         }, 750);
 
         let master_communicator = new BroadcastChannel(`${videoIndex}`);
@@ -1124,18 +1124,45 @@ function mainWindowAddNewPoint(event) {
 }
 
 
+function loadVideo(files, index) {
+    let currentFile = files[index];
+    let curURL = URL.createObjectURL(currentFile);
+    if (index === 0) {
+        loadVideosIntoDOM(curURL, index, currentFile.name, mainWindowAddNewPoint, true, 0);
+        loadVideo(files, index + 1);
+    } else {
+
+        let validate = (input) => {
+            let offset = parseFloat(input);
+            if (isNaN(offset)) {
+                return {input: null, valid: false};
+            } else {
+                return {input: offset, valid: true};
+            }
+        };
+        let callback = (parsedInput) => {
+            loadVideosIntoDOM(curURL, index, currentFile.name, mainWindowAddNewPoint, true, parsedInput);
+
+            if (index + 1 > files.length - 1) {
+                // TODO CLEAN UP
+                genericStringLikeInputCleanUp($("#modal-content-container"), $("#generic-input-modal"));
+            } else {
+                loadVideo(files, index + 1);
+            }
+        };
+
+        getGenericStringLikeInput(validate, callback, `Offset for ${currentFile.name}`, "You have to provide an offset (it can be 0!)", false);
+    }
+}
+
+
 function loadVideos(files) {
     $("#starter-menu").remove();
     loadSettings();
     trackTracker = {"tracks": [{"name": "Track 1", "index": 0, "color": COLORS[colorIndex]}], "currentTrack": 0};
     colorIndex += 1;
-
-
-    files.forEach((file, index) => {
-        NUMBER_OF_CAMERAS += 1;
-        let curURL = URL.createObjectURL(file);
-        loadVideosIntoDOM(curURL, index, file.name, mainWindowAddNewPoint, true);
-    });
+    NUMBER_OF_CAMERAS = files.length;
+    loadVideo(files, 0);
 }
 
 /// END LOAD FUNCTIONS ///
@@ -1185,41 +1212,37 @@ function goBackwardsAFrame(id) {
 }
 
 function goToInputFrame(index) {
-    let genericModal = $("#generic-input-modal");
-
-    let validate = (_) => {
-        let currentFrame = $("#generic-modal-input").val();
-        let frameToGoTo = parseInt(currentFrame, 10);
+    let validate = (input) => {
+        let frameToGoTo = parseInt(input, 10);
         if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
-            generateError("Frame must be valid integer!");
+            return {input: input, valid: false};
         } else {
             frameToGoTo += .001;
-            if (settings["sync"]) {
-                for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                    frameTracker[i] = frameToGoTo;
-                }
-
-                let callBack = function (i) {
-                    videos[i].goToFrame(frameToGoTo);
-                };
-                let message = messageCreator("goToFrame", {"frame": frameToGoTo});
-                updateAllLocalOrCommunicator(callBack, message);
-            } else {
-                videos[index].goToFrame(frameToGoTo);
-            }
-            getEpipolarLinesOrUnifiedCoord(index, frameToGoTo);
-            genericModal.removeClass("is-active");
-            $("#canvas-0").focus();
+            return {input: frameToGoTo, valid: true};
         }
     };
 
-    let close = (_) => {
-        genericModal.removeClass("is-active");
+    let callback = (parsedInput) => {
+        if (settings["sync"]) {
+            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                frameTracker[i] = parsedInput;
+            }
+
+            let callBack = function (i) {
+                videos[i].goToFrame(parsedInput);
+            };
+            let message = messageCreator("goToFrame", {"frame": parsedInput});
+            updateAllLocalOrCommunicator(callBack, message);
+        } else {
+            videos[index].goToFrame(parsedInput);
+        }
+        getEpipolarLinesOrUnifiedCoord(index, parsedInput);
+        $("#canvas-0").focus();
     };
 
     let label = "What frame would you like to go to?";
-    getGenericInput(label, validate, close);
-
+    let errorText = "You have to input a valid integer!";
+    getGenericStringLikeInput(validate, callback, label, errorText);
 }
 
 function handleKeyboardInput(e) {
@@ -1253,48 +1276,33 @@ function sendKillNotification() {
 
 function generateSavedState(result, index) {
     return $(`
+            <div class="column">
                 <div class="container">
-                    <p>${result.projectName}</p>
-                    <p>${result.savedDate}</p>
-                    <button id="result-${index}" lass="result button" id=result-${index}">Load ${index}</button>
+                    <p>${result.title}</p>
+                    <p>${result.dateSaved}</p>
+                    <button id="result-${index}" class="result button" id=result-${index}">Load</button>
                 </div>
+            </div>
     `)
 }
 
 function displaySavedStates(results) {
-    $("#starter-menu").remove();
-    let section = $("#saved-states-section");
-    for (let i = 0; i < results.length; i++) {
-        let newState = generateSavedState(results[i], i);
+    let section = $("#saved-states-columns");
+    let parsedResults = [];
+    for (let i = 0; i<results.length; i++) { parsedResults.push(JSON.parse(results[i])) }
+    parsedResults.sort((a, b) => b.dateSaved - a.dateSaved);
+    for (let i = 0; i < parsedResults.length; i++) {
+        let newState = generateSavedState(parsedResults[i], i);
         newState.on("click", `#result-${i}`, function () {
-            loadSavedState(JSON.parse(results[i]));
+            $("#starter-menu").remove();
+            loadSavedState(parsedResults[i]);
         });
         section.append(newState);
     }
 }
 
 
-function handleContinueWorking() {
-    //TODO Change url
-    $.ajax({
-            url: "http://127.0.0.1:8000/api/saved_states",
-            method: "GET",
-            success: (result) => {
-                displaySavedStates(result.states);
-            },
-            error: (error) => {
-                if (error.status === 401) {
-                    generateError("You have to login before you can access this feature!",
-                        $(`<button onclick="goToLogin()">Login</button>`));
-                }
-            }
-        }
-    )
-}
-
-
 $(document).ready(function () {
-
     let fileInput = document.getElementById("video-file-input");
     fileInput.onchange = function (_) {
         let selectedFiles = Array.from(fileInput.files);
@@ -1309,6 +1317,4 @@ $(document).ready(function () {
             exportConfig(true)
         },
         600000);
-
-    runAnimations();
 });

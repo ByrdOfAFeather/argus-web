@@ -359,8 +359,22 @@ function setMousePos(e) {
 }
 
 
-function generateError(errorMessage) {
-    alert(errorMessage);
+function generateError(errorMessage, optionalComponent=null) {
+    let modal = $("#generic-input-modal");
+
+
+    if (modal.has("#error-message").length !== 0) {
+        return;
+    }
+
+    let error = $(`<p id="error-message" class="notification is-danger has-text-weight-bold has-text-white has-text-centered">${errorMessage}</p>`);
+    if (modal.hasClass("is-active")) {
+        $("#modal-content-container").append(error);
+    } else {
+        $("#modal-content-container").append(error);
+        $("#modal-content-container").append(optionalComponent);
+        modal.addClass("is-active");
+    }
 }
 
 function messageCreator(type, data) {
@@ -406,36 +420,79 @@ function sortByFrame(aPoint, bPoint) {
     return aPoint.frame - bPoint.frame;
 }
 
+function genericStringLikeInputCleanUp(modalContentContainer, modal) {
+    modalContentContainer.empty();
+    modal.removeClass("is-active");
+    $("#blurrable").css("filter", "blur(0px)");
+    // Removes any previous keyboard bindings prevent calling the function multiple times
+    modal.off();
+}
 
-function getGenericInput(inputLabel, callbackOkay, callbackCancel) {
+function getGenericStringLikeInput(validate, callback, label, errorText, hasCancel = true) {
+
+    let inputContent = $(`            
+            <div class="columns is-centered is-multiline">
+                <div class="column is-12">
+                    <div class="controller">
+                        <div class="label">
+                            <label style="color: white;" id="generic-input-label"></label>
+                        </div>
+                        <input id="generic-modal-input" class="input" type="text">
+                    </div>
+                </div>
+
+                <div class="column">
+                    ${hasCancel === true ? '<button id="generic-input-modal-cancel" class="button">Cancel</button>' : ""}
+                    <button id="generic-input-modal-ok" class="button">Ok</button>
+                </div>
+            </div>
+    `);
+
+    let modalContentContainer = $("#modal-content-container");
+    modalContentContainer.append(inputContent);
+    modalContentContainer.hide();
+
+    $("#generic-input-label").text(label);
     let cancelButton = $("#generic-input-modal-cancel");
     let okButton = $("#generic-input-modal-ok");
+
     let modal = $("#generic-input-modal");
-
-    cancelButton.off();
-    okButton.off();
-    modal.off();
-
-    modal.on("keydown", function (e) {
-        let code = (e.keyCode ? e.keyCode : e.which);
-        if (code === 13) {
-            callbackOkay(e);
-        }
-    });
-
-    $("#generic-input-label").text(inputLabel);
-    $("#modal-content-container").hide();
-    modal.addClass("is-active");
 
     let input = $("#generic-modal-input");
     input.val(" ");
 
-    $("#modal-content-container").fadeIn(300, function () {
+    modal.addClass("is-active");
+    $("#blurrable").css("filter", "blur(5px)");
+
+    modalContentContainer.fadeIn(300, function () {
         input.focus();
     });
 
-    cancelButton.on("click", callbackCancel);
-    okButton.on("click", callbackOkay);
+    let validateAndCallback = (e) => {
+        let input = $("#generic-modal-input").val();
+        let parsedInput = validate(input);
+        if (parsedInput.valid === true) {
+            genericStringLikeInputCleanUp(modalContentContainer, modal);
+            callback(parsedInput.input);
+        } else {
+            generateError(errorText);
+        }
+    };
+
+    if (hasCancel) {
+        let cancelCallback = (_) => {
+            genericStringLikeInputCleanUp(modalContentContainer, modal);
+        };
+        cancelButton.on("click", cancelCallback);
+    }
+
+    okButton.on("click", validateAndCallback);
+    modal.on("keydown", function (e) {
+        let code = (e.keyCode ? e.keyCode : e.which);
+        if (code === 13) {
+            validateAndCallback(e);
+        }
+    });
 }
 
 function getGenericFileInput(inputLabel, callBackOkay, callBackCancel) {
@@ -473,10 +530,12 @@ function getGenericFileInput(inputLabel, callBackOkay, callBackCancel) {
 }
 
 
-function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, offsetArg = {
-                               offset: null,
-                               askForOffset: true
-                           },
+function loadVideoOnPlay(video) {
+
+}
+
+
+function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, offsetArg = 0,
                            videoFinishedLoadingCallback = null) {
     // offsetArg - {"offset": offset for the video being loaded, "askForOffset": If it is the main window, should it
     // ask for an offset? If not, it will expect "offset" to be set}
@@ -537,111 +596,87 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, off
         // reloadInitState
     });
 
-    curVideo.on('canplay', function () {
-        if (!locks[`initFrameLoaded ${index}`]) {
-            videos[index] = new Video(index, 0);
-            // Get Offsets
-            if (isMainWindow) {
-                if (index !== 0 && offsetArg.askForOffset) {
-                    let label = `Offset for video ${name}`;
 
-                    let invalid = function (event) {
-                        generateError("You must provide an offset! (It can be 0!)");
-                    };
-
-                    let validate = function (event) {
-                        let offset = $("#generic-modal-input").val();
-                        let curOffset = parseInt(offset, 10);
-                        if (isNaN(curOffset)) {
-                            generateError("Offset must be a valid integer!");
-                        } else {
-                            videos[index].offset = curOffset;
-                            let originalText = document.getElementById(videos[index].videoLabelID);
-                            let label = Video.parseVideoLabel(originalText.innerText);
-                            label.OFFSET = curOffset;
-                            originalText.innerText = Video.videoLabelDataToString(label);
-
-                            videos[index].goToFrame(frameTracker[index]);
-                            $("#generic-input-modal").removeClass("is-active");
-                        }
-                    };
-
-                    getGenericInput(label, validate, invalid);
-                } else {
-                    videos[index].offset = offsetArg.offset;
-                    let originalText = document.getElementById(videos[index].videoLabelID);
-                    let label = Video.parseVideoLabel(originalText.innerText);
-                    label.OFFSET = offsetArg.offset;
-                    originalText.innerText = Video.videoLabelDataToString(label);
-                }
+    let setupFunction = () => {
+        console.log("I got here");
+        videos[index] = new Video(index, offsetArg);
+        let originalText = document.getElementById(videos[index].videoLabelID);
+        let label = Video.parseVideoLabel(originalText.innerText);
+        label.OFFSET = offsetArg;
+        originalText.innerText = Video.videoLabelDataToString(label);
 
 
-                $(`#${videos[index].popVideoID}`).on("click", function (event) {
-                    popOutvideo(event, curURL)
-                });
-            }
-
-
-            // TODO
-            $(`#goToFrame-${index}`).on("click", function (event) {
-
+        if (isMainWindow) {
+            $(`#${videos[index].popVideoID}`).on("click", function (event) {
+                popOutVideo(event, curURL)
             });
-
-            let video = videos[index].video;
-
-            let clickCanvas = videos[index].canvas;
-            let videoCanvas = videos[index].videoCanvas;
-            let epipolarCanvas = videos[index].epipolarCanvas;
-
-
-            let currentCanvasContainer = document.getElementById(
-                `container-for-canvas-${index}`
-            );
-
-            if (video.videoWidth > 800 || video.videoHeight > 600) {
-                currentCanvasContainer.style.height = "600px";
-                currentCanvasContainer.style.width = "800px";
-            } else {
-                currentCanvasContainer.style.height = video.videoHeight + "px";
-                currentCanvasContainer.style.width = video.videoWidth + "px";
-            }
-
-            setCanvasSizes(clickCanvas, video);
-            setCanvasSizes(videoCanvas, video);
-            setCanvasSizes(epipolarCanvas, video);
-
-
-            // Zoom Canvas is currently not supported
-            // let zoomCanvas = document.getElementById(videoObject["zoomCanvasID"]);
-            // zoomCanvas.height = 400;
-            // zoomCanvas.width = 400;
-            // zoomCanvas.style.height = "400px";
-            // zoomCanvas.style.width = "400px";
-            // zoomCanvas.style.top = (parseInt(clickCanvas.style.top, 10) + clickCanvas.height - zoomCanvas.height) + "px";
-            // zoomCanvas.style.left = (clickCanvas.width - zoomCanvas.width) + "px";
-
-            let videoLabel = document.getElementById(videos[index].videoLabelID);
-            let offset = 0;
-            if (!isMainWindow) {
-                offset = offsetArg["offset"];
-            }
-
-            let data = {
-                "title": name,
-                "frame": 0,
-                "offset": index === 0 ? "n/a" : offset,
-            };
-
-            videoLabel.innerText = videoLabelDataToString(data);
-
-            videos[index].goToFrame(1.001);
-
-            locks[`initFrameLoaded ${index}`] = true;
-            if (videoFinishedLoadingCallback !== null) {
-                videoFinishedLoadingCallback();
-            }
         }
 
+
+        // TODO
+        $(`#goToFrame-${index}`).on("click", function (event) {
+
+        });
+
+        let video = videos[index].video;
+
+        let clickCanvas = videos[index].canvas;
+        let videoCanvas = videos[index].videoCanvas;
+        let epipolarCanvas = videos[index].epipolarCanvas;
+
+
+        let currentCanvasContainer = document.getElementById(
+            `container-for-canvas-${index}`
+        );
+
+        if (video.videoWidth > 800 || video.videoHeight > 600) {
+            currentCanvasContainer.style.height = "600px";
+            currentCanvasContainer.style.width = "800px";
+        } else {
+            currentCanvasContainer.style.height = video.videoHeight + "px";
+            currentCanvasContainer.style.width = video.videoWidth + "px";
+        }
+
+        setCanvasSizes(clickCanvas, video);
+        setCanvasSizes(videoCanvas, video);
+        setCanvasSizes(epipolarCanvas, video);
+
+
+        // Zoom Canvas is currently not supported
+        // let zoomCanvas = document.getElementById(videoObject["zoomCanvasID"]);
+        // zoomCanvas.height = 400;
+        // zoomCanvas.width = 400;
+        // zoomCanvas.style.height = "400px";
+        // zoomCanvas.style.width = "400px";
+        // zoomCanvas.style.top = (parseInt(clickCanvas.style.top, 10) + clickCanvas.height - zoomCanvas.height) + "px";
+        // zoomCanvas.style.left = (clickCanvas.width - zoomCanvas.width) + "px";
+
+        let videoLabel = document.getElementById(videos[index].videoLabelID);
+        let offset = 0;
+        if (!isMainWindow) {
+            offset = offsetArg["offset"];
+        }
+
+        let data = {
+            "title": name,
+            "frame": 0,
+            "offset": index === 0 ? "n/a" : offset,
+        };
+
+        videoLabel.innerText = videoLabelDataToString(data);
+
+        videos[index].goToFrame(1.001);
+
+        locks[`initFrameLoaded ${index}`] = true;
+        if (videoFinishedLoadingCallback !== null) {
+            videoFinishedLoadingCallback();
+        }
+    };
+
+
+    curVideo.one('canplay', setupFunction);
+
+    curVideo.on('canplay', function () {
         videos[index].loadFrame();
     });
 }
