@@ -194,10 +194,11 @@ function exportConfig(autoSaved = false) {
         videoObjects.push(newVideo);
     }
 
+    let date = new Date();
     let output_json = {
         videos: videoObjects,
         title: PROJECT_NAME,
-        dateSaved: Date(),
+        dateSaved: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}T${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`,
         points: clickedPoints,
         frameTracker: frameTracker,
         trackTracker: trackTracker,
@@ -1275,22 +1276,133 @@ function sendKillNotification() {
 }
 
 function generateSavedState(result, index) {
+    let date = new Date(result.dateSaved);
+    console.log(date);
     return $(`
             <div class="column">
                 <div class="container">
                     <p>${result.title}</p>
-                    <p>${result.dateSaved}</p>
+                    <p>${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}</p>
+                    <p>${date.toLocaleTimeString()}</p>
+                    <p>${result.autosaved}</p>
                     <button id="result-${index}" class="result button" id=result-${index}">Load</button>
                 </div>
             </div>
     `)
 }
 
+
+function createValidProject() {
+    console.log("I got here");
+}
+
+
+function createProject() {
+    let contentContainer = $("#modal-content-container");
+    let form = $(`
+        <div class="columns is-centered is-multiline">
+            <div class="column">
+                <form class="form" onsubmit="return false; ">
+                    <div class="columns is-centered is-vcentered is-multiline">
+                        <div class="column is-12">
+                            <div class="field">
+                                <label class="label has-text-white">Project Name</label>
+                                <div class="control">
+                                    <input id="project-name-input" class="input">
+                                </div>
+                            </div>
+                        </div>
+        
+                        <div class="column">
+                            <div class="level">
+                                <div class="level-left">
+                                    <div class="field">
+                                        <div id="file-input-container" class="file centered-file-input fade-on-hover">
+                                            <label class="file-label">
+                                                <input
+                                                        id="video-file-input"
+                                                        class="file-input is-expanded"
+                                                        accept="video/*" type=file multiple
+                                                >
+                                                <span class="file-cta has-background-dark has-text-white is-size-5" style="border: none">
+                                            <span class="file-label">Select Videos</span>
+                                        </span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+        
+                                <div class="level-right">
+                                    <div class="columns">
+                                        <div class="column is-narrow is-pulled-right">
+                                            <button id="cancel-button" class="button has-background-dark has-text-white is-size-5 fade-on-hover" style="border: none">Cancel</button>
+                                        </div>
+                                        <div class="column is-narrow is-pulled-right">
+                                            <button id="create-button" class="button has-background-dark has-text-white is-size-5 fade-on-hover disabled" style="border: none">Create</button>
+                                        </div>                                    
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `);
+    contentContainer.append(form);
+    let modal = $("#generic-input-modal");
+    let createButton = $("#create-button");
+    let titleInput = $("#project-name-input");
+    let fileInput = $("#video-file-input");
+
+    let validate = () => {
+        if (titleInput.val().length !== 0) {
+            let selectedFiles = Array.from(fileInput.prop("files"));
+            if (selectedFiles.length !== 0) {
+                return true;
+            }
+        } else {
+            return false;
+        }
+    };
+
+    let updateIfValid = () => {
+        let valid = validate();
+        if (valid) {
+            createButton.removeClass("disabled");
+            createButton.on("click", createValidProject);
+        } else {
+            createButton.off();
+            createButton.addClass("disabled");
+        }
+    };
+
+    $("#cancel-button").on("click", function () {
+        genericStringLikeInputCleanUp(contentContainer, modal)
+    });
+
+    titleInput.on('input', updateIfValid);
+    fileInput.on("change", updateIfValid);
+
+    modal.addClass("is-active");
+}
+
+
 function displaySavedStates(results) {
     let section = $("#saved-states-columns");
+
+    if (results.length === 0) {
+        section.append(`<h3 class="notification has-text-weight-bold is-warning">You don't have any saved projects! Try creating some!</h3>`);
+        $("#continue-working-button").slideUp(750);
+        $('#new-project-button').addClass("float");
+    }
+
     let parsedResults = [];
-    for (let i = 0; i<results.length; i++) { parsedResults.push(JSON.parse(results[i])) }
-    parsedResults.sort((a, b) => b.dateSaved - a.dateSaved);
+
+    for (let i = 0; i < results.length; i++) {
+        parsedResults.push(JSON.parse(results[i]))
+    }
+    parsedResults.sort((a, b) => new Date(b.dateSaved) - new Date(a.dateSaved));
     for (let i = 0; i < parsedResults.length; i++) {
         let newState = generateSavedState(parsedResults[i], i);
         newState.on("click", `#result-${i}`, function () {
@@ -1303,12 +1415,7 @@ function displaySavedStates(results) {
 
 
 $(document).ready(function () {
-    let fileInput = document.getElementById("video-file-input");
-    fileInput.onchange = function (_) {
-        let selectedFiles = Array.from(fileInput.files);
-        loadVideos(selectedFiles);
-    };
-
+    $("#new-project-button").on("click", createProject);
     $("#continue-working-button").on("click", handleContinueWorking);
 
     $(window).on('beforeunload', sendKillNotification);

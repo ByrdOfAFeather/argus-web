@@ -60,24 +60,13 @@
                 <div class="columns is-centered is-vcentered is-multiline">
 
                     <div class="column is-narrow">
-                        <div id="file-input-container" class="file centered-file-input">
-                            <label class="file-label">
-                                <input
-                                        id="video-file-input"
-                                        class="file-input is-expanded"
-                                        accept="video/*" type=file multiple
-                                >
-                                <span class="file-cta has-background-dark has-text-white is-size-4">
-                                  <span class="file-label">
-                                    New Project
-                                  </span>
-                            </span>
-                            </label>
-                        </div>
+                        <button id="new-project-button"
+                                class="button has-background-dark has-text-white is-size-4 fade-on-hover">New Project
+                        </button>
                     </div>
                     <div class="column is-narrow">
                         <button id="continue-working-button"
-                                class="button has-background-dark has-text-white is-size-4">Continue Working
+                                class="button has-background-dark has-text-white is-size-4 fade-on-hover">Continue Working
                         </button>
                     </div>
                 </div>
@@ -120,7 +109,7 @@
             autoHeightAnimate($($(".animated")[1]), 600, function () {
                 autoHeightAnimate($($(".animated")[2]), 600, function () {
                     autoHeightAnimate($($(".animated")[0]), 300, function () {
-                        $('#file-input-container').stop().animate({boxShadow: '10px 10px #000'});
+                        $('#new-project-button').stop().animate({boxShadow: '10px 10px #000'});
                         $('#continue-working-button').stop().animate({boxShadow: '10px 10px #000'});
                     })
                 })
