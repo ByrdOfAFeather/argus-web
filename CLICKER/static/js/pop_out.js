@@ -1,11 +1,6 @@
-let DEV_FRAME_RATE = 30;
-let currentFilter = "";
-
-let currentFrameGlobal = 0;
-
-let settings = {
-    "auto-advance": true,
-};
+let FRAME_RATE = null;
+let COLORSPACE = "";
+let settings = {"auto-advance": false};
 
 let mouseTracker = {
     x: 0,
@@ -19,138 +14,140 @@ let locks = {
     "resizing_mov": false,
 };
 
+
+// GLOBALS CORRESPONDING TO VIDEO_API
 let currentResizable = null;
 let clickedPoints = [];
 let trackTracker = null;
-let numberOfCameras = 1;
+let NUMBER_OF_CAMERAS = 1;
+
+
+// GLOBALS CORRESPONDING TO LOCAL API
 let masterCommunicator = null;
-let messageData = null;
-let videoSource = null;
-let dltCoefficents = null;
-let cameraProfile = null;
-let videoID = null;
-let offset = 0;
-
+let index = null;
 let killSelf = false;
+let video = null;
 
-let GLOBAL_VIDEO_OBJECT = null;
-
-const communicator = new BroadcastChannel("unknown-video");
+const initCommunicator = new BroadcastChannel("unknown-video");
 
 let initPost = false;
 
-function setMousePos(e) {
-}
 
 function getOffset(frame, videoObject) {
     return offset;
 }
 
 function sendNewPoint(event) {
-    let newPoint = addNewPoint(event);
+    let id = parseInt(event.target.id.split("-")[1], 10);
+    let newPoint = Video.createPointObject(id);
+    let index = video.addNewPoint(newPoint);
 
     masterCommunicator.postMessage(
         messageCreator("newPoint",
             {
                 "point": newPoint,
                 "track": trackTracker["currentTrack"],
-                "currentFrame": settings["auto-advance"] ? newPoint.frame + 1 : newPoint.frame,
-                "videoID": videoID
+                "videoID": id,
+                "index": index,
             }
         )
     )
 }
 
 function handleGoToFrame(data) {
-    goToFrame(data.frame, GLOBAL_VIDEO_OBJECT);
+    video.goToFrame(data.frame);
 }
 
 function handleChangeTrack(data) {
     let track = data.track;
-    changeTracks(track, [videoID]);
+    changeTracks(track, [index]);
 }
 
 function handleAddTrack(data) {
     trackTracker["tracks"][data.track.index] = data.track.track;
     trackTracker["currentTrack"] = data.track.index;
-    clickedPoints[videoID].push([]);
+    clickedPoints[index].push([]);
     let track = {track: data.track.index};
     handleChangeTrack(track);
 }
 
 function handleDrawEpipolarLine(data) {
-    drawEpipolarLine(data.tmp, GLOBAL_VIDEO_OBJECT);
+    video.drawEpipolarLine(data.tmp);
 }
 
 function handleDrawDiamond(data) {
-    drawDiamond(data.point1, data.point2, 10, 10, GLOBAL_VIDEO_OBJECT);
+    video.drawDiamond(data.point1, data.point2, 10, 10);
 }
 
 function handleLoadPoints(data) {
-    clearPoints(GLOBAL_VIDEO_OBJECT);
-    drawPoints(data.points, GLOBAL_VIDEO_OBJECT);
-    drawLines(data.points, GLOBAL_VIDEO_OBJECT);
+    video.clearPoints();
+    video.drawPoints(data.points);
+    video.drawLines(data.points);
+}
+
+function handleColorSpaceChange(data) {
+    COLORSPACE = data.colorSpace === RGB ? "grayscale(0%)" : "grayscale(100%)";
+    video.loadFrame();
 }
 
 function handleChange(message) {
     let messageContent = message.data;
     if (messageContent.type === "goToFrame") {
-        handleGoToFrame(message.data.data);
-    }
-    else if (messageContent.type === "changeTrack") {
+        handleGoToFrame(messageContent.data);
+    } else if (messageContent.type === "changeTrack") {
         handleChangeTrack(messageContent.data);
-    }
-    else if (messageContent.type === "addNewTrack") {
+    } else if (messageContent.type === "addNewTrack") {
         handleAddTrack(messageContent.data);
-    }
-    else if (messageContent.type === "drawEpipolarLine") {
+    } else if (messageContent.type === "drawEpipolarLine") {
         handleDrawEpipolarLine(messageContent.data);
-    }
-    else if (messageContent.type === "drawDiamond") {
+    } else if (messageContent.type === "drawDiamond") {
         handleDrawDiamond(messageContent.data);
-    }
-    else if (messageContent.type === "loadPoints") {
+    } else if (messageContent.type === "loadPoints") {
         handleLoadPoints(messageContent.data);
-    }
-    else if (messageContent.type === "mainWindowDeath") {
+    } else if (messageContent.type === "changeColorSpace") {
+        handleColorSpaceChange(messageContent.data);
+    } else if (messageContent.type === "mainWindowDeath") {
         killSelf = true;
         window.close();
     }
 }
 
 function afterLoad(initFrame) {
+    let currentPoints = getClickedPoints(index, trackTracker["currentTrack"]);
+    video = videos[index];
+    video.drawPoints(currentPoints);
+    video.drawLines(currentPoints);
+    video.goToFrame(initFrame);
+    masterCommunicator.postMessage(messageCreator("initLoadFinished", {index: index}));
+}
 
-    let currentPoints = getClickedPoints(videoID, trackTracker["currentTrack"]);
-    let videoObject = GLOBAL_VIDEO_OBJECT;
-    drawPoints(currentPoints, videoObject);
-    drawLines(currentPoints, videoObject);
-    goToFrame(initFrame, videoObject);
+function deletePoint() {
+
 }
 
 function init_listener(message) {
-    communicator.close();
-    messageData = message["data"];
-    videoSource = messageData["dataURL"];
-    settings["autoAdvance"] = messageData["audo-advance"];
-    dltCoefficents = messageData["dltCoefficents"];
-    cameraProfile = messageData["cameraProfile"];
+    initCommunicator.close();
+    let messageData = message["data"];
+    let videoSource = messageData["dataURL"];
     document.title = messageData["videoTitle"];
-    videoID = messageData["videoID"];
-    offset = messageData["offset"];
     trackTracker = messageData["currentTracks"];
+    COLORSPACE = messageData["currentColorSpace"];
+    FRAME_RATE = messageData["frameRate"];
+
+    let offset = messageData["offset"];
     let initFrame = messageData["initFrame"];
 
+    index = messageData["index"];
 
-    GLOBAL_VIDEO_OBJECT = videoObjectSingletonFactory(videoID);
-
-
-    loadVideosIntoDOM(videoSource, videoID, document.title,
-        sendNewPoint, false, {"offset": offset},
-        function () { afterLoad(initFrame) });
+    loadVideosIntoDOM(videoSource, index, document.title,
+        sendNewPoint, deletePoint, false, offset,
+        function () {
+            afterLoad(initFrame);
+        });
 
     clickedPoints = messageData["clickedPoints"];
 
-    masterCommunicator = new BroadcastChannel(`${videoID}`);
+    masterCommunicator = new BroadcastChannel(`${index}`);
     masterCommunicator.onmessage = handleChange;
 }
 
@@ -159,7 +156,7 @@ function sendNewFrame(newFrame) {
         messageCreator("newFrame",
             {
                 "newFrame": newFrame,
-                "videoID": videoID
+                "videoID": video.index
             }
         )
     );
@@ -172,7 +169,7 @@ function sendDeathNotification() {
         masterCommunicator.postMessage(messageCreator(
             "popoutDeath",
             {
-                "videoID": videoID,
+                "index": video.index,
             }
         ));
     }
@@ -184,48 +181,47 @@ function handleKeyboardInput(e) {
     if (String.fromCharCode(e.which) === "Q") {
         triggerResizeMode();
     } else if (String.fromCharCode(e.which) === "F") {
-        moveToNextFrame(GLOBAL_VIDEO_OBJECT);
-        sendNewFrame(frameTracker[videoID]);
+        video.moveToNextFrame();
+        sendNewFrame(frameTracker[video.index]);
     } else if (String.fromCharCode(e.which) === "B") {
-        if (frameTracker[videoID] < 2) {
+        if (frameTracker[video.index] < 2) {
             return;
         } else {
-            let frameNumber = frameTracker[videoID] - 1;
-            goToFrame(frameNumber, GLOBAL_VIDEO_OBJECT);
+            let frameNumber = frameTracker[video.index] - 1;
+            video.goToFrame(frameNumber);
             sendNewFrame(frameNumber);
         }
     } else if (String.fromCharCode(e.which) === "G") {
-                let index = parseInt(e.target.id.split("-")[1], 10);
-        let genericModal = $("#generic-input-modal");
-
-        let validate = (_) => {
-            let currentFrame = $("#generic-modal-input").val();
-            let frameToGoTo = parseInt(currentFrame, 10);
+        let validate = (input) => {
+            let frameToGoTo = parseInt(input, 10);
             if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
-                generateError("Frame must be valid integer!");
+                return {input: null, valid: false};
             } else {
-                frameToGoTo += .00001;
-                goToFrame(frameToGoTo, videoObjectSingletonFactory(index));
-                sendNewFrame(frameToGoTo);
-                genericModal.removeClass("is-active");
+                frameToGoTo += .001;
+                return {input: frameToGoTo, valid: true};
             }
         };
 
-        let close = (_) => {
-            genericModal.removeClass("is-active");
+        let callback = (parseInput) => {
+            video.goToFrame(parseInput);
+            sendNewFrame(parseInput);
         };
 
-
         let label = "What frame would you like to go to?";
-        getGenericInput(label, validate, close);
+        let errorText = "You must input a valid integer!";
+        getGenericStringLikeInput(validate, callback, label, errorText);
+    } else if (String.fromCharCode(e.which) === "Z") {
+        zoomInZoomWindow(e.target.id.split("-")[1]);
+    } else if (String.fromCharCode(e.which) === "X") {
+        zoomOutZoomWindow(e.target.id.split("-")[1]);
     }
 }
 
 
 $(document).ready(function () {
-    communicator.onmessage = init_listener;
+    initCommunicator.onmessage = init_listener;
     if (!initPost) {
-        communicator.postMessage({"state": "ready!"});
+        initCommunicator.postMessage({"state": "ready!"});
     } else {
         initPost = true;
     }

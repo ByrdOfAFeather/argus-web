@@ -1,4 +1,3 @@
-// TODO: Investigate getting frame rate manually
 // TODO: Display Error:
 /*
 Media resource blob:http://127.0.0.1:5000/951b0a32-14df-4288-b3e5-cb0a61a32b2f could not be decoded. 127.0.0.1:5000
@@ -9,48 +8,74 @@ Details: mozilla::SupportChecker::AddMediaFormatChecker(const mozilla::TrackInfo
 
 
 // ------------- INTERFACE ------------- \\
-let COLORS = ["rgb(228, 26, 28)", "rgb(55, 126, 184)", "rgb(77, 175, 74)", "rgb(152, 78, 163)",
+
+
+// A LIST OF COLORS THAT DEFINE TRACK COLORS IN ORDER
+const COLORS = ["rgb(228, 26, 28)", "rgb(55, 126, 184)", "rgb(77, 175, 74)", "rgb(152, 78, 163)",
     "rgb(255, 127, 0)", "rgb(255, 255, 51)", "rgb(166, 86, 40)", "rgb(247, 129, 191)"];
 let colorIndex = 0;
 
-let PINHOLE = 1;
+// DEBUGGING CONSTANTS
+const PINHOLE = 1;
+let FRAME_RATE = null;
 
-let DEV_FRAME_RATE = 30;
+// GLOBALS FOR THE CAMERA PROFILE AND DLT COEFFICENTS
 let CAMERA_PROFILE = null;
 let DLT_COEFFICIENTS = null;
+let AUTO_SAVE_INTERVAL_ID = null;
 
-let RGB = 0;
-let GREYSCALE = 1;
-let currentFilter = "";
+// COLORSPACE MANAGER
+let COLORSPACE = "";
 
-let currentFrameGlobal = 0;
-
+// MANAGER FOR POP OUT WINDOWS
 let communicators = [];
 
-
+// SETTINGS GLOBAL
+// AUTO-ADVANCE: IF THIS IS TRUE, THE MOVIE WILL BE MOVED FORWARD ONE FRAME AFTER A CLICK
+// SYNC: IF THIS IS TRUE, ALL VIDEOS WILL REMAIN IN THE SAME FRAME
 let settings = {
     "auto-advance": true,
     "sync": true
 };
 
+// GLOBAL FOR TRACKING THE MOUSE FOR WHERE A POINT IS CLICKED
 let mouseTracker = {
     x: 0,
     y: 0,
 };
-let frameTracker = {};
-let offsetTracker = {};
 
+let fileObjects = [];
+
+// TRACKS WHICH VIDEOS ARE IN WHICH FRAMES
+// {videoIndex: frameNumber}
+let frameTracker = {};
+
+// MAKES SURE SOME THINGS CAN'T HAPPEN WHILE OTHERS ARE HAPPENING
 let locks = {
     "can_click": true,
     "init_frame_loaded": false,
     "resizing_mov": false,
+    "can_pop_out": true,
 };
 
-let currentResizable = null;
-let numberOfCameras = 0;
+// KEEPS TRACK OF THE NUMBER OF CAMERAS
+let NUMBER_OF_CAMERAS = 0;
 
+// CURRENTLY NOT USEFUL
+let currentResizable = null;
+
+// KEEPS TRACK OF THE CLICKED POINTS
+// [CAMERA INDEX][TRACK INDEX][POINT]
+// POINT: {X: X VALUE, Y: Y_VALUE, FRAME: FRAME_VALUE}
 let clickedPoints = [];
+
+// KEEPS TRACK OF TRACKS, THEIR NAMES, THEIR COLOR AND THEIR INDEX
+// {[ {name: TRACK_NAME, index: TRACK_INDEX, color: TRACK_COLOR} ], currentTrack: TRACK_VALUE}
 let trackTracker = [];
+
+// Global to be set by user.
+let PROJECT_NAME = "";
+let PROJET_DESCRIPTION = "";
 
 function loadPoints(text) {
     colorIndex = 0;
@@ -67,9 +92,9 @@ function loadPoints(text) {
         for (let i = 0; i < frameIndexed.length; i++) {
             let localPoints = frameIndexed[i].split(",");
             localPoints.pop();
-            let numberOfTracks = localPoints.length / (2 * numberOfCameras);
+            let numberOfTracks = localPoints.length / (2 * NUMBER_OF_CAMERAS);
             for (let j = 0; j < numberOfTracks; j++) {
-                let trackStartIndex = numberOfCameras * 2 * j;
+                let trackStartIndex = NUMBER_OF_CAMERAS * 2 * j;
                 if (i === 0) {
                     let trackName = localPoints[trackStartIndex].split("_")[0];
                     if (j === 0) {
@@ -78,7 +103,7 @@ function loadPoints(text) {
                         addTrackToDropDown(trackName);
                     }
                 } else {
-                    for (let q = 0; q < numberOfCameras; q++) {
+                    for (let q = 0; q < NUMBER_OF_CAMERAS; q++) {
                         if (clickedPoints[q] === undefined) {
                             clickedPoints[q] = [];
                         }
@@ -107,10 +132,9 @@ function loadPoints(text) {
             let currentClickedPoints = getClickedPoints(i, currentTrack);
 
             let callback = function (i) {
-                let videoObject = videoObjectSingletonFactory(i);
-                clearPoints(videoObject);
-                drawPoints(currentClickedPoints, videoObject);
-                drawLines(currentClickedPoints, videoObject);
+                videos[i].clearPoints();
+                videos[i].drawPoints(currentClickedPoints);
+                videos[i].drawLines(currentClickedPoints);
             };
             let message = messageCreator("loadPoints", {
                 points: currentClickedPoints
@@ -118,6 +142,7 @@ function loadPoints(text) {
             updateLocalOrCommunicator(i, callback, message);
         }
     };
+
     reader.readAsText(text[0]);
 }
 
@@ -127,7 +152,7 @@ function updateCommunicators(message) {
 
 
 function updateLocalOrCommunicator(index, localCallback, message) {
-    let currentCommunicator = communicators.find((elem) => elem.index === `${index}`);
+    let currentCommunicator = communicators.find((elem) => elem.index === index);
     if (currentCommunicator === undefined) {
         localCallback(index);
     } else {
@@ -135,72 +160,142 @@ function updateLocalOrCommunicator(index, localCallback, message) {
     }
 }
 
-function exportConfig() {
-    let videos = [];
-    for (let i = 0; i < numberOfCameras; i++) {
-        videos.push(document.getElementById(videoObjectSingletonFactory(i).videoID).src);
+function updateAllLocalOrCommunicator(localCallback, message, ignoreParam = null) {
+    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+        if (ignoreParam !== null) {
+            if (ignoreParam === i) {
+                continue;
+            }
+        }
+        updateLocalOrCommunicator(i, localCallback, message);
+    }
+}
+
+
+function exportConfig(autoSaved = false) {
+    let videoObjects = [];
+    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+        let newVideo = {
+            offset: videos[i].offset
+        };
+
+        if (communicators.find((elem) => elem.index === i) !== undefined) {
+            newVideo.poppedOut = true;
+        } else {
+            newVideo.poppedOut = false;
+        }
+
+        newVideo.name = Video.parseVideoLabel(
+            document.getElementById(
+                videos[i].videoLabelID
+            ).innerText
+        ).TITLE;
+
+        videoObjects.push(newVideo);
     }
 
+    let date = new Date();
     let output_json = {
-        videos: videos,
+        videos: videoObjects,
+        title: PROJECT_NAME,
+        description: PROJET_DESCRIPTION,
+        dateSaved: date,
         points: clickedPoints,
         frameTracker: frameTracker,
         trackTracker: trackTracker,
-        offsetTracker: offsetTracker,
         cameraProfile: CAMERA_PROFILE,
         dltCoefficents: DLT_COEFFICIENTS,
-        settings: settings
+        settings: settings,
+        frameRate: FRAME_RATE,
+        colorSpace: COLORSPACE
     };
 
-    download("config.json", JSON.stringify(output_json));
+    createNewSavedState(output_json, autoSaved);
 }
 
-function loadConfig(text) {
-    let config = JSON.parse(text);
-}
+function getSavedStateVideoPaths(videoConfigs, index, cameras, pointConfig, frameTrackerConfig) {
+    let invalid = function (event) {
+        generateError("You have to provide a path for this video!");
+    };
 
-/** @namespace */
-function getOffset(frame, videoObject) {
-    /**
-     * Gets camera's frame offset from the offsetTracker global variable based on the frame and video.
-     * @param {Number} frame Value representing the current frame
-     * @param {Object} videoObject @see videoObjectSingletonFactory
-     * @returns {Number} offset The offset given the current frame
-     */
+    let validate = function (restorePoint) {
+        let selectedFile = Array.from($("#generic-file-input").prop("files"));
+        let curURL = URL.createObjectURL(selectedFile[0]);
 
-        // Gets a list of offset objects based on the passed video
-    let offsets = offsetTracker[videoObject["index"]];
-
-    // TODO: This doesn't actually do anything
-    // If there are no offsets found for this video, return
-    if (offsets.length === 0) {
-        return offsets[0];
-    } else {
-        // Gets the frame closest to the passed one and reads its offset
-        let currentCalculation = NaN;
-        let futureCalculation = 0;
-        for (let offsetIndex = 0; offsetIndex < offsets.length; offsetIndex++) {
-            if (offsetIndex === offsets.length - 1) {
-                return offsets[offsetIndex].offset;
+        let callback = null;
+        if (videoConfigs[index].poppedOut === true) {
+            callback = () => {
+                clickedPoints = pointConfig.slice(0);
+                frameTracker = Object.assign({}, frameTrackerConfig);
+                popOutVideo({target: {id: `popVideo-${index}`}}, curURL);
             }
-            let currentOffsetFrame = offsets[offsetIndex].frame;
-            let futureOffsetFrame = offsets[offsetIndex + 1].frame;
-            if (isNaN(currentCalculation)) {
-                currentCalculation = Math.abs(frame - currentOffsetFrame);
-                futureCalculation = Math.abs(frame - futureOffsetFrame);
-
-                if (currentCalculation < futureCalculation) {
-                    return offsets[offsetIndex].offset;
-                }
-            } else {
-                currentCalculation = futureCalculation;
-                futureCalculation = Math.abs(frame - futureOffsetFrame);
-                if (currentCalculation < futureCalculation) {
-                    return offsets[offsetIndex].offset;
-                }
-            }
+        } else {
+            callback = () => {
+                clickedPoints = pointConfig.slice(0);
+                frameTracker = Object.assign({}, frameTrackerConfig);
+                videos[index].goToFrame(frameTracker[index]);
+                let points = getClickedPoints(index, trackTracker.currentTrack);
+                videos[index].drawPoints(points);
+                videos[index].drawLines(points);
+                getEpipolarLinesOrUnifiedCoord(index, frameTracker[index]);
+                changeTracks(trackTracker.currentTrack, cameras);
+            };
         }
+
+
+        loadVideosIntoDOM(curURL, index, videoConfigs[index].name, mainWindowAddNewPoint, mainWindowDeletePoint, true,
+            videoConfigs[index].offset, callback);
+        let modalContent = $("#modal-content-container");
+        modalContent.empty();
+        modalContent.append(restorePoint);
+        if (index + 1 < videoConfigs.length) {
+            getSavedStateVideoPaths(videoConfigs, index + 1, cameras, pointConfig, frameTrackerConfig);
+        } else {
+            let modal = $("#generic-input-modal");
+            modal.removeClass("is-active");
+            clearInterval(AUTO_SAVE_INTERVAL_ID);
+            AUTO_SAVE_INTERVAL_ID = setInterval(function () {
+                    exportConfig(true)
+                },
+                600000);
+
+        }
+    };
+
+    getGenericFileInput(`Remind me where ${videoConfigs[index].name} is`, validate, invalid);
+}
+
+
+function loadSavedState(config) {
+    PROJECT_NAME = config.title;
+    colorIndex = 0;
+    clickedPoints = [];
+    trackTracker = {tracks: [{name: "Track 1", color: COLORS[0], index: 0}], currentTrack: 0};
+    NUMBER_OF_CAMERAS = config.videos.length;
+    FRAME_RATE = config.frameRate;
+    COLORSPACE = config.colorSpace;
+    console.log(config);
+
+
+    for (let i = 1; i < config.trackTracker.tracks.length; i++) {
+        addTrackToDropDown(config.trackTracker.tracks[i].name);
     }
+
+    trackTracker.currentTrack = config.trackTracker.currentTrack;
+
+    let cameras = [];
+    for (let i = 0; i < config.videos.length; i++) {
+        cameras.push(i);
+    }
+
+    CAMERA_PROFILE = config.cameraProfile;
+    DLT_COEFFICIENTS = config.dltCoefficents;
+    settings = config.settings;
+
+    $("#saved-states-section").empty();
+    loadSettings();
+
+    getSavedStateVideoPaths(config.videos, 0, cameras, config.points, config.frameTracker);
 }
 
 /// TRACK MANAGEMENT ///
@@ -210,7 +305,7 @@ function removeTrackFromDropDown(trackIndex) {
     if (trackIndex === trackTracker["currentTrack"]) {
         $("#current-track-display").text(`Current Track: ${trackTracker["tracks"][0].name}`);
     }
-    $(`#track-${trackTracker.tracks[trackIndex].index}`).parent().remove();
+    $(`#track-${trackTracker.tracks[trackIndex].name.replace(/ /g, "-")}`).remove();
     removeTrack(trackIndex);
     // if (trackIndex.hasClass("is-active")) {
     //     trackIndex.removeClass("is-active");
@@ -225,7 +320,7 @@ function removeTrack(trackIndex) {
      * @param {Number} trackIndex The index of the track requested to be deleted
      * @returns {undefined}
      */
-    for (let cameraIndex = 0; cameraIndex < numberOfCameras; cameraIndex++) {
+    for (let cameraIndex = 0; cameraIndex < NUMBER_OF_CAMERAS; cameraIndex++) {
         // Special case when loading points
         if (clickedPoints[cameraIndex] === undefined) {
             clickedPoints[cameraIndex] = [];
@@ -238,7 +333,7 @@ function removeTrack(trackIndex) {
     if (trackTracker["tracks"][trackIndex].index === trackTracker["currentTrack"]) {
         if (trackIndex !== 0) {
             let cameraIndex = [];
-            for (let i = 0; i < numberOfCameras; i++) {
+            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
                 cameraIndex.push(i);
                 if (clickedPoints[cameraIndex] === undefined) {
                     clickedPoints[cameraIndex] = [];
@@ -263,16 +358,25 @@ function addTrackToDropDown(trackName, deleteButton = true) {
         $("#current-track-display").text(`Current Track: ${trackName}`);
         let curIndex = trackTracker["currentTrack"];
         let newDropdownItem = $(`
-                <div id=${trackName} class="dropdown-content">
-                    <div id=track-${curIndex} class="dropdown-item">
-                        ${trackName}
+                <div id=track-${trackName.replace(/ /g, "-")} class="dropdown-content">
+                <div class="container">
+                    <div class="columns is-vcentered">
+                        <div class="column">
+                            <div id=track-${curIndex} class="dropdown-item has-text-centered">
+                                ${trackName}
+                            </div>
+                        </div>
+                        <!-- TODO: cleanup --> 
+                        <div class="column is-narrow">
+                        ${deleteButton === true ? `<div class="column is-narrow"><button id="track-${curIndex}-delete" class="dropdown-item-delete delete">Delete</button></div>` :
+            ``
+            }</div>
+                        
+                        </div>
                     </div>
-                </div>
-            `);
+                    </div>
+`);
         $("#track-dropdown").append(newDropdownItem);
-        if (deleteButton) {
-            $(`#${trackName}`).append(`<button id="track-${curIndex}-delete" class="dropdown-item-delete">Delete</button>`);
-        }
     }
 }
 
@@ -284,22 +388,20 @@ function addNewTrack(trackName) {
      * @param{trackNumber} trackNumber
      */
     let currentTrackIndex = trackTracker["tracks"].length;
-    trackTracker["tracks"].push({"name": trackName, "index": currentTrackIndex, "color": COLORS[colorIndex]});
     colorIndex += 1;
+    trackTracker["tracks"].push({"name": trackName, "index": currentTrackIndex, "color": COLORS[colorIndex]});
     if (colorIndex === COLORS.length) {
         colorIndex = 0;
     }
 
     // Change the track for all videos
-    for (let i = 0; i < numberOfCameras; i++) {
-        let cur_videoObject = videoObjectSingletonFactory(i);
-
+    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
         // Special case for loading points
-        if (clickedPoints[cur_videoObject["index"]] === undefined) {
-            clickedPoints[cur_videoObject["index"]] = [];
+        if (clickedPoints[i] === undefined) {
+            clickedPoints[i] = [];
         }
 
-        clickedPoints[cur_videoObject["index"]][currentTrackIndex] = [];
+        clickedPoints[i][currentTrackIndex] = [];
         changeTracks(currentTrackIndex, [i]);
     }
 
@@ -321,36 +423,74 @@ function addNewTrack(trackName) {
 /// DRAWING ///
 
 
-function getEpipolarLinesOrUnifiedCoord(frameNumber, videoObject) {
-    let videosWithTheSameFrame = Object.keys(frameTracker).filter(
-        (videoIndex) => Math.floor(frameTracker[videoIndex]) === Math.floor(frameTracker[videoObject["index"]]));
-    if (videosWithTheSameFrame.length > 1 && DLT_COEFFICIENTS !== null) {
-        // TODO : Come back and rename variables
-        let enoughPointsFor3DEstimation = [];
-        let lines = [];
-        for (let videos = 0; videos < videosWithTheSameFrame.length; videos++) {
-            let localPoints = clickedPoints[videosWithTheSameFrame[videos]][trackTracker["currentTrack"]];
-            let indexOfPoints = 0;
-            if (localPoints.filter(function (point, index) {
-                if (Math.floor(point.frame) === Math.floor(frameNumber)) {
-                    indexOfPoints = index;
-                    return true;
-                } else {
-                    return false;
-                }
-            }).length !== 0) {
-                enoughPointsFor3DEstimation.push({
-                    videoIndex: videosWithTheSameFrame[videos],
-                    pointIndex: indexOfPoints
-                });
-                lines.push(getEpipolarLines(videoObjectSingletonFactory(videos), DLT_COEFFICIENTS, indexOfPoints));
+function getVideosWithTheSameFrame(video) {
+    return Object.keys(frameTracker).filter(
+        (videoIndex) => Math.floor(frameTracker[videoIndex]) === Math.floor(frameTracker[video]));
+}
+
+
+function getPointsInFrame(videosWithTheSameFrame, frameNumber) {
+    let points = [];
+    let lines = [];
+    for (let videoIndex = 0; videoIndex < videosWithTheSameFrame.length; videoIndex++) {
+        let curVideoIndex = videosWithTheSameFrame[videoIndex];
+        let localPoints = clickedPoints[curVideoIndex][trackTracker["currentTrack"]];
+        let indexOfPoints = 0;
+        if (localPoints.filter(function (point, index) {
+            if (Math.floor(point.frame) === Math.floor(frameNumber)) {
+                indexOfPoints = index;
+                return true;
+            } else {
+                return false;
             }
+        }).length !== 0) {
+            points.push({
+                videoIndex: videosWithTheSameFrame[videoIndex],
+                pointIndex: indexOfPoints
+            });
+            lines.push(getEpipolarLines(curVideoIndex, DLT_COEFFICIENTS, indexOfPoints));
         }
-        if (enoughPointsFor3DEstimation.length === numberOfCameras) {
+    }
+    return [points, lines];
+}
+
+
+function drawDiamonds(videoIndex, result) {
+    // Video.clearCanvases();
+    let currentPoint = reconstructUV(DLT_COEFFICIENTS[videoIndex], result[result.length - 1]);
+
+    if (!checkCoordintes(currentPoint[0][0], currentPoint[0][1],
+        videos[videoIndex].epipolarCanvas.height, videos[videoIndex].epipolarCanvas.width)) {
+        generateError("Points that did not exist were calculated when locating the " +
+            "point in 2D space, please check your DLT coefficients and camera profiles");
+    }
+
+
+    let callback = function (i) {
+        videos[i].drawDiamond(
+            currentPoint[0][0],
+            currentPoint[1][0], 10, 10,
+        );
+    };
+    let message = messageCreator("drawDiamond", {
+        point1: currentPoint[0][0],
+        point2: currentPoint[1][0],
+    });
+    updateLocalOrCommunicator(parseInt(videoIndex, 10), callback, message);
+}
+
+function getEpipolarLinesOrUnifiedCoord(videoCalledFrom, frameNumber) {
+    let videosWithTheSameFrame = getVideosWithTheSameFrame(videoCalledFrom);
+    if (videosWithTheSameFrame.length > 1 && DLT_COEFFICIENTS !== null) {
+        let pointsAndLines = getPointsInFrame(videosWithTheSameFrame, frameNumber);
+        let points = pointsAndLines[0];
+        let lines = pointsAndLines[1];
+
+        if (points.length >= 2) {
             let pointsToReconstruct = [];
-            for (let i = 0; i < enoughPointsFor3DEstimation.length; i++) {
-                let currentVideoIndex = enoughPointsFor3DEstimation[i].videoIndex;
-                let currentPointIndex = enoughPointsFor3DEstimation[i].pointIndex;
+            for (let i = 0; i < points.length; i++) {
+                let currentVideoIndex = points[i].videoIndex;
+                let currentPointIndex = points[i].pointIndex;
                 let currentTrack = trackTracker.currentTrack;
                 pointsToReconstruct.push([clickedPoints[currentVideoIndex][currentTrack][currentPointIndex]]);
             }
@@ -358,32 +498,9 @@ function getEpipolarLinesOrUnifiedCoord(frameNumber, videoObject) {
                 null, DLT_COEFFICIENTS).then(
                 (result) => {
                     for (let i = 0; i < 1; i++) {
-                        for (let j = 0; j < enoughPointsFor3DEstimation.length; j++) {
-                            // todo a little janky
-                            let currentVideoIndex = enoughPointsFor3DEstimation[j].videoIndex;
-                            let epipolarCanvas = document.getElementById(videoObjectSingletonFactory(currentVideoIndex)["epipolarCanvasID"]);
-                            epipolarCanvas.getContext("2d").clearRect(0, 0, epipolarCanvas.width, epipolarCanvas.height);
-                            let currentPoint = reconstructUV(DLT_COEFFICIENTS[currentVideoIndex], result[result.length - 1]);
-
-                            if (!checkCoordintes(currentPoint[0][0], currentPoint[0][1],
-                                epipolarCanvas.height, epipolarCanvas.width)) {
-                                generateError("Points that did not exist were calculated when locating the " +
-                                    "point in 2D space, please check your DLT coefficients and camera profiles");
-                            }
-
-
-                            let callback = function (i) {
-                                drawDiamond(
-                                    currentPoint[0][0],
-                                    currentPoint[1][0], 10, 10,
-                                    videoObjectSingletonFactory(i)
-                                );
-                            };
-                            let message = messageCreator("drawDiamond", {
-                                point1: currentPoint[0][0],
-                                point2: currentPoint[1][0],
-                            });
-                            updateLocalOrCommunicator(currentVideoIndex, callback, message);
+                        for (let j = 0; j < points.length; j++) {
+                            let videoIndex = points[j].videoIndex;
+                            drawDiamonds(videoIndex, result);
                         }
                     }
                 }
@@ -392,41 +509,20 @@ function getEpipolarLinesOrUnifiedCoord(frameNumber, videoObject) {
             for (let i = 0; i < lines.length; i++) {
                 let lineInformation = lines[i][0][0];
                 let videoIndex = lines[i][0][1];
-                let currentCommunicator = communicators.find((elem) => elem.index === `${videoIndex}`);
-                if (currentCommunicator === undefined) {
-                    drawEpipolarLine(lineInformation, videoObjectSingletonFactory(videoIndex));
-                } else {
-                    currentCommunicator.communicator.postMessage(messageCreator("drawEpipolarLine", {
-                        "tmp": lineInformation
-                    }));
-                }
+
+                let callback = (i) => {
+                    videos[i].drawEpipolarLine(lineInformation);
+                };
+                let message = messageCreator("drawEpipolarLine", {
+                    "tmp": lineInformation
+                });
+
+                updateLocalOrCommunicator(videoIndex, callback, message);
             }
         }
     }
 }
 
-function drawZoomWindow(videoObject) {
-    let startX = mouseTracker.x;
-    let startY = mouseTracker.y;
-
-    let videoCanvas = document.getElementById(videoObject["videoCanvasID"]);
-    let zoomWindow = document.getElementById(videoObject["zoomCanvasID"]);
-
-    let ctx = zoomWindow.getContext("2d");
-    ctx.clearRect(0, 0, zoomWindow.width, zoomWindow.height);
-    ctx.drawImage(videoCanvas, startX - 10, startY - 10, 20, 20, 0, 0, 400, 400); // startX, startY, endX, endY, 0, 0, endY, endX);
-
-    ctx.beginPath();
-    ctx.moveTo(200, 0);
-    ctx.lineTo(200, 400);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(0, 200);
-    ctx.lineTo(400, 200);
-    ctx.stroke();
-
-}
 
 /// END DRAWING ///
 
@@ -447,101 +543,89 @@ function triggerResizeMode() {
 }
 
 function changeColorSpace(colorSpace) {
-    if (colorSpace === RGB) {
-        for (let cameraIndex = 0; cameraIndex < numberOfCameras; cameraIndex++) {
-            currentFilter = "grayscale(0%)";
-            loadFrame(videoObjectSingletonFactory(cameraIndex));
-        }
-    } else {
-        for (let cameraIndex = 0; cameraIndex < numberOfCameras; cameraIndex++) {
-            currentFilter = "grayscale(100%)";
-            loadFrame(videoObjectSingletonFactory(cameraIndex));
-        }
-    }
-
+    COLORSPACE = colorSpace === RGB ? "grayscale(0%)" : "grayscale(100%)";
+    let callback = (i) => {
+        videos[i].loadFrame();
+    };
+    let message = messageCreator("changeColorSpace", {colorSpace: colorSpace});
+    updateAllLocalOrCommunicator(callback, message);
 }
 
 function handlePopoutDeath(data) {
     // rerender video
+    videos[data.index].clearPoints();
     let index = null;
-    communicators.find(function (elm) {
-        if (elm.index === `${data.videoID}`) {
-            index = elm.index;
+    communicators.find(function (elm, iterIndex) {
+        if (elm.index === data.index) {
+            index = iterIndex;
             return true;
         }
     });
     communicators.splice(index, 1);
 
-    $(`#canvas-columns-${data.videoID}`).show();
-    let videoObject = videoObjectSingletonFactory(data.videoID);
-    let localClickedPoints = getClickedPoints(data.videoID, trackTracker.currentTrack);
-    drawPoints(localClickedPoints, videoObject);
-    drawLines(localClickedPoints, videoObject);
-    goToFrame(frameTracker[data.videoID], videoObject);
+    $(`#canvas-columns-${data.index}`).show();
+    $(videos[data.index].zoomCanvas).show();
+    let localClickedPoints = getClickedPoints(data.index, trackTracker.currentTrack);
+    videos[data.index].goToFrame(frameTracker[data.index]);
+
+
+    // Load Points afterwards to remove jank
+    let drawPoints = function () {
+        videos[data.index].drawPoints(localClickedPoints);
+        videos[data.index].drawLines(localClickedPoints);
+        $(videos[data.index].video).unbind("canplay", drawPoints);
+    };
+    $(videos[data.index].video).on("canplay", drawPoints);
+
+    getEpipolarLinesOrUnifiedCoord(data.index, frameTracker[data.index]);
 }
 
 function handlePopoutFrameChange(data) {
     frameTracker[data.videoID] = data.newFrame;
+
     if (settings["sync"]) {
-        for (let i = 0; i < numberOfCameras; i++) {
-            if (i === parseInt(data.videoID, 0)) {
-                continue;
-            }
-            let currentCommunicator = communicators.find((elem) => elem.index === `${i}`);
-            if (currentCommunicator === undefined) {
-                goToFrame(data.newFrame, videoObjectSingletonFactory(i));
-            } else {
-                frameTracker[i] = data.newFrame;
-                currentCommunicator.communicator.postMessage(messageCreator("goToFrame",
-                    {"frame": data.newFrame}));
-            }
+        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+            frameTracker[i] = data.newFrame;
         }
+        let callback = (i) => {
+            videos[i].goToFrame(data.newFrame);
+        };
+        let message = messageCreator("goToFrame",
+            {"frame": data.newFrame});
+        updateAllLocalOrCommunicator(callback, message);
     }
-    getEpipolarLinesOrUnifiedCoord(data.newFrame, videoObjectSingletonFactory(data.videoID));
+    getEpipolarLinesOrUnifiedCoord(data.videoID, data.newFrame);
 }
 
 function handlePopoutNewPoint(data) {
     let videoIndex = parseInt(data.videoID, 10);
-    let pointData = data.point;
     let track = data.track;
-    let currentFrame = data.currentFrame;
-    let currentVideoObject = videoObjectSingletonFactory(videoIndex);
+    let currentFrame = data.point.frame;
 
-    let indexOfAlreadyExisting = null;
     let localPoints = getClickedPoints(videoIndex, track);
-    if (localPoints.some(function (point, curIndexs) {
-        if (Math.floor(point.frame) === Math.floor(pointData.frame)) {
-            indexOfAlreadyExisting = curIndexs;
-            return true;
-        } else {
-            return false;
-        }
-    }) === true) {
-        localPoints[indexOfAlreadyExisting] = pointData;
-    } else {
-        localPoints.push(pointData);
-        localPoints.sort(sortByFrame);
-        drawPoint(pointData.x, pointData.y, 2, currentVideoObject);
-    }
+    localPoints[data.index] = data.point;
 
     frameTracker[videoIndex] = currentFrame;
 
-    if (settings["sync"] === true) {
-        for (let i = 0; i < numberOfCameras; i++) {
-            let currentCommunicator = communicators.find((elem) => elem.index === `${i}`);
-
-            if (currentCommunicator === undefined) {
-                goToFrame(currentFrame, videoObjectSingletonFactory(i));
-            } else if (i === videoIndex) {
-                continue;
-            } else {
+    if (settings["auto-advance"]) {
+        currentFrame += 1;
+        let message = messageCreator("goToFrame", {"frame": currentFrame});
+        if (settings["sync"] === true) {
+            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
                 frameTracker[i] = currentFrame;
-                currentCommunicator.communicator.postMessage(messageCreator("goToFrame", {"frame": currentFrame}));
             }
+            let callback = (i) => {
+                videos[i].goToFrame(currentFrame);
+            };
+
+            updateAllLocalOrCommunicator(callback, message);
+        } else {
+            let currentCommunicator = communicators.find((elem) => elem.index === index);
+            currentCommunicator.postMessage(message);
         }
     }
 
-    getEpipolarLinesOrUnifiedCoord(currentFrame, currentVideoObject);
+    getEpipolarLinesOrUnifiedCoord(videoIndex, currentFrame);
 }
 
 function handlePopoutChange(message) {
@@ -552,39 +636,59 @@ function handlePopoutChange(message) {
         handlePopoutFrameChange(messageContent.data)
     } else if (messageContent.type === "popoutDeath") {
         handlePopoutDeath(messageContent.data);
-    } else {
-
+    } else if (messageContent.type === "initLoadFinished") {
+        getEpipolarLinesOrUnifiedCoord(messageContent.data.index, frameTracker[messageContent.data.index]);
     }
 }
 
-function popOutvideo(event, videoURL) {
-    // TODO this function will probably have to be defined in the template
-    // TODO Needs to be locks so that a new video cannot be popped out until the current one has finished
+function popOutVideo(event, videoURL) {
+    if (!locks["can_pop_out"]) {
+        generateError("Video is already being popped out, please wait!");
+        return;
+    }
+
     let init_communicator = new BroadcastChannel("unknown-video");
-    let videoIndex = event.target.id.split("-")[2];
+    let videoIndex = parseInt(event.target.id.split("-")[1], 10);
     init_communicator.onmessage = function (_) {
         init_communicator.postMessage({
             "dataURL": videoURL,
-            "videoID": videoIndex,
+            "index": videoIndex,
             "videoTitle": parseVideoLabel(
                 document.getElementById(
-                    videoObjectSingletonFactory(videoIndex)["videoLabelID"]
+                    videos[videoIndex].videoLabelID
                 ).innerText
             ).TITLE,
             "clickedPoints": clickedPoints,
-            "offset": offsetTracker[videoIndex][0]["offset"],
+            "offset": videos[videoIndex].offset,
             "currentTracks": trackTracker,
-            "initFrame": frameTracker[videoIndex]
+            "initFrame": frameTracker[videoIndex],
+            "currentColorSpace": COLORSPACE,
+            "frameRate": FRAME_RATE
         });
         init_communicator.close();
+        setTimeout(function () {
+            locks["can_pop_out"] = true;
+        }, 750);
+
         let master_communicator = new BroadcastChannel(`${videoIndex}`);
         master_communicator.onmessage = handlePopoutChange;
         communicators.push({"communicator": master_communicator, "index": videoIndex});
     };
 
-    $(`#canvas-columns-${videoIndex}`).hide();
-    window.open("http://127.0.0.1:8000/clicker/popped_window", `${event.target.id}`,
-        'location=yes,height=600,width=800,scrollbars=yes,status=yes');
+    let currentSection = $(`#canvas-columns-${videoIndex}`);
+    currentSection.hide();
+    $(videos[videoIndex].zoomCanvas).hide();
+
+    let poppedOut = window.open("http://152.2.14.117:8000/clicker/popped_window", `${event.target.id}`,
+        `location=yes,height=${600},width=${800},scrollbars=yes,status=yes`);
+    if (!poppedOut || poppedOut.closed || typeof poppedOut.closed == 'undefined') {
+        init_communicator.close();
+        currentSection.show();
+        generateError("Could not pop out video! Ensure that you have pop-ups enabled for this website!");
+    } else {
+        locks["can_pop_out"] = false;
+    }
+
 }
 
 /// LOAD FILE FUNCTIONS ///
@@ -592,12 +696,12 @@ function popOutvideo(event, videoURL) {
 function parseDLTCoefficents(text, separator) {
     let loopText = text.split("\n").filter((value) => value !== "");
     let returnVector = [];
-    for (let i = 0; i < numberOfCameras; i++) {
+    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
         returnVector[i] = [];
     }
     for (let i = 0; i < loopText.length; i++) {
         loopText[i] = loopText[i].split(separator);
-        for (let j = 0; j < numberOfCameras; j++) {
+        for (let j = 0; j < NUMBER_OF_CAMERAS; j++) {
             returnVector[j].push(parseFloat(loopText[i][j]));
         }
     }
@@ -611,21 +715,18 @@ function parseCameraProfile(text, separator) {
     const profiles = text.split("\n").filter((value) => value !== "");
     const numberOfProfiles = profiles.length;
 
-    if (numberOfProfiles !== numberOfCameras) {
-        if (numberOfProfiles > numberOfCameras) {
-            // TODO: PROD: Remake into a modal
+    if (numberOfProfiles !== NUMBER_OF_CAMERAS) {
+        if (numberOfProfiles > NUMBER_OF_CAMERAS) {
             generateError(`I can't use ${numberOfProfiles} ${numberOfProfiles > 1 ? "profiles" : "profile"} 
-            with only ${numberOfCameras} ${numberOfCameras > 1 ? "cameras" : "camera"} `);
+            with only ${NUMBER_OF_CAMERAS} ${NUMBER_OF_CAMERAS > 1 ? "cameras" : "camera"} `);
         } else {
-
-            // TODO: PROD: Remake into a modal
             generateError(`I can't use only ${numberOfProfiles} ${numberOfProfiles > 1 ? "profiles" : "profile"} 
-            with ${numberOfCameras} ${numberOfCameras > 1 ? "cameras" : "camera"} `);
+            with ${NUMBER_OF_CAMERAS} ${NUMBER_OF_CAMERAS > 1 ? "cameras" : "camera"} `);
         }
     }
 
     let returnVector = [];
-    for (let i = 0; i < numberOfCameras; i++) {
+    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
         returnVector[i] = [];
     }
     for (let i = 0; i < numberOfProfiles; i++) {
@@ -667,6 +768,10 @@ function loadCameraProfile(file) {
 
 
 function getIndexFromFrame(points, frame) {
+    if (points.length === 0) {
+        return null;
+    }
+
     if (Math.floor(points[0].frame) > frame) {
         return null;
     }
@@ -716,13 +821,13 @@ function download(filename, text) {
 
 
 function exportPoints() {
-    let duration = document.getElementById(videoObjectSingletonFactory(0).videoID).duration;
-    let frames = Math.floor(duration * DEV_FRAME_RATE);
+    let duration = videos[0].video.duration;
+    let frames = Math.floor(duration * FRAME_RATE);
 
     let exportablePoints = [];
     let header = [];
     for (let j = 0; j < trackTracker.tracks.length; j++) {
-        for (let i = 0; i < numberOfCameras; i++) {
+        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
             header.push(`${trackTracker.tracks[j].name}_cam_${i + 1}_x`);
             header.push(`${trackTracker.tracks[j].name}_cam_${i + 1}_y`);
         }
@@ -731,7 +836,7 @@ function exportPoints() {
     for (let i = 0; i < frames; i++) {
         let frameArray = [];
         for (let q = 0; q < trackTracker.tracks.length; q++) {
-            for (let j = 0; j < numberOfCameras; j++) {
+            for (let j = 0; j < NUMBER_OF_CAMERAS; j++) {
                 let localPoints = getClickedPoints(j, q);
                 let index = getIndexFromFrame(localPoints, i);
                 if (index === null) {
@@ -752,8 +857,10 @@ function exportPoints() {
 
 function loadSettings() {
     let setupSettingsInput = $(`
-<section class="section">
-        <div class="columns is-multiline">
+<section class="section"> 
+        <hr>
+        <div class="columns is-multiline is-vcentered">
+            <div class="column is-12 has-text-centered"><h1 class="title">SETTINGS</h1></div>
             <div class="column">
                 <div class="columns is-centered is-vcentered is-multiline">
                     <div class="column is-12">
@@ -787,7 +894,7 @@ function loadSettings() {
                 <div class="control">
                     <label class="label">Add New Track: </label>
                     <input id="new-track-input" type="text">
-                    <input id="add-track-button" type="button">
+                    <input id="add-track-button" type="button" value="=>">
                 </div>
             </div>
             
@@ -795,14 +902,15 @@ function loadSettings() {
                 <div class="column">
                     <div id="track-dropdown-container" class="dropdown">
                         <div class="dropdown-trigger">
-                            <button id="track-dropdown-trigger" class="button" aria-haspopup="true" aria-controls="track-dropdown">
+                            <button id="track-dropdown-trigger" class="button" aria-haspopup="true" 
+                            aria-controls="track-dropdown">
                                 <!-- TODO: ADD DOWN ARROW --> 
                                 <span>Select Track</span>
                             </button>
                         </div>
                         <div class="dropdown-menu" id="track-dropdown" role="menu">
-                            <div class="dropdown-content">
-                                <div id=track-0 class="dropdown-item">
+                            <div id="track-Track-1" class="dropdown-content">
+                                <div id=track-0 class="dropdown-item has-text-centered">
                                     Track 1
                                 </div>
                             </div>
@@ -859,7 +967,15 @@ function loadSettings() {
                     </div>
                 </div>
             </div>
+            
+            <div class="column">
+                <label class="label">Auto Advance:</label>
+                <input id="auto-advance-setting" type="checkbox" class="checkbox" onclick="settings['auto-advance'] = !settings['auto-advance'];" checked="${settings["auto-advance"] ? "checked" : ""}">
+                <label class="label">Sync:</label>
+                <input id="sync-setting" type="checkbox" onclick="settings['sync'] = !settings['sync'];" class="checkbox" checked="${settings["sync"] ? "checked" : ""}">
+            </div>
         </div>
+        <hr>
 </section>
 `);
     $("#settingsInput").append(setupSettingsInput);
@@ -887,7 +1003,6 @@ function loadSettings() {
         }
     });
 
-    // TODO: GET the actual file input [Edit: not sure what was meant by this]
     $("#dlt-coeff-input").on("change", function (_) {
         let selectedFiles = Array.from($("#dlt-coeff-input").prop("files"));
         loadDLTCoefficients(selectedFiles);
@@ -901,7 +1016,7 @@ function loadSettings() {
     track_dropdown.on("click", ".dropdown-item", function (event) {
         let trackID = parseInt(event.target.id.split("-")[1], 10);
         let cameraIndex = [];
-        for (let i = 0; i < numberOfCameras; i++) {
+        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
             cameraIndex.push(i);
         }
         changeTracks(trackID, cameraIndex);
@@ -947,116 +1062,361 @@ function loadSettings() {
 
 
 function mainWindowAddNewPoint(event) {
-    let point = addNewPoint(event);
-    if (communicators.length === 0) {
-        return;
-    } else {
+    if (locks["can_click"]) {
+        let index = event.target.id.split("-")[1];
+        let point = Video.createPointObject(index);
+        videos[index].addNewPoint(point);
+
         if (settings["auto-advance"]) {
-            updateCommunicators({
-                type: "goToFrame",
-                data: {frame: point.frame + 1}
-            });
+            if (settings["sync"]) {
+                for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                    frameTracker[i] = point.frame;
+                }
+
+                let localCallback = (index) => {
+                    videos[index].moveToNextFrame();
+                };
+
+                let message = messageCreator("goToFrame", {frame: point.frame + 1});
+
+                updateAllLocalOrCommunicator(localCallback, message);
+            } else {
+                videos[index].moveToNextFrame();
+            }
+        } else {
+            Video.clearCanvases();
+            getEpipolarLinesOrUnifiedCoord(index, frameTracker[index]);
         }
+    }
+}
+
+function mainWindowDeletePoint(e) {
+    e.preventDefault();
+    let video = e.target.id.split("-")[1];
+    let localPoints = getClickedPoints(video, trackTracker.currentTrack);
+    let pointIndex = Video.checkIfPointAlreadyExists(localPoints, frameTracker[video]);
+    if (pointIndex !== null) {
+        localPoints.splice(pointIndex, 1);
+        videos[video].clearPoints();
+        videos[video].drawPoints(localPoints);
+        videos[video].drawLines(localPoints);
+    }
+
+}
+
+
+function loadVideo(files, index) {
+    let currentFile = files[index];
+    let curURL = URL.createObjectURL(currentFile);
+
+    // THIS IS THE CASE WHERE WE ONLY NEED FRAME RATE (OFFSET = 0)
+    if (index === 0) {
+        let inputContent = $(`            
+            <div class="columns is-centered is-multiline">
+                <div class="column is-12">
+                    <div id="offset-controller" class="controller">
+                        <div class="label">
+                            <label class="has-text-white" id="offset-label">Offset for ${files[index].name}</label>
+                        </div>
+                        <input id="offset-input" class="input" type="text">
+                    </div>
+                    <div id="frame-rate-controller" class="controller">
+                        <div class="label">
+                            <label class="has-text-white" id="frame-rate-label">Frame Rate for ${files[index].name}</label>
+                        </div>
+                        <input id="frame-rate-input" class="input" type="text">
+                    </div>
+                </div>
+
+                <div class="column">
+                    <button id="confirm-button" class="button">Ok</button>
+                </div>
+            </div>
+        `);
+
+        let validate = (input) => {
+            let offsetParse = parseInt(input[0]);
+            let frameRateParse = parseFloat(input[1]);
+            let returnValue = {};
+
+            if (isNaN(offsetParse)) {
+                returnValue["offsetInvalid"] = true
+            }
+            if (isNaN(frameRateParse)) {
+                returnValue["frameRateInvalid"] = true;
+            }
+            if (returnValue["offsetInvalid"] !== true && returnValue["frameRateInvalid"] !== true) {
+                returnValue["offset"] = offsetParse;
+                returnValue["frameRate"] = frameRateParse;
+                returnValue["valid"] = true;
+                return returnValue;
+            } else {
+                returnValue["offset"] = null;
+                returnValue["frameRate"] = null;
+                returnValue["valid"] = false;
+                return returnValue
+            }
+        };
+        let modal = $("#generic-input-modal");
+        let modalContentContainer = $("#modal-content-container");
+
+        let callback = (parsedInput) => {
+            FRAME_RATE = parsedInput.frameRate;
+            let offset = parsedInput.offset;
+            loadVideosIntoDOM(curURL, index, currentFile.name, mainWindowAddNewPoint, mainWindowDeletePoint, true, offset, function () {
+                updateAllLocalOrCommunicator(function (i) {
+                    videos[i].goToFrame(offset + 1.001)
+                }, null);
+            });
+
+            if (index + 1 > files.length - 1) {
+                clearInterval(AUTO_SAVE_INTERVAL_ID);
+                AUTO_SAVE_INTERVAL_ID = setInterval(function () {
+                    exportConfig(true)
+                }, 600000);
+            } else {
+                loadVideo(files, index + 1);
+            }
+        };
+
+        modalContentContainer.append(inputContent);
+        let confirmButton = $("#confirm-button");
+        let offsetInput = $("#offset-input");
+        let frameRateInput = $("#frame-rate-input");
+
+        let validateAndCallback = (e) => {
+            let offsetInputVal = offsetInput.val();
+            let frameRateInputVal = frameRateInput.val();
+            let parsedInput = validate([offsetInputVal, frameRateInputVal]);
+            if (parsedInput.valid === true) {
+                genericInputCleanUp(modalContentContainer, modal);
+                callback(parsedInput);
+            } else {
+                if (parsedInput.offsetInvalid === true) {
+                    offsetInput.addClass("is-danger");
+                    $("#offset-controller").append(`<p class="help is-danger">This is not a valid integer!</p>`)
+                }
+                if (parsedInput.frameRateInvalid === true) {
+                    frameRateInput.addClass("is-danger");
+                    $("#frame-rate-controller").append(`<p class="help is-danger">This is not a valid integer!</p>`)
+                }
+            }
+        };
+
+        confirmButton.on("click", validateAndCallback);
+        modal.on("keydown", function (e) {
+            let code = (e.keyCode ? e.keyCode : e.which);
+            if (code === 13) {
+                validateAndCallback(e);
+            }
+        });
+
+        modal.addClass("is-active");
+        $("#blurrable").css("filter", "blur(5px)");
+        animateGenericInput(function () {
+            offsetInput.focus();
+        });
+    }
+
+    // THIS IS THE CASE WHERE WE GET BOTH OFFSET AND FRAME RATE
+    else {
+        let inputContent = $(`            
+            <div class="columns is-centered is-multiline">
+                <div class="column is-12">
+                    <div id="offset-controller" class="controller">
+                        <div class="label">
+                            <label class="has-text-white" id="offset-label">Offset for ${files[index].name}</label>
+                        </div>
+                        <input id="offset-input" class="input" type="text">
+                    </div>
+                </div>
+
+                <div class="column">
+                    <button id="confirm-button" class="button">Ok</button>
+                </div>
+            </div>
+        `);
+
+        let validate = (input) => {
+            let offsetParse = parseFloat(input[0]);
+            let returnValue = {};
+
+            if (isNaN(offsetParse)) {
+                returnValue["offsetInvalid"] = true;
+            }
+            if (returnValue["offsetInvalid"] !== true) {
+                returnValue["offset"] = offsetParse;
+                returnValue["valid"] = true;
+                return returnValue;
+            } else {
+                returnValue["offset"] = null;
+                returnValue["valid"] = false;
+                return returnValue
+            }
+        };
+
+        let modal = $("#generic-input-modal");
+        let modalContentContainer = $("#modal-content-container");
+
+        let callback = (parsedInput) => {
+            loadVideosIntoDOM(curURL, index, currentFile.name, mainWindowAddNewPoint, mainWindowDeletePoint, true, parsedInput.offset);
+
+            if (index + 1 > files.length - 1) {
+                clearInterval(AUTO_SAVE_INTERVAL_ID);
+                AUTO_SAVE_INTERVAL_ID = setInterval(function () {
+                    exportConfig(true)
+                }, 600000);
+            } else {
+                loadVideo(files, index + 1);
+            }
+        };
+
+        modalContentContainer.append(inputContent);
+        let confirmButton = $("#confirm-button");
+        let offsetInput = $("#offset-input");
+
+        let validateAndCallback = (e) => {
+            let offsetInputVal = offsetInput.val();
+            let parsedInput = validate([offsetInputVal]);
+            if (parsedInput.valid === true) {
+                genericInputCleanUp(modalContentContainer, modal);
+                callback(parsedInput);
+            } else {
+                if (parsedInput.offsetInvalid === true) {
+                    offsetInput.addClass("is-danger");
+                    $("#offset-controller").append(`<p class="help is-danger">This is not a valid integer!</p>`)
+                }
+            }
+        };
+
+        confirmButton.on("click", validateAndCallback);
+        modal.on("keydown", function (e) {
+            let code = (e.keyCode ? e.keyCode : e.which);
+            if (code === 13) {
+                validateAndCallback(e);
+            }
+        });
+
+        modal.addClass("is-active");
+        $("#blurrable").css("filter", "blur(5px)");
+        animateGenericInput(function () {
+            offsetInput.focus();
+        });
     }
 }
 
 
 function loadVideos(files) {
-    $("#file-input-section").remove();
+    $("#starter-menu").remove();
+    $("#footer").remove();
     loadSettings();
     trackTracker = {"tracks": [{"name": "Track 1", "index": 0, "color": COLORS[colorIndex]}], "currentTrack": 0};
     colorIndex += 1;
-
-
-    files.forEach((file, index) => {
-        numberOfCameras += 1;
-        let curURL = URL.createObjectURL(file);
-        loadVideosIntoDOM(curURL, index, file.name, mainWindowAddNewPoint, true);
-    });
+    NUMBER_OF_CAMERAS = files.length;
+    loadVideo(files, 0);
 }
 
 /// END LOAD FUNCTIONS ///
 
+
+function goForwardAFrame(id) {
+    let frame = frameTracker[id] + 1;
+    if (settings["sync"] === true) {
+
+        let callback = function (i) {
+            videos[i].moveToNextFrame();
+        };
+        let message = messageCreator("goToFrame", {frame: frame});
+
+        updateAllLocalOrCommunicator(callback, message);
+        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+            frameTracker[i] = frame;
+        }
+
+    } else {
+        videos[id].moveToNextFrame();
+    }
+    getEpipolarLinesOrUnifiedCoord(id, frame);
+}
+
+function goBackwardsAFrame(id) {
+    if (frameTracker[id] < 2) {
+        return;
+    }
+
+    let frame = frameTracker[id] - 1;
+    if (settings["sync"] === true) {
+        let callback = function (i) {
+            videos[i].goToFrame(frame);
+        };
+        let message = messageCreator("goToFrame", {frame: frame});
+
+        updateAllLocalOrCommunicator(callback, message);
+        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+            frameTracker[i] = frame;
+        }
+
+    } else {
+        videos[id].goToFrame(frameTracker[id] - 1);
+    }
+    getEpipolarLinesOrUnifiedCoord(id, frame);
+}
+
+function goToInputFrame(index) {
+    let validate = (input) => {
+        let frameToGoTo = parseInt(input, 10);
+        if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
+            return {input: input, valid: false};
+        } else {
+            frameToGoTo -= 1;
+            frameToGoTo += .001;
+            return {input: frameToGoTo, valid: true};
+        }
+    };
+
+    let callback = (parsedInput) => {
+        if (settings["sync"]) {
+            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                frameTracker[i] = parsedInput;
+            }
+
+            let callBack = function (i) {
+                videos[i].goToFrame(parsedInput);
+            };
+            let message = messageCreator("goToFrame", {"frame": parsedInput});
+            updateAllLocalOrCommunicator(callBack, message);
+        } else {
+            videos[index].goToFrame(parsedInput);
+        }
+        getEpipolarLinesOrUnifiedCoord(index, parsedInput);
+        $("#canvas-0").focus();
+    };
+
+    let label = "What frame would you like to go to?";
+    let errorText = "You have to input a valid integer!";
+    getGenericStringLikeInput(validate, callback, label, errorText);
+}
+
 function handleKeyboardInput(e) {
+    let id;
+    try {
+        id = parseInt(e.target.id.split("-")[1], 10);
+    } catch (e) {
+        return;
+    }
+
     if (String.fromCharCode(e.which) === "Q") {
         triggerResizeMode();
     } else if (String.fromCharCode(e.which) === "F") {
-        // TODO: Bug when spamming F (lock) [11-04-19: seems resolved]
-        // TODO: Check for epipolar line momente in frame forward
-        let id = parseInt(e.target.id.split("-")[1], 10);
-
-        let frame = frameTracker[id] + 1;
-        if (settings["sync"] === true) {
-            let callback = function (i) {
-                goToFrame(frame, videoObjectSingletonFactory(i));
-            };
-            let message = messageCreator("goToFrame", {frame: frame});
-            for (let i = 0; i < numberOfCameras; i++) {
-                updateLocalOrCommunicator(i, callback, message);
-            }
-        } else {
-            moveToNextFrame(videoObjectSingletonFactory(id));
-        }
-        getEpipolarLinesOrUnifiedCoord(frame, videoObjectSingletonFactory(id));
-
-
+        goForwardAFrame(id);
     } else if (String.fromCharCode(e.which) === "B") {
-
-        let id = parseInt(e.target.id.split("-")[1], 10);
-        if (frameTracker[id] < 2) {
-            return;
-        }
-
-        let frame = frameTracker[id] - 1;
-        if (settings["sync"] === true) {
-            let callback = function (i) {
-                goToFrame(frame, videoObjectSingletonFactory(i));
-            };
-            let message = messageCreator("goToFrame", {frame: frame});
-
-            for (let i = 0; i < numberOfCameras; i++) {
-                updateLocalOrCommunicator(i, callback, message);
-            }
-        } else {
-            goToFrame(frameTracker[id] - 1, videoObjectSingletonFactory(id));
-        }
-        getEpipolarLinesOrUnifiedCoord(frame, videoObjectSingletonFactory(id));
-
+        goBackwardsAFrame(id);
     } else if (String.fromCharCode(e.which) === "G") {
-        let index = parseInt(e.target.id.split("-")[1], 10);
-        let genericModal = $("#generic-input-modal");
-
-        let validate = (_) => {
-            let currentFrame = $("#generic-modal-input").val();
-            let frameToGoTo = parseInt(currentFrame, 10);
-            if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
-                generateError("Frame must be valid integer!");
-            } else {
-                frameToGoTo += .00001;
-                if (settings["sync"]) {
-                    for (let cameraIndex = 0; cameraIndex < numberOfCameras; cameraIndex++) {
-                        let callBack = function () {
-                            goToFrame(frameToGoTo, videoObjectSingletonFactory(cameraIndex));
-                        };
-                        let message = messageCreator("goToFrame", {"frame": frameToGoTo});
-                        updateLocalOrCommunicator(cameraIndex, callBack, message);
-                    }
-                } else {
-                    goToFrame(frameToGoTo, videoObjectSingletonFactory(index));
-                }
-                getEpipolarLinesOrUnifiedCoord(frameToGoTo, index);
-                genericModal.removeClass("is-active");
-            }
-        };
-
-        let close = (_) => {
-            genericModal.removeClass("is-active");
-        };
-
-
-        let label = "What frame would you like to go to?";
-        getGenericInput(label, validate, close);
-
+        goToInputFrame(id);
+    } else if (String.fromCharCode(e.which) === "Z") {
+        zoomInZoomWindow(e.target.id.split("-")[1]);
+    } else if (String.fromCharCode(e.which) === "X") {
+        zoomOutZoomWindow(e.target.id.split("-")[1]);
     }
 }
 
@@ -1068,12 +1428,226 @@ function sendKillNotification() {
     ))
 }
 
-$(document).ready(function () {
-    let fileInput = document.getElementById("video-file-input");
-    fileInput.onchange = function (_) {
-        let selectedFiles = Array.from(fileInput.files);
-        loadVideos(selectedFiles);
+function generateSavedState(result, index) {
+    let date = new Date(result.dateSaved);
+    let card = $(`
+            <div id="saved-states-${index}" class="column hidden">
+                <div id="saved-states-${index}-card" class="card">
+                    <header class="card-header">
+                        <p class="card-header-title">
+                            ${result.title}
+                        </p>
+                    </header>
+                    <div class="card-content">
+                        <div class="content">
+                            <p>${result.description}</p>
+                            <hr>
+                            <p>${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}</p>
+                            <p>${date.toLocaleTimeString()}</p>
+                            <hr>
+                            <p>Autosaved: ${result.autosaved === undefined ? "No" : "Yes"}</p>
+<!--                            <hr>-->
+<!--                            <button id="result-${index}" class="result button" id=result-${index}">Load</button>-->
+                        </div>
+                    </div>
+                </div>
+            </div>
+    `);
+    return card;
+}
+
+
+function createProject(loggedIn) {
+    let contentContainer = $("#modal-content-container");
+    let form = $(`
+        <div class="columns is-centered is-multiline">
+            <div class="column">
+                <form id="create-project-form" class="form" onsubmit="return false; ">
+                    <div class="columns is-centered is-vcentered is-multiline">
+                        <div class="column is-12">
+                            <div class="field">
+                                <label class="label has-text-white">Project Name</label>
+                                <div class="control">
+                                    <input id="project-name-input" class="input">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="column is-12">
+                            <div class="field">
+                                <label class="label has-text-white">Project Description</label>
+                                <div class="control">
+                                    <input id="description-input" class="input">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        
+                        <!-- NOTE: THIS IS STRUCTURE FOR FUTURE IMPLEMENTATIONS NO FUNCTIONALITY TODO --> 
+                        <div class="column is-12">
+                            <div class="field">
+                                <div class="columns"> 
+                                    <div class="column is-narrow">
+                                        <label class="label has-text-white">Public</label>
+                                    </div>
+                                    <div class="column is-narrow">
+                                        <div class="control">
+                                            <input id="public-input" class="checkbox large-checkbox" type="checkbox">
+                                        </div>    
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- NOTE: THIS IS STRUCTURE FOR FUTURE IMPLEMENTATIONS NO FUNCTIONALITY TODO --> 
+                        
+                        
+                        <div class="column">
+                            <div class="level">
+                                <div class="level-left">
+                                    <div class="field">
+                                        <div id="file-input-container" class="file centered-file-input fade-on-hover">
+                                            <label class="file-label">
+                                                <input
+                                                        id="video-file-input"
+                                                        class="file-input is-expanded"
+                                                        accept="video/*" type=file multiple
+                                                >
+                                                <span class="file-cta has-background-dark has-text-white is-size-5" style="border: none">
+                                            <span class="file-label">Select Videos</span>
+                                        </span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+        
+                                <div class="level-right">
+                                    <div class="columns">
+                                        <div class="column is-narrow is-pulled-right">
+                                            <button id="cancel-button" class="button has-background-dark has-text-white is-size-5 fade-on-hover" style="border: none">Cancel</button>
+                                        </div>
+                                        <div class="column is-narrow is-pulled-right">
+                                            <button id="create-button" class="button has-background-dark has-text-white is-size-5 fade-on-hover disabled" style="border: none">Create</button>
+                                        </div>                                    
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `);
+    contentContainer.append(form);
+    animateGenericInput(500, function () {
+        $("#project-name-input").focus()
+    });
+    let modal = $("#generic-input-modal");
+    let createButton = $("#create-button");
+    let titleInput = $("#project-name-input");
+    let descriptionInput = $("#description-input");
+    let fileInput = $("#video-file-input");
+
+    let validate = () => {
+        if (titleInput.val().length !== 0 || descriptionInput.val().length !== 0) {
+            let selectedFiles = Array.from(fileInput.prop("files"));
+            if (selectedFiles.length !== 0) {
+                return true;
+            }
+        } else {
+            return false;
+        }
     };
+
+    let updateIfValid = () => {
+        let valid = validate();
+        if (valid) {
+            createButton.removeClass("disabled");
+            // Stored in the template file to have relative url
+            createButton.on("click", function () {
+                createValidProject(loggedIn)
+            });
+        } else {
+            createButton.off();
+            createButton.addClass("disabled");
+        }
+    };
+
+    $("#cancel-button").on("click", function () {
+        genericInputCleanUp(contentContainer, modal)
+    });
+
+    titleInput.on('input', updateIfValid);
+    fileInput.on("change", updateIfValid);
+    modal.addClass("is-active");
+
+    modal.on("keydown", function (e) {
+        let code = (e.keyCode ? e.keyCode : e.which);
+        console.log(code);
+        if (code === 13) {
+            let valid = validate();
+            if (valid) {
+                createValidProject(loggedIn);
+            }
+        } else if (code === 27) {
+            genericInputCleanUp(contentContainer, modal);
+        }
+    });
+}
+
+
+function displaySavedStates(results) {
+    let section = $("#saved-states-columns");
+
+    if (results.length === 0) {
+        section.append(`<h3 class="notification has-text-weight-bold is-warning">You don't have any saved projects! Try creating some!</h3>`);
+        $("#continue-working-button").slideUp(750);
+        $('#new-project-button').addClass("float");
+    }
+
+    let parsedResults = [];
+
+    for (let i = 0; i < results.length; i++) {
+        parsedResults.push(JSON.parse(results[i]))
+    }
+    parsedResults.sort((a, b) => new Date(b.dateSaved) - new Date(a.dateSaved));
+    for (let i = 0; i < parsedResults.length; i++) {
+        let newState = generateSavedState(parsedResults[i], i);
+        section.append(newState);
+        $(`#saved-states-${i}`).on("click", function () {
+            $("#starter-menu").remove();
+            $("#footer").remove();
+            loadSavedState(parsedResults[i]);
+        });
+    }
+    section.find(".card").css("box-shadow", "0px 0px");
+
+    $("#saved-states-section").removeClass("no-display");
+
+    for (let i = 0; i < parsedResults.length; i++) {
+        autoHeightAnimate($(`#saved-states-${i}`), 650 + (100 * i), function () {
+            $(`#saved-states-${i}-card`).animate({boxShadow: "0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1)"}, function () {
+                $(`#saved-states-${i}-card`).removeAttr("style");
+            });
+        });
+    }
+
+    $("#continue-working-button").off();
+}
+
+
+function loadNewlyCreatedProject(title, description, files) {
+    PROJECT_NAME = title;
+    PROJET_DESCRIPTION = description;
+    loadVideos(files);
+}
+
+
+$(document).ready(async function () {
+    let loggedIn = await testLoggedIn();
+    $("#new-project-button").on("click", function () {
+        createProject(loggedIn);
+    });
+    $("#continue-working-button").on("click", handleContinueWorking);
 
     $(window).on('beforeunload', sendKillNotification);
 });

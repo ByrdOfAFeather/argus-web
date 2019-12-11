@@ -7,96 +7,260 @@
             src="https://code.jquery.com/jquery-3.4.1.min.js"
             integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
             crossorigin="anonymous"></script>
+    <script
+            src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"
+            integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU="
+            crossorigin="anonymous"></script>
     <script src="{% static 'js/clicker.js' %}"></script>
+    <script src="{% static 'js/clicker_animations.js' %}"></script>
     <script src="{% static 'js/video_api.js' %}"></script>
     <script src="{% static 'js/broadcast_channel.js' %}"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.2/dist/tf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/6.2.2/math.js"></script>
-    <script src="https://docs.opencv.org/master/opencv.js"></script>
-    <script
-            src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"
-            integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU="
-            crossorigin="anonymous"></script>
+    <script src="//cdn.jsdelivr.net/jquery.shadow-animation/1/mainfile"></script>
     <link type="text/css" href="{% static 'css/clicker_index.css' %}" rel="stylesheet">
     <link type="text/css"
           href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Julius+Sans+One|Roboto&display=swap" rel="stylesheet">
+
 </head>
 
 <body>
+{% csrf_token %}
 <div id="generic-input-modal" class="modal">
     <div id="generic-input-modal-background" class="modal-background"></div>
     <div id="generic-input-modal-content" class="modal-content">
         <div id="modal-content-container" class="container">
-            <div class="columns is-centered is-multiline">
-                <div class="column is-12">
-                    <div class="controller">
-                        <div class="label">
-                            <label style="color: white;" id="generic-input-label"></label>
-                        </div>
-                        <input id="generic-modal-input" class="input" type="text">
-                    </div>
-                </div>
-
-                <div class="column">
-                    <button id="generic-input-modal-cancel" class="button">Cancel</button>
-                    <button id="generic-input-modal-ok" class="button">Ok</button>
-                </div>
-            </div>
         </div>
     </div>
 </div>
+<div id="blurrable" style="height: 100%">
+    <section id="starter-menu">
+        <div id="title-section" class="section">
+            <!-- title section -->
+            {#    <div class="container">#}
+            <div class="columns is-centered is-vcentered is-multiline">
+                <div class="column has-text-centered is-narrow justify-right">
+                    <img style="display:none; height: auto" class="animated image" src="{% static 'images/icon.gif' %}">
+                </div>
 
-<section id="file-input-section" class="section">
-    <section class="section">
-        <div class="columns is-desktop is-centered is-vcentered is-multiline">
-            <div class="column is-5"></div>
-            <div class="column has-text-centered is-2">
-                <div class="file has-text-centered">
-                    <label class="file-label" style="left: 30%;">
-                        <input
-                                id="video-file-input"
-                                class="file-input is-expanded"
-                                accept="video/*" type=file multiple
-                        >
-                        <span class="file-cta">
-                                  <span class="file-label">
-                                    Load Videos
-                                  </span>
-                            </span>
-                    </label>
+                <div id="title-div" class="column has-text-centered is-narrow justify-left">
+                    <h1 id="clicker-title" class="title-has-julius animated" style="height: auto;">CLICKER</h1>
+                    <h2 id="clicker-subtitle" class="subtitle-has-julius  has-text-grey animated" style="height: auto;">
+                        Software for clicking</h2>
                 </div>
             </div>
-            <div class="column is-5"></div>
+
+            {#    </div>#}
+        </div>
+
+        <section id="file-input-section" class="section">
+            <div class="container">
+                <div class="columns is-centered is-vcentered is-multiline">
+
+                    <div class="column is-narrow">
+                        <button id="new-project-button"
+                                class="button has-background-dark has-text-white is-size-4 fade-on-hover">New Project
+                        </button>
+                    </div>
+                    <div class="column is-narrow">
+                        <button id="continue-working-button"
+                                class="button has-background-dark has-text-white is-size-4 fade-on-hover">Continue
+                            Working
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <script type="text/javascript">
+
+            function createValidProject(loggedIn) {
+                let fileInput = $("#video-file-input");
+                let files = Array.from(fileInput.prop("files"));
+                let description = $("#description-input").val();
+                let title = $("#project-name-input").val();
+                if (loggedIn) {
+                    let csrftoken = $("[name=csrfmiddlewaretoken]").val();
+                    let formData = new FormData();
+                    let publicInput = $("#public-input").is(":checked");
+                    for (let i = 0; i < files.length; i++) {
+                        formData.append("files", files[i], files[i].name);
+                    }
+                    formData.append("title", title);
+                    formData.append("description", description);
+                    formData.append("public", publicInput);
+                    formData.append("upload_file", true);
+
+                    $.ajax({
+                        url: "{% url 'api:new-project' %}",
+                        method: "POST",
+                        async: true,
+                        data: formData,
+                        cache: false,
+                        contentType: false,
+                        processData: false,
+                        timeout: 60000,
+                        headers: {
+                            "X-CSRFToken": csrftoken
+                        },
+                        success: (_) => {
+                            genericInputCleanUp($("#modal-content-container"), $("#generic-input-modal"));
+                            loadNewlyCreatedProject(title, description, files);
+                        },
+                        error: (error) => {
+                            console.log(error);
+                        }
+                    });
+                } else {
+                    genericInputCleanUp($("#modal-content-container"), $("#generic-input-modal"));
+                    loadNewlyCreatedProject(title, description, files);
+                }
+            }
+
+            function goToLogin() {
+                window.location = "{% url 'login' %}";
+            }
+
+            function handleContinueWorking() {
+                $.ajax({
+                        url: "{% url 'api:saved-states' %}",
+                        method: "GET",
+                        success: (result) => {
+                            displaySavedStates(result.states);
+                        },
+                        error: (error) => {
+                            if (error.status === 403) {
+                                generateError("You have to login before you can access this feature!",
+                                    $(`<button class="button" onclick="goToLogin()">Login</button>
+                           <button class="button" onclick="genericInputCleanUp($('#modal-content-container'), $('#generic-input-modal'));">Cancel</button>`))
+                            }
+                        }
+                    }
+                );
+            }
+
+            async function testLoggedIn() {
+                // TODO: Better method of testing for logged in
+                try {
+                    let result = await $.ajax({
+                            url: "{% url 'api:saved-states' %}",
+                            method: "GET",
+                        }
+                    );
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            function createNewSavedState(outputJson, autoSaved) {
+                let csrftoken = $("[name=csrfmiddlewaretoken]").val();
+
+                $.ajax({
+                    url: "{% url 'api:saved-states' %}",
+                    method: "POST",
+                    data: {
+                        json: JSON.stringify(outputJson),
+                        autosave: autoSaved === true ? "true" : ""
+                    },
+                    headers: {
+                        "X-CSRFToken": csrftoken
+                    },
+
+                    success: function () {
+                        // TODO CHANGE
+                        alert("Results Saved!");
+                    },
+                    error: function (error) {
+                        if (error.statusCode === 403) {
+                            if (!autoSaved) {
+                                generateError("You have to be logged in to use this feature!");
+                            }
+                            clearInterval(AUTO_SAVE_INTERVAL_ID);
+                            AUTO_SAVE_INTERVAL_ID = null;
+                        }
+                    }
+                });
+            }
+
+            function autoHeightAnimate(element, time, callback) {
+                // citation: https://codepen.io/JTParrett/pen/CAglw
+                let autoHeight = element.css('height', 'auto').height(); // Get Auto Height
+                element.height(0); // Reset to Default Height
+                element.show(1, function () {
+                    element.stop().animate({height: autoHeight, opacity: 1}, time, callback)
+                });
+            }
+
+            autoHeightAnimate($($(".animated")[1]), 600, function () {
+                autoHeightAnimate($($(".animated")[2]), 600, function () {
+                    autoHeightAnimate($($(".animated")[0]), 300, function () {
+                        $('#new-project-button').stop().animate({boxShadow: '10px 10px #000'});
+                        $('#continue-working-button').stop().animate({boxShadow: '10px 10px #000'});
+                    })
+                })
+            });
+        </script>
+
+        <div id="saved-states-section" class="container no-display">
+            <div id="saved-states-columns" class="columns is-centered">
+            </div>
         </div>
     </section>
 
+    <div id="settingsInput"></div>
+    <div id="videos"></div>
+    <div id="canvases"></div>
+</div>
+
+<footer id="footer" class="footer">
     <section class="section">
-        <div class="columns is-desktop is-centered is-vcentered is-multiline">
-            <div class="column is-5"></div>
-            <div class="column has-text-centered is-2">
-                <div class="file has-text-centered">
-                    <label class="file-label" style="left: 26%;">
-                        <input
-                                id="config-file-input"
-                                class="file-input is-expanded"
-                                accept=".yaml" type=file multiple
-                        >
-                        <span class="file-cta">
-                                  <span class="file-label">
-                                    Load Config File
-                                  </span>
-                            </span>
-                    </label>
+        <!-- fun facts section -->
+        <div class="columns">
+            <!-- TODO: REMOVE INLINE STYLE -->
+            <div class="column is-4" style="border-right: 2px solid">
+                <div class="columns is-multiline">
+                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
+                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>
+                    </div>
+                    <div class="column is-narrow">
+                        <img class="image" src="{% static 'images/icon.gif' %}">
+                    </div>
+                    <div class="column is-narrow">
+                        ARGUS INFORMATION
+                    </div>
                 </div>
             </div>
-            <div class="column is-5"></div>
+            <div class="column is-4">
+                <div class="columns is-multiline" style="border-right: 2px solid">
+                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
+                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>
+                    </div>
+                    <div class="column is-narrow">
+                        <img class="image" src="{% static 'images/icon.gif' %}">
+                    </div>
+                    <div class="column is-narrow">
+                        ARGUS INFORMATION
+                    </div>
+                </div>
+            </div>
+            <div class="column is-4">
+                <div class="columns is-multiline">
+                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
+                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>
+                    </div>
+                    <div class="column is-narrow">
+                        <img class="image" src="{% static 'images/icon.gif' %}">
+                    </div>
+                    <div class="column is-narrow">
+                        ARGUS INFORMATION
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
-
-</section>
-<div id="settingsInput"></div>
-<div id="videos"></div>
-<div id="canvases"></div>
+</footer>
 </body>
 </html>
