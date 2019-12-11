@@ -27,6 +27,14 @@ html, body {
     cursor: pointer;
 }
 
+.hidden {
+    opacity: 0;
+}
+
+.zoom-canvas {
+    background-color: black;
+}
+
 .animated {
     display: none;
 }
@@ -40,7 +48,7 @@ html, body {
     color: transparent;
 }
 
-canvas {
+.absolute {
     position: absolute;
     left: 0;
     /*top: 0;*/
@@ -66,12 +74,25 @@ canvas {
     pointer-events: none;
 }
 
-footer {
-    position: absolute;
-    bottom: 0;
-    width: 100%;
+.card:hover {
+    cursor: pointer;
+    box-shadow: 0 0 3px rgba(81, 203, 238, 1);
 }
 
+.large-checkbox {
+    width: 20px;
+    height: 20px;
+}
+
+/*footer {*/
+/*    position: absolute;*/
+/*    bottom: 0;*/
+/*    width: 100%;*/
+/*}*/
+
+.no-display {
+    display: none;
+}
 
 .float {
     animation: float 6s ease-in-out infinite;

@@ -66,7 +66,8 @@
                     </div>
                     <div class="column is-narrow">
                         <button id="continue-working-button"
-                                class="button has-background-dark has-text-white is-size-4 fade-on-hover">Continue Working
+                                class="button has-background-dark has-text-white is-size-4 fade-on-hover">Continue
+                            Working
                         </button>
                     </div>
                 </div>
@@ -74,12 +75,55 @@
         </section>
 
         <script type="text/javascript">
+
+            function createValidProject(loggedIn) {
+                let fileInput = $("#video-file-input");
+                let files = Array.from(fileInput.prop("files"));
+                let description = $("#description-input").val();
+                let title = $("#project-name-input").val();
+                if (loggedIn) {
+                    let csrftoken = $("[name=csrfmiddlewaretoken]").val();
+                    let formData = new FormData();
+                    let publicInput = $("#public-input").is(":checked");
+                    for (let i = 0; i < files.length; i++) {
+                        formData.append("files", files[i], files[i].name);
+                    }
+                    formData.append("title", title);
+                    formData.append("description", description);
+                    formData.append("public", publicInput);
+                    formData.append("upload_file", true);
+
+                    $.ajax({
+                        url: "{% url 'api:new-project' %}",
+                        method: "POST",
+                        async: true,
+                        data: formData,
+                        cache: false,
+                        contentType: false,
+                        processData: false,
+                        timeout: 60000,
+                        headers: {
+                            "X-CSRFToken": csrftoken
+                        },
+                        success: (_) => {
+                            genericInputCleanUp($("#modal-content-container"), $("#generic-input-modal"));
+                            loadNewlyCreatedProject(title, description, files);
+                        },
+                        error: (error) => {
+                            console.log(error);
+                        }
+                    });
+                } else {
+                    genericInputCleanUp($("#modal-content-container"), $("#generic-input-modal"));
+                    loadNewlyCreatedProject(title, description, files);
+                }
+            }
+
             function goToLogin() {
                 window.location = "{% url 'login' %}";
             }
 
             function handleContinueWorking() {
-                //TODO Change url
                 $.ajax({
                         url: "{% url 'api:saved-states' %}",
                         method: "GET",
@@ -90,11 +134,55 @@
                             if (error.status === 403) {
                                 generateError("You have to login before you can access this feature!",
                                     $(`<button class="button" onclick="goToLogin()">Login</button>
-                           <button class="button" onclick="genericStringLikeInputCleanUp($('#modal-content-container'), $('#generic-input-modal'));">Cancel</button>`))
+                           <button class="button" onclick="genericInputCleanUp($('#modal-content-container'), $('#generic-input-modal'));">Cancel</button>`))
                             }
                         }
                     }
-                )
+                );
+            }
+
+            async function testLoggedIn() {
+                // TODO: Better method of testing for logged in
+                try {
+                    let result = await $.ajax({
+                            url: "{% url 'api:saved-states' %}",
+                            method: "GET",
+                        }
+                    );
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            function createNewSavedState(outputJson, autoSaved) {
+                let csrftoken = $("[name=csrfmiddlewaretoken]").val();
+
+                $.ajax({
+                    url: "{% url 'api:saved-states' %}",
+                    method: "POST",
+                    data: {
+                        json: JSON.stringify(outputJson),
+                        autosave: autoSaved === true ? "true" : ""
+                    },
+                    headers: {
+                        "X-CSRFToken": csrftoken
+                    },
+
+                    success: function () {
+                        // TODO CHANGE
+                        alert("Results Saved!");
+                    },
+                    error: function (error) {
+                        if (error.statusCode === 403) {
+                            if (!autoSaved) {
+                                generateError("You have to be logged in to use this feature!");
+                            }
+                            clearInterval(AUTO_SAVE_INTERVAL_ID);
+                            AUTO_SAVE_INTERVAL_ID = null;
+                        }
+                    }
+                });
             }
 
             function autoHeightAnimate(element, time, callback) {
@@ -102,7 +190,7 @@
                 let autoHeight = element.css('height', 'auto').height(); // Get Auto Height
                 element.height(0); // Reset to Default Height
                 element.show(1, function () {
-                    element.stop().animate({height: autoHeight}, time, callback)
+                    element.stop().animate({height: autoHeight, opacity: 1}, time, callback)
                 });
             }
 
@@ -115,57 +203,10 @@
                 })
             });
         </script>
-        <footer class="footer">
-            <section class="section">
-                <!-- fun facts section -->
-                <div class="columns">
-                    <!-- TODO: REMOVE INLINE STYLE -->
-                    <div class="column is-4" style="border-right: 2px solid">
-                        <div class="columns is-multiline">
-                            <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
-                                <h1 class="title-has-julius">ARGUS INFORMATION</h1>
-                            </div>
-                            <div class="column is-narrow">
-                                <img class="image" src="{% static 'images/icon.gif' %}">
-                            </div>
-                            <div class="column is-narrow">
-                                ARGUS INFORMATION
-                            </div>
-                        </div>
-                    </div>
-                    <div class="column is-4">
-                        <div class="columns is-multiline" style="border-right: 2px solid">
-                            <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
-                                <h1 class="title-has-julius">ARGUS INFORMATION</h1>
-                            </div>
-                            <div class="column is-narrow">
-                                <img class="image" src="{% static 'images/icon.gif' %}">
-                            </div>
-                            <div class="column is-narrow">
-                                ARGUS INFORMATION
-                            </div>
-                        </div>
-                    </div>
-                    <div class="column is-4">
-                        <div class="columns is-multiline">
-                            <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
-                                <h1 class="title-has-julius">ARGUS INFORMATION</h1>
-                            </div>
-                            <div class="column is-narrow">
-                                <img class="image" src="{% static 'images/icon.gif' %}">
-                            </div>
-                            <div class="column is-narrow">
-                                ARGUS INFORMATION
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </footer>
-    </section>
 
-    <section id="saved-states-section" class="section">
-        <div id="saved-states-columns" class="columns is-centered">
+        <div id="saved-states-section" class="container no-display">
+            <div id="saved-states-columns" class="columns is-centered">
+            </div>
         </div>
     </section>
 
@@ -173,5 +214,53 @@
     <div id="videos"></div>
     <div id="canvases"></div>
 </div>
+
+<footer id="footer" class="footer">
+    <section class="section">
+        <!-- fun facts section -->
+        <div class="columns">
+            <!-- TODO: REMOVE INLINE STYLE -->
+            <div class="column is-4" style="border-right: 2px solid">
+                <div class="columns is-multiline">
+                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
+                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>
+                    </div>
+                    <div class="column is-narrow">
+                        <img class="image" src="{% static 'images/icon.gif' %}">
+                    </div>
+                    <div class="column is-narrow">
+                        ARGUS INFORMATION
+                    </div>
+                </div>
+            </div>
+            <div class="column is-4">
+                <div class="columns is-multiline" style="border-right: 2px solid">
+                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
+                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>
+                    </div>
+                    <div class="column is-narrow">
+                        <img class="image" src="{% static 'images/icon.gif' %}">
+                    </div>
+                    <div class="column is-narrow">
+                        ARGUS INFORMATION
+                    </div>
+                </div>
+            </div>
+            <div class="column is-4">
+                <div class="columns is-multiline">
+                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
+                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>
+                    </div>
+                    <div class="column is-narrow">
+                        <img class="image" src="{% static 'images/icon.gif' %}">
+                    </div>
+                    <div class="column is-narrow">
+                        ARGUS INFORMATION
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</footer>
 </body>
 </html>

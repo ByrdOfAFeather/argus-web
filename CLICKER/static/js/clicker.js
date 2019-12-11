@@ -1,4 +1,3 @@
-// TODO: Investigate getting frame rate manually
 // TODO: Display Error:
 /*
 Media resource blob:http://127.0.0.1:5000/951b0a32-14df-4288-b3e5-cb0a61a32b2f could not be decoded. 127.0.0.1:5000
@@ -18,7 +17,7 @@ let colorIndex = 0;
 
 // DEBUGGING CONSTANTS
 const PINHOLE = 1;
-const DEV_FRAME_RATE = 30;
+let FRAME_RATE = null;
 
 // GLOBALS FOR THE CAMERA PROFILE AND DLT COEFFICENTS
 let CAMERA_PROFILE = null;
@@ -76,6 +75,7 @@ let trackTracker = [];
 
 // Global to be set by user.
 let PROJECT_NAME = "";
+let PROJET_DESCRIPTION = "";
 
 function loadPoints(text) {
     colorIndex = 0;
@@ -198,42 +198,19 @@ function exportConfig(autoSaved = false) {
     let output_json = {
         videos: videoObjects,
         title: PROJECT_NAME,
-        dateSaved: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}T${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`,
+        description: PROJET_DESCRIPTION,
+        dateSaved: date,
         points: clickedPoints,
         frameTracker: frameTracker,
         trackTracker: trackTracker,
         cameraProfile: CAMERA_PROFILE,
         dltCoefficents: DLT_COEFFICIENTS,
         settings: settings,
+        frameRate: FRAME_RATE,
+        colorSpace: COLORSPACE
     };
 
-    let csrftoken = $("[name=csrfmiddlewaretoken]").val();
-
-    $.ajax({
-        // TODO: Change url
-        url: "http://127.0.0.1:8000/api/saved_states",
-        method: "POST",
-        data: {
-            json: JSON.stringify(output_json),
-            autosave: autoSaved === true ? "true" : ""
-        },
-        headers: {
-            "X-CSRFToken": csrftoken
-        },
-
-        success: function () {
-            alert("Results Saved!");
-        },
-        error: function (error) {
-            if (error.statusCode === 403) {
-                if (!autoSaved) {
-                    generateError("You have to be logged in to use this feature!");
-                }
-                clearInterval(AUTO_SAVE_INTERVAL_ID);
-                AUTO_SAVE_INTERVAL_ID = null;
-            }
-        }
-    });
+    createNewSavedState(output_json, autoSaved);
 }
 
 function getSavedStateVideoPaths(videoConfigs, index, cameras, pointConfig, frameTrackerConfig) {
@@ -266,7 +243,7 @@ function getSavedStateVideoPaths(videoConfigs, index, cameras, pointConfig, fram
         }
 
 
-        loadVideosIntoDOM(curURL, index, videoConfigs[index].name, mainWindowAddNewPoint, true,
+        loadVideosIntoDOM(curURL, index, videoConfigs[index].name, mainWindowAddNewPoint, mainWindowDeletePoint, true,
             videoConfigs[index].offset, callback);
         let modalContent = $("#modal-content-container");
         modalContent.empty();
@@ -276,6 +253,12 @@ function getSavedStateVideoPaths(videoConfigs, index, cameras, pointConfig, fram
         } else {
             let modal = $("#generic-input-modal");
             modal.removeClass("is-active");
+            clearInterval(AUTO_SAVE_INTERVAL_ID);
+            AUTO_SAVE_INTERVAL_ID = setInterval(function () {
+                    exportConfig(true)
+                },
+                600000);
+
         }
     };
 
@@ -289,6 +272,9 @@ function loadSavedState(config) {
     clickedPoints = [];
     trackTracker = {tracks: [{name: "Track 1", color: COLORS[0], index: 0}], currentTrack: 0};
     NUMBER_OF_CAMERAS = config.videos.length;
+    FRAME_RATE = config.frameRate;
+    COLORSPACE = config.colorSpace;
+    console.log(config);
 
 
     for (let i = 1; i < config.trackTracker.tracks.length; i++) {
@@ -375,16 +361,16 @@ function addTrackToDropDown(trackName, deleteButton = true) {
                 <div id=track-${trackName.replace(/ /g, "-")} class="dropdown-content">
                 <div class="container">
                     <div class="columns is-vcentered">
-
-                        <div class="column is-narrow">
+                        <div class="column">
                             <div id=track-${curIndex} class="dropdown-item has-text-centered">
                                 ${trackName}
                             </div>
                         </div>
-                        <div class="column"></div>
+                        <!-- TODO: cleanup --> 
+                        <div class="column is-narrow">
                         ${deleteButton === true ? `<div class="column is-narrow"><button id="track-${curIndex}-delete" class="dropdown-item-delete delete">Delete</button></div>` :
             ``
-            }
+            }</div>
                         
                         </div>
                     </div>
@@ -496,7 +482,6 @@ function drawDiamonds(videoIndex, result) {
 function getEpipolarLinesOrUnifiedCoord(videoCalledFrom, frameNumber) {
     let videosWithTheSameFrame = getVideosWithTheSameFrame(videoCalledFrom);
     if (videosWithTheSameFrame.length > 1 && DLT_COEFFICIENTS !== null) {
-        // TODO : Come back and rename variables
         let pointsAndLines = getPointsInFrame(videosWithTheSameFrame, frameNumber);
         let points = pointsAndLines[0];
         let lines = pointsAndLines[1];
@@ -538,28 +523,6 @@ function getEpipolarLinesOrUnifiedCoord(videoCalledFrom, frameNumber) {
     }
 }
 
-function drawZoomWindow(videoObject) {
-    let startX = mouseTracker.x;
-    let startY = mouseTracker.y;
-
-    let videoCanvas = document.getElementById(videoObject["videoCanvasID"]);
-    let zoomWindow = document.getElementById(videoObject["zoomCanvasID"]);
-
-    let ctx = zoomWindow.getContext("2d");
-    ctx.clearRect(0, 0, zoomWindow.width, zoomWindow.height);
-    ctx.drawImage(videoCanvas, startX - 10, startY - 10, 20, 20, 0, 0, 400, 400); // startX, startY, endX, endY, 0, 0, endY, endX);
-
-    ctx.beginPath();
-    ctx.moveTo(200, 0);
-    ctx.lineTo(200, 400);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(0, 200);
-    ctx.lineTo(400, 200);
-    ctx.stroke();
-
-}
 
 /// END DRAWING ///
 
@@ -601,6 +564,7 @@ function handlePopoutDeath(data) {
     communicators.splice(index, 1);
 
     $(`#canvas-columns-${data.index}`).show();
+    $(videos[data.index].zoomCanvas).show();
     let localClickedPoints = getClickedPoints(data.index, trackTracker.currentTrack);
     videos[data.index].goToFrame(frameTracker[data.index]);
 
@@ -678,8 +642,6 @@ function handlePopoutChange(message) {
 }
 
 function popOutVideo(event, videoURL) {
-    // TODO this function will probably have to be defined in the template
-    // TODO Needs to be locks so that a new video cannot be popped out until the current one has finished
     if (!locks["can_pop_out"]) {
         generateError("Video is already being popped out, please wait!");
         return;
@@ -701,6 +663,7 @@ function popOutVideo(event, videoURL) {
             "currentTracks": trackTracker,
             "initFrame": frameTracker[videoIndex],
             "currentColorSpace": COLORSPACE,
+            "frameRate": FRAME_RATE
         });
         init_communicator.close();
         setTimeout(function () {
@@ -713,12 +676,19 @@ function popOutVideo(event, videoURL) {
     };
 
     let currentSection = $(`#canvas-columns-${videoIndex}`);
-    let height = parseInt(currentSection.css("height"), 10);
-    let width = parseInt(currentSection.css("width"), 10);
     currentSection.hide();
-    window.open("http://127.0.0.1:8000/clicker/popped_window", `${event.target.id}`,
+    $(videos[videoIndex].zoomCanvas).hide();
+
+    let poppedOut = window.open("http://152.2.14.117:8000/clicker/popped_window", `${event.target.id}`,
         `location=yes,height=${600},width=${800},scrollbars=yes,status=yes`);
-    locks["can_pop_out"] = false;
+    if (!poppedOut || poppedOut.closed || typeof poppedOut.closed == 'undefined') {
+        init_communicator.close();
+        currentSection.show();
+        generateError("Could not pop out video! Ensure that you have pop-ups enabled for this website!");
+    } else {
+        locks["can_pop_out"] = false;
+    }
+
 }
 
 /// LOAD FILE FUNCTIONS ///
@@ -747,12 +717,9 @@ function parseCameraProfile(text, separator) {
 
     if (numberOfProfiles !== NUMBER_OF_CAMERAS) {
         if (numberOfProfiles > NUMBER_OF_CAMERAS) {
-            // TODO: PROD: Remake into a modal
             generateError(`I can't use ${numberOfProfiles} ${numberOfProfiles > 1 ? "profiles" : "profile"} 
             with only ${NUMBER_OF_CAMERAS} ${NUMBER_OF_CAMERAS > 1 ? "cameras" : "camera"} `);
         } else {
-
-            // TODO: PROD: Remake into a modal
             generateError(`I can't use only ${numberOfProfiles} ${numberOfProfiles > 1 ? "profiles" : "profile"} 
             with ${NUMBER_OF_CAMERAS} ${NUMBER_OF_CAMERAS > 1 ? "cameras" : "camera"} `);
         }
@@ -855,7 +822,7 @@ function download(filename, text) {
 
 function exportPoints() {
     let duration = videos[0].video.duration;
-    let frames = Math.floor(duration * DEV_FRAME_RATE);
+    let frames = Math.floor(duration * FRAME_RATE);
 
     let exportablePoints = [];
     let header = [];
@@ -1036,7 +1003,6 @@ function loadSettings() {
         }
     });
 
-    // TODO: GET the actual file input [Edit: not sure what was meant by this]
     $("#dlt-coeff-input").on("change", function (_) {
         let selectedFiles = Array.from($("#dlt-coeff-input").prop("files"));
         loadDLTCoefficients(selectedFiles);
@@ -1124,41 +1090,225 @@ function mainWindowAddNewPoint(event) {
     }
 }
 
+function mainWindowDeletePoint(e) {
+    e.preventDefault();
+    let video = e.target.id.split("-")[1];
+    let localPoints = getClickedPoints(video, trackTracker.currentTrack);
+    let pointIndex = Video.checkIfPointAlreadyExists(localPoints, frameTracker[video]);
+    if (pointIndex !== null) {
+        localPoints.splice(pointIndex, 1);
+        videos[video].clearPoints();
+        videos[video].drawPoints(localPoints);
+        videos[video].drawLines(localPoints);
+    }
+
+}
+
 
 function loadVideo(files, index) {
     let currentFile = files[index];
     let curURL = URL.createObjectURL(currentFile);
+
+    // THIS IS THE CASE WHERE WE ONLY NEED FRAME RATE (OFFSET = 0)
     if (index === 0) {
-        loadVideosIntoDOM(curURL, index, currentFile.name, mainWindowAddNewPoint, true, 0);
-        loadVideo(files, index + 1);
-    } else {
+        let inputContent = $(`            
+            <div class="columns is-centered is-multiline">
+                <div class="column is-12">
+                    <div id="offset-controller" class="controller">
+                        <div class="label">
+                            <label class="has-text-white" id="offset-label">Offset for ${files[index].name}</label>
+                        </div>
+                        <input id="offset-input" class="input" type="text">
+                    </div>
+                    <div id="frame-rate-controller" class="controller">
+                        <div class="label">
+                            <label class="has-text-white" id="frame-rate-label">Frame Rate for ${files[index].name}</label>
+                        </div>
+                        <input id="frame-rate-input" class="input" type="text">
+                    </div>
+                </div>
+
+                <div class="column">
+                    <button id="confirm-button" class="button">Ok</button>
+                </div>
+            </div>
+        `);
 
         let validate = (input) => {
-            let offset = parseFloat(input);
-            if (isNaN(offset)) {
-                return {input: null, valid: false};
+            let offsetParse = parseInt(input[0]);
+            let frameRateParse = parseFloat(input[1]);
+            let returnValue = {};
+
+            if (isNaN(offsetParse)) {
+                returnValue["offsetInvalid"] = true
+            }
+            if (isNaN(frameRateParse)) {
+                returnValue["frameRateInvalid"] = true;
+            }
+            if (returnValue["offsetInvalid"] !== true && returnValue["frameRateInvalid"] !== true) {
+                returnValue["offset"] = offsetParse;
+                returnValue["frameRate"] = frameRateParse;
+                returnValue["valid"] = true;
+                return returnValue;
             } else {
-                return {input: offset, valid: true};
+                returnValue["offset"] = null;
+                returnValue["frameRate"] = null;
+                returnValue["valid"] = false;
+                return returnValue
             }
         };
+        let modal = $("#generic-input-modal");
+        let modalContentContainer = $("#modal-content-container");
+
         let callback = (parsedInput) => {
-            loadVideosIntoDOM(curURL, index, currentFile.name, mainWindowAddNewPoint, true, parsedInput);
+            FRAME_RATE = parsedInput.frameRate;
+            let offset = parsedInput.offset;
+            loadVideosIntoDOM(curURL, index, currentFile.name, mainWindowAddNewPoint, mainWindowDeletePoint, true, offset, function () {
+                updateAllLocalOrCommunicator(function (i) {
+                    videos[i].goToFrame(offset + 1.001)
+                }, null);
+            });
 
             if (index + 1 > files.length - 1) {
-                // TODO CLEAN UP
-                genericStringLikeInputCleanUp($("#modal-content-container"), $("#generic-input-modal"));
+                clearInterval(AUTO_SAVE_INTERVAL_ID);
+                AUTO_SAVE_INTERVAL_ID = setInterval(function () {
+                    exportConfig(true)
+                }, 600000);
             } else {
                 loadVideo(files, index + 1);
             }
         };
 
-        getGenericStringLikeInput(validate, callback, `Offset for ${currentFile.name}`, "You have to provide an offset (it can be 0!)", false);
+        modalContentContainer.append(inputContent);
+        let confirmButton = $("#confirm-button");
+        let offsetInput = $("#offset-input");
+        let frameRateInput = $("#frame-rate-input");
+
+        let validateAndCallback = (e) => {
+            let offsetInputVal = offsetInput.val();
+            let frameRateInputVal = frameRateInput.val();
+            let parsedInput = validate([offsetInputVal, frameRateInputVal]);
+            if (parsedInput.valid === true) {
+                genericInputCleanUp(modalContentContainer, modal);
+                callback(parsedInput);
+            } else {
+                if (parsedInput.offsetInvalid === true) {
+                    offsetInput.addClass("is-danger");
+                    $("#offset-controller").append(`<p class="help is-danger">This is not a valid integer!</p>`)
+                }
+                if (parsedInput.frameRateInvalid === true) {
+                    frameRateInput.addClass("is-danger");
+                    $("#frame-rate-controller").append(`<p class="help is-danger">This is not a valid integer!</p>`)
+                }
+            }
+        };
+
+        confirmButton.on("click", validateAndCallback);
+        modal.on("keydown", function (e) {
+            let code = (e.keyCode ? e.keyCode : e.which);
+            if (code === 13) {
+                validateAndCallback(e);
+            }
+        });
+
+        modal.addClass("is-active");
+        $("#blurrable").css("filter", "blur(5px)");
+        animateGenericInput(function () {
+            offsetInput.focus();
+        });
+    }
+
+    // THIS IS THE CASE WHERE WE GET BOTH OFFSET AND FRAME RATE
+    else {
+        let inputContent = $(`            
+            <div class="columns is-centered is-multiline">
+                <div class="column is-12">
+                    <div id="offset-controller" class="controller">
+                        <div class="label">
+                            <label class="has-text-white" id="offset-label">Offset for ${files[index].name}</label>
+                        </div>
+                        <input id="offset-input" class="input" type="text">
+                    </div>
+                </div>
+
+                <div class="column">
+                    <button id="confirm-button" class="button">Ok</button>
+                </div>
+            </div>
+        `);
+
+        let validate = (input) => {
+            let offsetParse = parseFloat(input[0]);
+            let returnValue = {};
+
+            if (isNaN(offsetParse)) {
+                returnValue["offsetInvalid"] = true;
+            }
+            if (returnValue["offsetInvalid"] !== true) {
+                returnValue["offset"] = offsetParse;
+                returnValue["valid"] = true;
+                return returnValue;
+            } else {
+                returnValue["offset"] = null;
+                returnValue["valid"] = false;
+                return returnValue
+            }
+        };
+
+        let modal = $("#generic-input-modal");
+        let modalContentContainer = $("#modal-content-container");
+
+        let callback = (parsedInput) => {
+            loadVideosIntoDOM(curURL, index, currentFile.name, mainWindowAddNewPoint, mainWindowDeletePoint, true, parsedInput.offset);
+
+            if (index + 1 > files.length - 1) {
+                clearInterval(AUTO_SAVE_INTERVAL_ID);
+                AUTO_SAVE_INTERVAL_ID = setInterval(function () {
+                    exportConfig(true)
+                }, 600000);
+            } else {
+                loadVideo(files, index + 1);
+            }
+        };
+
+        modalContentContainer.append(inputContent);
+        let confirmButton = $("#confirm-button");
+        let offsetInput = $("#offset-input");
+
+        let validateAndCallback = (e) => {
+            let offsetInputVal = offsetInput.val();
+            let parsedInput = validate([offsetInputVal]);
+            if (parsedInput.valid === true) {
+                genericInputCleanUp(modalContentContainer, modal);
+                callback(parsedInput);
+            } else {
+                if (parsedInput.offsetInvalid === true) {
+                    offsetInput.addClass("is-danger");
+                    $("#offset-controller").append(`<p class="help is-danger">This is not a valid integer!</p>`)
+                }
+            }
+        };
+
+        confirmButton.on("click", validateAndCallback);
+        modal.on("keydown", function (e) {
+            let code = (e.keyCode ? e.keyCode : e.which);
+            if (code === 13) {
+                validateAndCallback(e);
+            }
+        });
+
+        modal.addClass("is-active");
+        $("#blurrable").css("filter", "blur(5px)");
+        animateGenericInput(function () {
+            offsetInput.focus();
+        });
     }
 }
 
 
 function loadVideos(files) {
     $("#starter-menu").remove();
+    $("#footer").remove();
     loadSettings();
     trackTracker = {"tracks": [{"name": "Track 1", "index": 0, "color": COLORS[colorIndex]}], "currentTrack": 0};
     colorIndex += 1;
@@ -1218,6 +1368,7 @@ function goToInputFrame(index) {
         if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
             return {input: input, valid: false};
         } else {
+            frameToGoTo -= 1;
             frameToGoTo += .001;
             return {input: frameToGoTo, valid: true};
         }
@@ -1254,16 +1405,18 @@ function handleKeyboardInput(e) {
         return;
     }
 
-
     if (String.fromCharCode(e.which) === "Q") {
         triggerResizeMode();
     } else if (String.fromCharCode(e.which) === "F") {
-        // TODO: Bug when spamming F (lock) [11-04-19: seems resolved]
         goForwardAFrame(id);
     } else if (String.fromCharCode(e.which) === "B") {
         goBackwardsAFrame(id);
     } else if (String.fromCharCode(e.which) === "G") {
         goToInputFrame(id);
+    } else if (String.fromCharCode(e.which) === "Z") {
+        zoomInZoomWindow(e.target.id.split("-")[1]);
+    } else if (String.fromCharCode(e.which) === "X") {
+        zoomOutZoomWindow(e.target.id.split("-")[1]);
     }
 }
 
@@ -1277,32 +1430,39 @@ function sendKillNotification() {
 
 function generateSavedState(result, index) {
     let date = new Date(result.dateSaved);
-    console.log(date);
-    return $(`
-            <div class="column">
-                <div class="container">
-                    <p>${result.title}</p>
-                    <p>${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}</p>
-                    <p>${date.toLocaleTimeString()}</p>
-                    <p>${result.autosaved}</p>
-                    <button id="result-${index}" class="result button" id=result-${index}">Load</button>
+    let card = $(`
+            <div id="saved-states-${index}" class="column hidden">
+                <div id="saved-states-${index}-card" class="card">
+                    <header class="card-header">
+                        <p class="card-header-title">
+                            ${result.title}
+                        </p>
+                    </header>
+                    <div class="card-content">
+                        <div class="content">
+                            <p>${result.description}</p>
+                            <hr>
+                            <p>${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}</p>
+                            <p>${date.toLocaleTimeString()}</p>
+                            <hr>
+                            <p>Autosaved: ${result.autosaved === undefined ? "No" : "Yes"}</p>
+<!--                            <hr>-->
+<!--                            <button id="result-${index}" class="result button" id=result-${index}">Load</button>-->
+                        </div>
+                    </div>
                 </div>
             </div>
-    `)
+    `);
+    return card;
 }
 
 
-function createValidProject() {
-    console.log("I got here");
-}
-
-
-function createProject() {
+function createProject(loggedIn) {
     let contentContainer = $("#modal-content-container");
     let form = $(`
         <div class="columns is-centered is-multiline">
             <div class="column">
-                <form class="form" onsubmit="return false; ">
+                <form id="create-project-form" class="form" onsubmit="return false; ">
                     <div class="columns is-centered is-vcentered is-multiline">
                         <div class="column is-12">
                             <div class="field">
@@ -1312,7 +1472,35 @@ function createProject() {
                                 </div>
                             </div>
                         </div>
-        
+                        
+                        <div class="column is-12">
+                            <div class="field">
+                                <label class="label has-text-white">Project Description</label>
+                                <div class="control">
+                                    <input id="description-input" class="input">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        
+                        <!-- NOTE: THIS IS STRUCTURE FOR FUTURE IMPLEMENTATIONS NO FUNCTIONALITY TODO --> 
+                        <div class="column is-12">
+                            <div class="field">
+                                <div class="columns"> 
+                                    <div class="column is-narrow">
+                                        <label class="label has-text-white">Public</label>
+                                    </div>
+                                    <div class="column is-narrow">
+                                        <div class="control">
+                                            <input id="public-input" class="checkbox large-checkbox" type="checkbox">
+                                        </div>    
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- NOTE: THIS IS STRUCTURE FOR FUTURE IMPLEMENTATIONS NO FUNCTIONALITY TODO --> 
+                        
+                        
                         <div class="column">
                             <div class="level">
                                 <div class="level-left">
@@ -1350,13 +1538,17 @@ function createProject() {
         </div>
     `);
     contentContainer.append(form);
+    animateGenericInput(500, function () {
+        $("#project-name-input").focus()
+    });
     let modal = $("#generic-input-modal");
     let createButton = $("#create-button");
     let titleInput = $("#project-name-input");
+    let descriptionInput = $("#description-input");
     let fileInput = $("#video-file-input");
 
     let validate = () => {
-        if (titleInput.val().length !== 0) {
+        if (titleInput.val().length !== 0 || descriptionInput.val().length !== 0) {
             let selectedFiles = Array.from(fileInput.prop("files"));
             if (selectedFiles.length !== 0) {
                 return true;
@@ -1370,7 +1562,10 @@ function createProject() {
         let valid = validate();
         if (valid) {
             createButton.removeClass("disabled");
-            createButton.on("click", createValidProject);
+            // Stored in the template file to have relative url
+            createButton.on("click", function () {
+                createValidProject(loggedIn)
+            });
         } else {
             createButton.off();
             createButton.addClass("disabled");
@@ -1378,13 +1573,25 @@ function createProject() {
     };
 
     $("#cancel-button").on("click", function () {
-        genericStringLikeInputCleanUp(contentContainer, modal)
+        genericInputCleanUp(contentContainer, modal)
     });
 
     titleInput.on('input', updateIfValid);
     fileInput.on("change", updateIfValid);
-
     modal.addClass("is-active");
+
+    modal.on("keydown", function (e) {
+        let code = (e.keyCode ? e.keyCode : e.which);
+        console.log(code);
+        if (code === 13) {
+            let valid = validate();
+            if (valid) {
+                createValidProject(loggedIn);
+            }
+        } else if (code === 27) {
+            genericInputCleanUp(contentContainer, modal);
+        }
+    });
 }
 
 
@@ -1405,23 +1612,42 @@ function displaySavedStates(results) {
     parsedResults.sort((a, b) => new Date(b.dateSaved) - new Date(a.dateSaved));
     for (let i = 0; i < parsedResults.length; i++) {
         let newState = generateSavedState(parsedResults[i], i);
-        newState.on("click", `#result-${i}`, function () {
+        section.append(newState);
+        $(`#saved-states-${i}`).on("click", function () {
             $("#starter-menu").remove();
+            $("#footer").remove();
             loadSavedState(parsedResults[i]);
         });
-        section.append(newState);
     }
+    section.find(".card").css("box-shadow", "0px 0px");
+
+    $("#saved-states-section").removeClass("no-display");
+
+    for (let i = 0; i < parsedResults.length; i++) {
+        autoHeightAnimate($(`#saved-states-${i}`), 650 + (100 * i), function () {
+            $(`#saved-states-${i}-card`).animate({boxShadow: "0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1)"}, function () {
+                $(`#saved-states-${i}-card`).removeAttr("style");
+            });
+        });
+    }
+
+    $("#continue-working-button").off();
 }
 
 
-$(document).ready(function () {
-    $("#new-project-button").on("click", createProject);
+function loadNewlyCreatedProject(title, description, files) {
+    PROJECT_NAME = title;
+    PROJET_DESCRIPTION = description;
+    loadVideos(files);
+}
+
+
+$(document).ready(async function () {
+    let loggedIn = await testLoggedIn();
+    $("#new-project-button").on("click", function () {
+        createProject(loggedIn);
+    });
     $("#continue-working-button").on("click", handleContinueWorking);
 
     $(window).on('beforeunload', sendKillNotification);
-
-    AUTO_SAVE_INTERVAL_ID = setInterval(function () {
-            exportConfig(true)
-        },
-        600000);
 });

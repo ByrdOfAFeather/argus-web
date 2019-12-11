@@ -1,4 +1,4 @@
-let DEV_FRAME_RATE = 30;
+let FRAME_RATE = null;
 let COLORSPACE = "";
 let settings = {"auto-advance": false};
 
@@ -121,6 +121,10 @@ function afterLoad(initFrame) {
     masterCommunicator.postMessage(messageCreator("initLoadFinished", {index: index}));
 }
 
+function deletePoint() {
+
+}
+
 function init_listener(message) {
     initCommunicator.close();
     let messageData = message["data"];
@@ -128,16 +132,15 @@ function init_listener(message) {
     document.title = messageData["videoTitle"];
     trackTracker = messageData["currentTracks"];
     COLORSPACE = messageData["currentColorSpace"];
+    FRAME_RATE = messageData["frameRate"];
 
     let offset = messageData["offset"];
     let initFrame = messageData["initFrame"];
 
     index = messageData["index"];
 
-    console.log(offset);
-
     loadVideosIntoDOM(videoSource, index, document.title,
-        sendNewPoint, false, offset,
+        sendNewPoint, deletePoint, false, offset,
         function () {
             afterLoad(initFrame);
         });
@@ -207,6 +210,10 @@ function handleKeyboardInput(e) {
         let label = "What frame would you like to go to?";
         let errorText = "You must input a valid integer!";
         getGenericStringLikeInput(validate, callback, label, errorText);
+    } else if (String.fromCharCode(e.which) === "Z") {
+        zoomInZoomWindow(e.target.id.split("-")[1]);
+    } else if (String.fromCharCode(e.which) === "X") {
+        zoomOutZoomWindow(e.target.id.split("-")[1]);
     }
 }
 

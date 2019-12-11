@@ -11,4 +11,20 @@ class SavedState(models.Model):
 class Project(models.Model):
     name = models.CharField(max_length=250)
     description = models.TextField(null=True)
-    # TODO VIDEOS
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    public = models.BooleanField()
+
+
+class Videos(models.Model):
+    video = models.FileField()
+
+
+class ProjectToVideos(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    # TODO: This might be a bit presumptious in delete
+    video = models.ForeignKey(Videos, on_delete=models.CASCADE)
+
+
+class ProjectToSavedStates(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    savedState = models.ForeignKey(SavedState, on_delete=models.CASCADE)

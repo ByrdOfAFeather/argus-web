@@ -2,6 +2,9 @@ let videoObjects = [];
 
 let LINETYPE_EPIPOLAR = 1;
 let LINETYPE_POINT_TO_POINT = 2;
+let TEMP_MOVE_ZOOM = false;
+let ZOOM_BEING_MOVED = null;
+
 let videos = [];
 
 let RGB = 0;
@@ -11,12 +14,11 @@ class Video {
     constructor(videosIndex, offset) {
         this.index = videosIndex;
         this.offset = offset;
-        this.currentFrame = 0;
         this.video = document.getElementById(`video-${videosIndex}`);
 
         this.canvas = document.getElementById(`canvas-${videosIndex}`);
         this.canvasContext = this.canvas.getContext("2d");
-        this.currentStrokeStyle = "#FF0000";
+        this.currentStrokeStyle = trackTracker.tracks[trackTracker.currentTrack].color;
 
         this.videoCanvas = document.getElementById(`videoCanvas-${videosIndex}`);
         this.videoCanvasContext = this.videoCanvas.getContext("2d");
@@ -27,9 +29,15 @@ class Video {
         this.epipolarCanvas = document.getElementById(`epipolarCanvas-${videosIndex}`);
         this.epipolarCanvasContext = this.epipolarCanvas.getContext("2d");
 
+        this.zoomCanvas = document.getElementById(`zoomCanvas-${videosIndex}`);
+        this.zoomCanvasContext = this.zoomCanvas.getContext("2d");
+        this.zoomOffset = 10;
+
         this.videoLabelID = `videoLabel-${videosIndex}`;
 
         this.popVideoID = `popVideo-${videosIndex}`;
+
+        this.lastFrame = (FRAME_RATE * this.video.duration);
     }
 
     static createPointObject(index) {
@@ -43,6 +51,31 @@ class Video {
     redrawPoints(points) {
         this.drawPoints(points);
         this.drawLines(points);
+    }
+
+    drawZoomWindow() {
+        let startX = mouseTracker.x;
+        let startY = mouseTracker.y;
+
+        this.zoomCanvasContext.strokeStyle = trackTracker.tracks[trackTracker.currentTrack].color;
+
+        this.zoomCanvasContext.clearRect(0, 0, this.zoomCanvas.width, this.zoomCanvas.height);
+        this.zoomCanvasContext.drawImage(
+            this.videoCanvas,
+            startX - this.zoomOffset,
+            startY - this.zoomOffset,
+            this.zoomOffset * 2,
+            this.zoomOffset * 2, 0, 0, 400, 400); // startX, startY, endX, endY, 0, 0, endY, endX);
+
+        this.zoomCanvasContext.beginPath();
+        this.zoomCanvasContext.moveTo(200, 0);
+        this.zoomCanvasContext.lineTo(200, 400);
+        this.zoomCanvasContext.stroke();
+
+        this.zoomCanvasContext.beginPath();
+        this.zoomCanvasContext.moveTo(0, 200);
+        this.zoomCanvasContext.lineTo(400, 200);
+        this.zoomCanvasContext.stroke();
     }
 
     static checkIfPointAlreadyExists(localPoints, currentFrame) {
@@ -141,21 +174,23 @@ class Video {
 
     goToFrame(frameNumber) {
         //TODO: NOTE THAT WHEN A USER INPUTS A FRAME NUMBER IT WILL EXTEND ITSELF WITH A .01
+        let orgFrame = frameNumber;
         frameNumber -= this.offset;
+        if (frameNumber >= this.lastFrame - 1) {
+            return;
+        }
         if (frameNumber <= 0) {
             this.videoCanvasContext.clearRect(0, 0, this.videoCanvas.width, this.videoCanvas.height);
-            return;
         }
 
         Video.clearCanvases();
-
-        let estimatedTime = frameNumber / DEV_FRAME_RATE;
+        let estimatedTime = frameNumber / FRAME_RATE;
         this.video.currentTime = estimatedTime;
 
         let parsedLabel = Video.parseVideoLabel(document.getElementById(this.videoLabelID).innerText);
-        parsedLabel["FRAME"] = (estimatedTime * DEV_FRAME_RATE) + this.offset;
+        parsedLabel["FRAME"] = Math.floor(orgFrame + 1);
         document.getElementById(this.videoLabelID).innerText = Video.videoLabelDataToString(parsedLabel);
-        frameTracker[this.index] = frameNumber;
+        frameTracker[this.index] = orgFrame;
     }
 
     moveToNextFrame() {
@@ -175,6 +210,7 @@ class Video {
         this.videoCanvasContext.fillRect(0, 0, videoWidth, videoHeight);
         this.videoCanvasContext.drawImage(this.video, 0, 0, videoWidth, videoHeight);
 
+        this.drawZoomWindow();
         if (!locks["can_click"]) {
             locks["can_click"] = true;
         }
@@ -312,67 +348,107 @@ function changeTracks(trackIndex, cameras) {
 
     // Changes all cameras to the requested track
     for (let index = 0; index < cameras.length; index++) {
-        if (videos[index] !== undefined) {
-            videos[index].changeTracks(trackIndex);
+        if (videos[cameras[index]] !== undefined) {
+            videos[cameras[index]].changeTracks(trackIndex);
         }
     }
 }
 
 
 function setMousePos(e) {
-    // TODO: Error When Scrolling and not moving
-    if (e.target.id.startsWith("canvas")) {
-        currentResizable = e.target;
+    if (TEMP_MOVE_ZOOM) {
+        let zoom = ZOOM_BEING_MOVED;
+        zoom.css("position", "absolute");
+        mouseTracker.x = e.pageX - (parseInt(zoom.css("width"), 10) / 2);
+        mouseTracker.y = e.pageY - (parseInt(zoom.css("height"), 10) / 2);
+
+        // TODO: EFFICENT WAY OF MAKING SURE IT ISN'T PLACE ONTO ANOTHER CANVAS
+        zoom.css("left", mouseTracker.x + "px");
+        zoom.css("top", mouseTracker.y + "px");
     } else {
-        e.target = currentResizable;
+        if (e.target.id.startsWith("canvas")) {
+            currentResizable = e.target;
+        } else {
+            e.target = currentResizable;
+        }
+
+        if (!locks["resizing_mov"]) {
+            $(e.target).focus();
+
+            // Source : https://stackoverflow.com/a/17130415
+            let bounds = e.target.getBoundingClientRect();
+            let scaleX = e.target.width / bounds.width;   // relationship bitmap vs. element for X
+            let scaleY = e.target.height / bounds.height;
+
+            mouseTracker.x = (e.clientX - bounds.left) * scaleX;   // scale mouse coordinates after they have
+            mouseTracker.y = (e.clientY - bounds.top) * scaleY;
+
+            videos[e.target.id.split("-")[1]].drawZoomWindow();
+
+
+        } else {
+            let bounds = e.target.getBoundingClientRect();
+
+            mouseTracker.x = e.clientX - bounds.left;
+            mouseTracker.y = e.clientY - bounds.top;
+            let currentClickCanvas = $(e.target);
+
+            currentClickCanvas.css("height", mouseTracker.y);
+            currentClickCanvas.css("width", mouseTracker.x);
+
+            let currentVideoCanvas = $(`#videoCanvas-${e.target.id.split("-")[1]}`);
+
+            currentVideoCanvas.css("height", mouseTracker.y);
+            currentVideoCanvas.css("width", mouseTracker.x);
+
+            let currenEpipolarCanvas = $(`#epipolarCanvas-${e.target.id.split("-")[1]}`);
+            currenEpipolarCanvas.css("height", mouseTracker.y);
+            currenEpipolarCanvas.css("width", mouseTracker.x);
+
+        }
     }
 
-    if (!locks["resizing_mov"]) {
-        // Source : https://stackoverflow.com/a/17130415
-        let bounds = e.target.getBoundingClientRect();
-        let scaleX = e.target.width / bounds.width;   // relationship bitmap vs. element for X
-        let scaleY = e.target.height / bounds.height;
 
-        mouseTracker.x = (e.clientX - bounds.left) * scaleX;   // scale mouse coordinates after they have
-        mouseTracker.y = (e.clientY - bounds.top) * scaleY;
-        // drawZoomWindow(videoObject);
-    } else {
-        let bounds = e.target.getBoundingClientRect();
-
-        mouseTracker.x = e.clientX - bounds.left;
-        mouseTracker.y = e.clientY - bounds.top;
-        let currentClickCanvas = $(e.target);
-
-        currentClickCanvas.css("height", mouseTracker.y);
-        currentClickCanvas.css("width", mouseTracker.x);
-
-        let currentVideoCanvas = $(`#videoCanvas-${e.target.id.split("-")[1]}`);
-
-        currentVideoCanvas.css("height", mouseTracker.y);
-        currentVideoCanvas.css("width", mouseTracker.x);
-
-        let currenEpipolarCanvas = $(`#epipolarCanvas-${e.target.id.split("-")[1]}`);
-        currenEpipolarCanvas.css("height", mouseTracker.y);
-        currenEpipolarCanvas.css("width", mouseTracker.x);
-
-    }
 }
 
-
-function generateError(errorMessage, optionalComponent=null) {
+let closeModal = () => {
     let modal = $("#generic-input-modal");
+    let modalContentContainer = $("#modal-content-container");
+    genericInputCleanUp(modalContentContainer, modal);
+};
 
+function generateError(errorMessage, optionalComponent = null, optionalCustomClose = null) {
+    let modal = $("#generic-input-modal");
+    let modalContentContainer = $("#modal-content-container");
 
     if (modal.has("#error-message").length !== 0) {
         return;
     }
 
-    let error = $(`<p id="error-message" class="notification is-danger has-text-weight-bold has-text-white has-text-centered">${errorMessage}</p>`);
+    let error = $(`<section class="section" id="error-container"><p id="error-message" class="notification is-danger has-text-weight-bold has-text-white has-text-centered">${errorMessage}</p></section>`);
     if (modal.hasClass("is-active")) {
-        $("#modal-content-container").append(error);
+        modalContentContainer.append(error);
     } else {
-        $("#modal-content-container").append(error);
-        $("#modal-content-container").append(optionalComponent);
+        modalContentContainer.append(error);
+        if (optionalComponent !== null) {
+            modalContentContainer.append(optionalComponent);
+        } else {
+            modalContentContainer.append($(`
+                <div class="columns is-centered is-vcentered">
+                    <div class="column has-text-centered">
+                        <button id="generic-dismiss-button" onclick="" class="button">Dismiss</button>
+                    </div>
+                </div>
+            `));
+            modalContentContainer.on("click", "#generic-dismiss-button", function () {
+                if (optionalCustomClose != null) {
+                    optionalCustomClose();
+                } else {
+                    closeModal();
+                }
+
+            })
+        }
         modal.addClass("is-active");
     }
 }
@@ -420,7 +496,7 @@ function sortByFrame(aPoint, bPoint) {
     return aPoint.frame - bPoint.frame;
 }
 
-function genericStringLikeInputCleanUp(modalContentContainer, modal) {
+function genericInputCleanUp(modalContentContainer, modal) {
     modalContentContainer.empty();
     modal.removeClass("is-active");
     $("#blurrable").css("filter", "blur(0px)");
@@ -428,8 +504,14 @@ function genericStringLikeInputCleanUp(modalContentContainer, modal) {
     modal.off();
 }
 
-function getGenericStringLikeInput(validate, callback, label, errorText, hasCancel = true) {
+function animateGenericInput(animationTime, postAnimationCallback) {
+    let modalContentContainer = $("#modal-content-container");
+    modalContentContainer.hide();
+    modalContentContainer.fadeIn(animationTime, postAnimationCallback);
+}
 
+
+function getGenericStringLikeInput(validate, callback, label, errorText, hasCancel = true) {
     let inputContent = $(`            
             <div class="columns is-centered is-multiline">
                 <div class="column is-12">
@@ -472,7 +554,7 @@ function getGenericStringLikeInput(validate, callback, label, errorText, hasCanc
         let input = $("#generic-modal-input").val();
         let parsedInput = validate(input);
         if (parsedInput.valid === true) {
-            genericStringLikeInputCleanUp(modalContentContainer, modal);
+            genericInputCleanUp(modalContentContainer, modal);
             callback(parsedInput.input);
         } else {
             generateError(errorText);
@@ -481,7 +563,7 @@ function getGenericStringLikeInput(validate, callback, label, errorText, hasCanc
 
     if (hasCancel) {
         let cancelCallback = (_) => {
-            genericStringLikeInputCleanUp(modalContentContainer, modal);
+            genericInputCleanUp(modalContentContainer, modal);
         };
         cancelButton.on("click", cancelCallback);
     }
@@ -491,6 +573,8 @@ function getGenericStringLikeInput(validate, callback, label, errorText, hasCanc
         let code = (e.keyCode ? e.keyCode : e.which);
         if (code === 13) {
             validateAndCallback(e);
+        } else if (code === 27) {
+            genericInputCleanUp(modalContentContainer, modal);
         }
     });
 }
@@ -534,8 +618,61 @@ function loadVideoOnPlay(video) {
 
 }
 
+function startMovingZoomWindow(zoomCanvas) {
+    let index = zoomCanvas.id.split("-")[1];
 
-function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, offsetArg = 0,
+    let rect = zoomCanvas.getBoundingClientRect();
+    zoomCanvas = $(zoomCanvas);
+
+    let x = rect.left + window.pageXOffset;
+    let y = rect.top + window.pageYOffset;
+
+    let newZoom = zoomCanvas.clone();
+    newZoom.css("position", "absolute");
+    newZoom.css("left", x);
+    newZoom.css("top", y);
+    zoomCanvas.remove();
+    $(document.body).append(newZoom);
+    newZoom.on("mousedown", function () {
+        startMovingZoomWindow(document.getElementById(newZoom.attr("id")));
+    });
+
+    videos[index].zoomCanvas = document.getElementById(newZoom.attr("id"));
+    videos[index].zoomCanvasContext = videos[index].zoomCanvas.getContext("2d");
+
+    TEMP_MOVE_ZOOM = true;
+    $(document).on("mousemove", setMousePos);
+    $(document).on("mouseup", function () {
+        stopMovingZoomWindow(zoomCanvas)
+    });
+    ZOOM_BEING_MOVED = newZoom;
+
+}
+
+function stopMovingZoomWindow(zoomCanvas) {
+    TEMP_MOVE_ZOOM = false;
+    $(document).off();
+}
+
+function zoomInZoomWindow(index) {
+    if (videos[index].zoomOffset === 1) {
+        return;
+    } else if (videos[index].zoomOffset === 10) {
+        videos[index].zoomOffset = 1;
+    } else {
+        videos[index].zoomOffset -= 10;
+        videos[index].drawZoomWindow();
+    }
+
+}
+
+function zoomOutZoomWindow(index) {
+    videos[index].zoomOffset += 10;
+    videos[index].drawZoomWindow();
+}
+
+
+function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClick, isMainWindow, offsetArg = 0,
                            videoFinishedLoadingCallback = null) {
     // offsetArg - {"offset": offset for the video being loaded, "askForOffset": If it is the main window, should it
     // ask for an offset? If not, it will expect "offset" to be set}
@@ -546,13 +683,15 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, off
                     <div class="column is-12 video-label-container">
                     <p class="video-label" id="videoLabel-${index}"></p>
                     </div>
-                    <div class="column">
+                    <div class="column is-12">
                       <div id="container-for-canvas-${index}" class="container-for-canvas">
-                        <canvas class="clickable-canvas" id="canvas-${index}" style="z-index: 3;"></canvas>
-                        <canvas class="epipolar-canvas" id="epipolarCanvas-${index}" style="z-index: 2;"></canvas>
-                        <canvas class="video-canvas" id="videoCanvas-${index}" style="z-index: 1;" "></canvas>
-                        <canvas class="zoom-canvas" id="zoomCanvas-${index}" style="z-index: 2;"></canvas>
+                        <canvas class="clickable-canvas absolute" id="canvas-${index}" style="z-index: 3;"></canvas>
+                        <canvas class="epipolar-canvas absolute" id="epipolarCanvas-${index}" style="z-index: 2;"></canvas>
+                        <canvas class="video-canvas absolute draggable" id="videoCanvas-${index}" style="z-index: 1;" "></canvas>
                       </div>
+                    </div>
+                    <div class="column">
+                        <canvas class="zoom-canvas" id="zoomCanvas-${index}" style="z-index: 2;"></canvas>
                     </div>
                 </div>
                 </div>
@@ -572,6 +711,7 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, off
         false);
     curCanvases = $(curCanvases);
     curCanvases.on("click", canvasOnClick);
+    curCanvases.on("contextmenu", canvasOnRightClick);
     curCanvases.on("mousemove", setMousePos);
     curCanvases.on("scroll", setMousePos);
     if (isMainWindow) {
@@ -591,8 +731,11 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, off
 
 
     curVideo.on("error", function () {
-        generateError(`${name} could not be loaded, see troubleshooting for more details!`);
-        location.reload(false);
+        genericInputCleanUp($("#modal-content-container"), $("#generic-input-modal"));
+        generateError(`${name} could not be loaded, see troubleshooting for more details!`, null,
+            function () {
+                location.reload(false);
+            });
         // reloadInitState
     });
 
@@ -643,24 +786,31 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, isMainWindow, off
 
 
         // Zoom Canvas is currently not supported
-        // let zoomCanvas = document.getElementById(videoObject["zoomCanvasID"]);
-        // zoomCanvas.height = 400;
-        // zoomCanvas.width = 400;
-        // zoomCanvas.style.height = "400px";
-        // zoomCanvas.style.width = "400px";
-        // zoomCanvas.style.top = (parseInt(clickCanvas.style.top, 10) + clickCanvas.height - zoomCanvas.height) + "px";
-        // zoomCanvas.style.left = (clickCanvas.width - zoomCanvas.width) + "px";
+        let zoomCanvas = videos[index].zoomCanvas;
+        zoomCanvas.height = 400;
+        zoomCanvas.width = 400;
+        zoomCanvas.style.height = "400px";
+        zoomCanvas.style.width = "400px";
+        zoomCanvas.style.top = (parseInt(clickCanvas.style.top, 10) + clickCanvas.height - zoomCanvas.height) + "px";
+        zoomCanvas.style.left = (clickCanvas.width - zoomCanvas.width) + "px";
+
+        $(zoomCanvas).on("mousedown", function () {
+            startMovingZoomWindow(zoomCanvas)
+        });
+
 
         let videoLabel = document.getElementById(videos[index].videoLabelID);
         let offset = 0;
         if (!isMainWindow) {
             offset = offsetArg["offset"];
+        } else {
+            offset = offsetArg;
         }
 
         let data = {
             "title": name,
             "frame": 0,
-            "offset": index === 0 ? "n/a" : offset,
+            "offset": offset,
         };
 
         videoLabel.innerText = videoLabelDataToString(data);
@@ -943,7 +1093,6 @@ async function uvToXyz(points, profiles, dltCoefficents) {
     /*
     * param: points - [[camera_1_points], [camera_2_points], [camera_n_points]]
      */
-    //TODO: Remove points that are NaN (are there ever any?)
     let xyzs = [];
 
     let uvs = [];
