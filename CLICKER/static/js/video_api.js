@@ -2,7 +2,7 @@ let videoObjects = [];
 
 let LINETYPE_EPIPOLAR = 1;
 let LINETYPE_POINT_TO_POINT = 2;
-let TEMP_MOVE_ZOOM = false;
+let ZOOM_WINDOW_MOVING = false;
 let ZOOM_BEING_MOVED = null;
 
 let videos = [];
@@ -356,15 +356,30 @@ function changeTracks(trackIndex, cameras) {
 
 
 function setMousePos(e) {
-    if (TEMP_MOVE_ZOOM) {
+    if (ZOOM_WINDOW_MOVING) {
         let zoom = ZOOM_BEING_MOVED;
         zoom.css("position", "absolute");
         mouseTracker.x = e.pageX - (parseInt(zoom.css("width"), 10) / 2);
         mouseTracker.y = e.pageY - (parseInt(zoom.css("height"), 10) / 2);
 
-        // TODO: EFFICENT WAY OF MAKING SURE IT ISN'T PLACE ONTO ANOTHER CANVAS
+
+        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+            let voidArea = $(`#${videos[i].canvas.id}`);
+            let leftBorder = voidArea.offset().left;
+            let rightBorder = leftBorder + voidArea.width();
+            let heightStart = voidArea.offset().top;
+            let heightEnd = heightStart + voidArea.height();
+
+            if ((mouseTracker.x + 400 >= leftBorder && mouseTracker.x <= rightBorder) &&
+                (mouseTracker.y + 400 >= heightStart && mouseTracker.y <= heightEnd)) {
+                return;
+            }
+        }
+
         zoom.css("left", mouseTracker.x + "px");
         zoom.css("top", mouseTracker.y + "px");
+
+
     } else {
         if (e.target.id.startsWith("canvas")) {
             currentResizable = e.target;
@@ -619,6 +634,8 @@ function loadVideoOnPlay(video) {
 }
 
 function startMovingZoomWindow(zoomCanvas) {
+    $('.render-unselectable').addClass('unselectable');
+
     let index = zoomCanvas.id.split("-")[1];
 
     let rect = zoomCanvas.getBoundingClientRect();
@@ -631,7 +648,8 @@ function startMovingZoomWindow(zoomCanvas) {
     newZoom.css("position", "absolute");
     newZoom.css("left", x);
     newZoom.css("top", y);
-    zoomCanvas.remove();
+    zoomCanvas.css('visibility', 'hidden');
+    zoomCanvas.attr('id', '');
     $(document.body).append(newZoom);
     newZoom.on("mousedown", function () {
         startMovingZoomWindow(document.getElementById(newZoom.attr("id")));
@@ -640,17 +658,19 @@ function startMovingZoomWindow(zoomCanvas) {
     videos[index].zoomCanvas = document.getElementById(newZoom.attr("id"));
     videos[index].zoomCanvasContext = videos[index].zoomCanvas.getContext("2d");
 
-    TEMP_MOVE_ZOOM = true;
+    ZOOM_WINDOW_MOVING = true;
     $(document).on("mousemove", setMousePos);
     $(document).on("mouseup", function () {
-        stopMovingZoomWindow(zoomCanvas)
+        stopMovingZoomWindow(zoomCanvas);
+        $('.render-unselectable').removeClass('unselectable');
+
     });
     ZOOM_BEING_MOVED = newZoom;
 
 }
 
 function stopMovingZoomWindow(zoomCanvas) {
-    TEMP_MOVE_ZOOM = false;
+    ZOOM_WINDOW_MOVING = false;
     $(document).off();
 }
 
@@ -681,7 +701,7 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
               <div class="container">
               <div id="canvas-columns-${index}" class="columns has-text-centered is-multiline">
                     <div class="column is-12 video-label-container">
-                    <p class="video-label" id="videoLabel-${index}"></p>
+                    <p class="video-label render-unselectable" id="videoLabel-${index}"></p>
                     </div>
                     <div class="column is-12">
                       <div id="container-for-canvas-${index}" class="container-for-canvas">
@@ -724,7 +744,7 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
     // TODO
     $(document.body).find(`#canvas-columns-${index}`).append($(`
                         <div class="column">
-                           <label class="label">Go To Frame</label>
+                           <label class="label render-unselectable">Go To Frame</label>
                            <input class="input" type="text">
                            <button class="button">Go</button>
                         </div>`));

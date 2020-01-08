@@ -274,12 +274,8 @@ function loadSavedState(config) {
     NUMBER_OF_CAMERAS = config.videos.length;
     FRAME_RATE = config.frameRate;
     COLORSPACE = config.colorSpace;
-    console.log(config);
+    PROJET_DESCRIPTION = config.description;
 
-
-    for (let i = 1; i < config.trackTracker.tracks.length; i++) {
-        addTrackToDropDown(config.trackTracker.tracks[i].name);
-    }
 
     trackTracker.currentTrack = config.trackTracker.currentTrack;
 
@@ -294,6 +290,11 @@ function loadSavedState(config) {
 
     $("#saved-states-section").empty();
     loadSettings();
+
+
+    for (let i = 1; i < config.trackTracker.tracks.length; i++) {
+        addTrackToDropDown(config.trackTracker.tracks[i].name);
+    }
 
     getSavedStateVideoPaths(config.videos, 0, cameras, config.points, config.frameTracker);
 }
@@ -1194,11 +1195,16 @@ function loadVideo(files, index) {
             } else {
                 if (parsedInput.offsetInvalid === true) {
                     offsetInput.addClass("is-danger");
-                    $("#offset-controller").append(`<p class="help is-danger">This is not a valid integer!</p>`)
+
+                    if ($("#modal-input-warning-offset").length === 0) {
+                        $("#offset-controller").append(`<p id='modal-input-warning-offset' class="help is-danger">This is not a valid integer!</p>`)
+                    }
                 }
                 if (parsedInput.frameRateInvalid === true) {
                     frameRateInput.addClass("is-danger");
-                    $("#frame-rate-controller").append(`<p class="help is-danger">This is not a valid integer!</p>`)
+                    if ($("#modal-input-warning-frame-rate").length === 0) {
+                        $("#frame-rate-controller").append(`<p id='modal-input-warning-frame-rate' class="help is-danger">This is not a valid integer!</p>`)
+                    }
                 }
             }
         };
@@ -1284,7 +1290,9 @@ function loadVideo(files, index) {
             } else {
                 if (parsedInput.offsetInvalid === true) {
                     offsetInput.addClass("is-danger");
-                    $("#offset-controller").append(`<p class="help is-danger">This is not a valid integer!</p>`)
+                    if ($("#modal-input-warning-offset").length === 0) {
+                        $("#offset-controller").append(`<p id='modal-input-warning-offset' class="help is-danger">This is not a valid integer!</p>`)
+                    }
                 }
             }
         };
@@ -1561,6 +1569,8 @@ function createProject(loggedIn) {
     let updateIfValid = () => {
         let valid = validate();
         if (valid) {
+            createButton.off();
+
             createButton.removeClass("disabled");
             // Stored in the template file to have relative url
             createButton.on("click", function () {
@@ -1582,7 +1592,6 @@ function createProject(loggedIn) {
 
     modal.on("keydown", function (e) {
         let code = (e.keyCode ? e.keyCode : e.which);
-        console.log(code);
         if (code === 13) {
             let valid = validate();
             if (valid) {
@@ -1595,7 +1604,39 @@ function createProject(loggedIn) {
 }
 
 
-function displaySavedStates(results) {
+function slideSavedStates(savedStatesLength, direction) {
+    $("#saved-states-columns").show("slide", {direction: direction}, 250, function () {
+        for (let i = 0; i < savedStatesLength; i++) {
+            $(`#saved-states-${i}-card`).animate({boxShadow: "0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1)"}, function () {
+                $(`#saved-states-${i}-card`).removeAttr("style");
+            });
+        }
+    });
+}
+
+function savedStatePaginationHandler(newPagination, type) {
+    let direction;
+    let oppisiteDirection;
+    if (type === 'forwards') {
+        direction = 'left';
+        oppisiteDirection = 'right';
+    } else {
+        direction = 'right';
+        oppisiteDirection = 'left';
+    }
+    $("#saved-states-columns").hide("slide", {direction: direction}, 250, function () {
+        $("#saved-states-columns").empty();
+        // $("#saved-states-columns").css("display", "");
+        displaySavedStates(newPagination, oppisiteDirection);
+    });
+}
+
+
+async function displaySavedStates(currentPagination, direction = null) {
+    let response = await getSavedStates(currentPagination);
+    let endOfPagination = response.endOfPagination;
+    let results = response.results;
+
     let section = $("#saved-states-columns");
 
     if (results.length === 0) {
@@ -1623,15 +1664,55 @@ function displaySavedStates(results) {
 
     $("#saved-states-section").removeClass("no-display");
 
-    for (let i = 0; i < parsedResults.length; i++) {
-        autoHeightAnimate($(`#saved-states-${i}`), 650 + (100 * i), function () {
-            $(`#saved-states-${i}-card`).animate({boxShadow: "0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1)"}, function () {
-                $(`#saved-states-${i}-card`).removeAttr("style");
+    if (currentPagination === 0) {
+        for (let i = 0; i < parsedResults.length; i++) {
+            $("#saved-states-columns").css("display", "");
+            autoHeightAnimate($(`#saved-states-${i}`), 650 + (100 * i), function () {
+                $(`#saved-states-${i}-card`).animate({boxShadow: "0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1)"}, function () {
+                    $(`#saved-states-${i}-card`).removeAttr("style");
+                });
             });
-        });
+        }
+    } else {
+        $(".column, .hidden").removeClass("hidden");
+        slideSavedStates(parsedResults.length, direction);
     }
 
+
     $("#continue-working-button").off();
+
+
+    if (!endOfPagination) {
+        let forwardPaginationButton = $(`
+                             <div class="column is-narrow" id="button-column">
+                                 <button id="pagination-button" class="rounded-button">
+                                    <span class='icon'>
+                                        <i class="fas fa-arrow-right"></i>
+                                    </span>
+                                </button>
+                            </div>`);
+
+        forwardPaginationButton.find("#pagination-button").on('click', function () {
+            savedStatePaginationHandler(currentPagination + 5, 'forwards');
+        });
+        $('#saved-states-columns').append(forwardPaginationButton);
+    }
+
+    if (!(currentPagination === 0)) {
+        let backwardPaginationButton = $(`
+                             <div class="column is-narrow" id="button-column">
+                                 <button id="pagination-button" class="rounded-button">
+                                    <span class='icon'>
+                                        <i class="fas fa-arrow-left"></i>
+                                    </span>
+                                </button>
+                            </div>`);
+
+        backwardPaginationButton.find("#pagination-button").on('click', function () {
+            savedStatePaginationHandler(currentPagination - 5, 'backwards');
+        });
+        $('#saved-states-columns').prepend(backwardPaginationButton);
+    }
 }
 
 
@@ -1647,7 +1728,9 @@ $(document).ready(async function () {
     $("#new-project-button").on("click", function () {
         createProject(loggedIn);
     });
-    $("#continue-working-button").on("click", handleContinueWorking);
+    $("#continue-working-button").on("click", function (_) {
+        displaySavedStates(0);
+    });
 
     $(window).on('beforeunload', sendKillNotification);
 });

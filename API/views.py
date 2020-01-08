@@ -1,11 +1,11 @@
 import json
 
 from django.http import JsonResponse
+from django.utils.timezone import now
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.parsers import FileUploadParser
 from rest_framework.permissions import IsAuthenticated
 
-from CLICKER.models import SavedState, Project, Videos, ProjectToVideos
+from CLICKER.models import SavedState, Project
 
 
 # TODO SERIALIZATION
@@ -15,9 +15,29 @@ from CLICKER.models import SavedState, Project, Videos, ProjectToVideos
 def saved_states(request):
     if request.method == "GET":
         """
-        Returns the 10 most recently added objects to the database that match the user making the query
+        Returns the 5 most recently added objects to the database that match the user making the query starting from
+        pagination provided
         """
-        user_states = SavedState.objects.filter(user=request.user, autosaved=False).order_by("-id")[:5]
+        start_index = 0
+        try:
+            start_index = int(request.GET.get('pagination', 0))
+        except ValueError:
+            print("Non integer value sent for pagination, defaulting to 0")
+
+        saved_state_query_set = SavedState.objects.filter(
+            user=request.user,
+            autosaved=False).order_by("-id")
+
+        end_of_pagination = False
+        user_states = saved_state_query_set[start_index:start_index + 5]
+        if not user_states:
+            end_of_pagination = True
+            query_set_length = len(saved_state_query_set)
+            user_states = saved_state_query_set[query_set_length - 6: query_set_length - 1]
+
+        else:
+            if len(user_states) < 5: end_of_pagination = True
+
         json_objects = [json.loads(state.json) for state in user_states]
         try:
             user_autosaved_state = SavedState.objects.get(user=request.user, autosaved=True)
@@ -25,7 +45,7 @@ def saved_states(request):
         except SavedState.DoesNotExist:
             pass
 
-        response = JsonResponse({"states": json_objects})
+        response = JsonResponse({"states": json_objects, "end_of_pagination": end_of_pagination})
         response.status_code = 200
         return response
 
@@ -38,6 +58,8 @@ def saved_states(request):
         print(auto_save)
         auto_save = True if len(auto_save) > 0 else False
 
+        date_created = now()
+
         # TODO: SERIALIZATION
         if auto_save:
             SavedState.objects.filter(user=request.user, autosaved=auto_save).update(json=json.dumps(data))
@@ -45,7 +67,8 @@ def saved_states(request):
             SavedState.objects.create(
                 user=request.user,
                 json=json.dumps(data),
-                autosaved=auto_save
+                autosaved=auto_save,
+                date_created=date_created
             )
 
         response = JsonResponse({"success": "none"})

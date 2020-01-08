@@ -6,6 +6,7 @@ class SavedState(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     json = models.TextField()
     autosaved = models.BooleanField()
+    date_created = models.DateTimeField()
 
 
 class Project(models.Model):

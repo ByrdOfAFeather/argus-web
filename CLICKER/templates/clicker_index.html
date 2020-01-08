@@ -20,6 +20,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/6.2.2/math.js"></script>
     <script src="//cdn.jsdelivr.net/jquery.shadow-animation/1/mainfile"></script>
     <link type="text/css" href="{% static 'css/clicker_index.css' %}" rel="stylesheet">
+    <link type='text/css' href="{% static 'css/all.css' %}" rel="stylesheet">
     <link type="text/css"
           href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css?family=Julius+Sans+One|Roboto&display=swap" rel="stylesheet">
@@ -123,12 +124,12 @@
                 window.location = "{% url 'login' %}";
             }
 
-            function handleContinueWorking() {
-                $.ajax({
+            async function getSavedStates(pagination) {
+                let results = await $.ajax({
                         url: "{% url 'api:saved-states' %}",
                         method: "GET",
-                        success: (result) => {
-                            displaySavedStates(result.states);
+                        data: {
+                          pagination: pagination,
                         },
                         error: (error) => {
                             if (error.status === 403) {
@@ -139,6 +140,8 @@
                         }
                     }
                 );
+
+                return {results: results.states, endOfPagination: results.end_of_pagination};
             }
 
             async function testLoggedIn() {
@@ -205,7 +208,7 @@
         </script>
 
         <div id="saved-states-section" class="container no-display">
-            <div id="saved-states-columns" class="columns is-centered">
+            <div id="saved-states-columns" class="columns is-centered is-vcentered">
             </div>
         </div>
     </section>
