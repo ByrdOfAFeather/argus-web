@@ -22,7 +22,7 @@ class Videos(models.Model):
 
 class ProjectToVideos(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    # TODO: This might be a bit presumptious in delete
+    # TODO: This might be a bit presumptions in delete
     video = models.ForeignKey(Videos, on_delete=models.CASCADE)
 
 

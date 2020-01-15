@@ -69,6 +69,11 @@ html, body {
     color: transparent;
 }
 
+#files-selected-container {
+    max-width: 0px;
+    padding-left: 15px;
+}
+
 .absolute {
     position: absolute;
     left: 0;

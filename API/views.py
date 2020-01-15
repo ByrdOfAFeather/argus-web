@@ -88,10 +88,10 @@ def new_project(request):
 
         # TODO: Security concerns & Re-enable this feature
         # https://docs.djangoproject.com/en/2.2/topics/security/#user-uploaded-content-security
-        request.data["public"] = True if request.data["public"] == "true" else False
-        project = Project(name=request.data["title"], description=request.data["description"], owner=request.user,
-                          public=request.data["public"])
-        project.save()
+        # request.data["public"] = True if request.data["public"] == "true" else False
+        # project = Project(name=request.data["title"], description=request.data["description"], owner=request.user,
+        #                   public=request.data["public"])
+        # project.save()
         # for file in files:
         #     instance = Videos(video=file)
         #     instance.save()

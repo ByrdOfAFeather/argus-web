@@ -1436,15 +1436,28 @@ function sendKillNotification() {
     ))
 }
 
-function generateSavedState(result, index) {
+function handleSavedStateDelete(event) {
+    event.stopPropagation();
+    // deleteSavedState(event.target.id.split("-")[1]);
+}
+
+
+function generateDOMSavedState(result, index) {
     let date = new Date(result.dateSaved);
     let card = $(`
             <div id="saved-states-${index}" class="column hidden">
                 <div id="saved-states-${index}-card" class="card">
                     <header class="card-header">
-                        <p class="card-header-title">
-                            ${result.title}
-                        </p>
+                        <div class="level">
+                            <div class="level-left">
+                                <p class="card-header-title level-left">
+                                    ${result.title}
+                                </p>
+                            </div>
+                            <div class="level-right">
+                                <button id='savedState-${index}-delete' class="delete"></button>
+                            </div>
+                        </div>
                     </header>
                     <div class="card-content">
                         <div class="content">
@@ -1461,6 +1474,8 @@ function generateSavedState(result, index) {
                 </div>
             </div>
     `);
+
+    card.find(`#savedState-${index}-delete`).on('click', handleSavedStateDelete);
     return card;
 }
 
@@ -1526,6 +1541,9 @@ function createProject(loggedIn) {
                                             </label>
                                         </div>
                                     </div>
+                                    
+                                    <div class="columns is-multiline" id="files-selected-container">
+                                    </div>
                                 </div>
         
                                 <div class="level-right">
@@ -1570,7 +1588,6 @@ function createProject(loggedIn) {
         let valid = validate();
         if (valid) {
             createButton.off();
-
             createButton.removeClass("disabled");
             // Stored in the template file to have relative url
             createButton.on("click", function () {
@@ -1587,7 +1604,24 @@ function createProject(loggedIn) {
     });
 
     titleInput.on('input', updateIfValid);
-    fileInput.on("change", updateIfValid);
+    fileInput.on("change", function () {
+        let selectedFilesContainer = $("#files-selected-container");
+        selectedFilesContainer.empty();
+
+        let selectedFiles = Array.from(fileInput.prop("files"));
+        for (let i = 0; i < selectedFiles.length; i++) {
+            let name = selectedFiles[i].name.toString();
+            name = name.slice(0, 27);
+            name += "...";
+            selectedFilesContainer.append(`
+                <div class="column is-12">
+                    <p>${name}</p>
+                </div>
+            `);
+        }
+
+        updateIfValid();
+    });
     modal.addClass("is-active");
 
     modal.on("keydown", function (e) {
@@ -1652,7 +1686,7 @@ async function displaySavedStates(currentPagination, direction = null) {
     }
     parsedResults.sort((a, b) => new Date(b.dateSaved) - new Date(a.dateSaved));
     for (let i = 0; i < parsedResults.length; i++) {
-        let newState = generateSavedState(parsedResults[i], i);
+        let newState = generateDOMSavedState(parsedResults[i], i);
         section.append(newState);
         $(`#saved-states-${i}`).on("click", function () {
             $("#starter-menu").remove();

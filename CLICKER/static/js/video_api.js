@@ -629,10 +629,6 @@ function getGenericFileInput(inputLabel, callBackOkay, callBackCancel) {
 }
 
 
-function loadVideoOnPlay(video) {
-
-}
-
 function startMovingZoomWindow(zoomCanvas) {
     $('.render-unselectable').addClass('unselectable');
 
@@ -851,6 +847,12 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
     });
 }
 
+function toolTipBuilder(helpText) {
+    return $('')
+}
+
+
+
 // ----- UNDERLYING MATHEMATICS ----- \\
 
 
@@ -1066,9 +1068,9 @@ function getEpipolarLines(videoIndex, DLTCoefficients, pointsIndex) {
             let yCoord = coord[1][1];
 
             if (CAMERA_PROFILE) {
-                let undistortPoints = undistortPoints([[xCoord, yCoord]], CAMERA_PROFILE[coord[0]][0]);
-                xCoord = undistortPoints[0];
-                yCoord = undistortPoints[1];
+                let undistortedPoints = undistortPoints([[xCoord, yCoord]], CAMERA_PROFILE[coord[0]][0]);
+                xCoord = undistortedPoints[0];
+                yCoord = undistortedPoints[1];
 
                 let slopeAndIntercept = getDLTLine(xCoord, yCoord, dlcCoeff1, dltCoeff2);
                 let slope = slopeAndIntercept[0];
