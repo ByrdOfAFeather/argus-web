@@ -17,7 +17,7 @@ let colorIndex = 0;
 
 // DEBUGGING CONSTANTS
 const PINHOLE = 1;
-let FRAME_RATE = null;
+let FRAME_RATE = 30;
 
 // GLOBALS FOR THE CAMERA PROFILE AND DLT COEFFICENTS
 let CAMERA_PROFILE = null;
@@ -371,7 +371,7 @@ function addTrackToDropDown(trackName, deleteButton = true) {
                         <div class="column is-narrow">
                         ${deleteButton === true ? `<div class="column is-narrow"><button id="track-${curIndex}-delete" class="dropdown-item-delete delete">Delete</button></div>` :
             ``
-            }</div>
+        }</div>
                         
                         </div>
                     </div>
@@ -856,6 +856,33 @@ function exportPoints() {
 }
 
 
+function generateColorspaceDropdown(uniqueID) {
+    return $(`
+    <div class="buffer-div">
+        <div id="rgb-dropdown-container-${uniqueID}" class="dropdown">
+            <div class="dropdown-trigger">
+                <button id="rgb-dropdown-trigger-${uniqueID}" class="button" aria-haspopup="true" aria-controls="rgb-dropdown">
+                     <span>Select Colorspace</span><i class="fas fa-caret-down has-margin-left"></i>
+                </button>
+            </div>
+            <div class="dropdown-menu" id="rgb-dropdown-${uniqueID}" role="menu">
+                <div class="dropdown-content">
+                    <div id="rgb-${uniqueID}" class="dropdown-item">
+                        RGB
+                    </div>
+                </div>
+                <div class="dropdown-content">
+                    <div id="greyscale-${uniqueID}" class="dropdown-item">
+                        Greyscale
+                    </div>                        
+                </div>
+            </div>
+        </div>
+    </div>
+    `);
+}
+
+
 function loadSettings() {
     let setupSettingsInput = $(`
 <section class="section"> 
@@ -905,8 +932,7 @@ function loadSettings() {
                         <div class="dropdown-trigger">
                             <button id="track-dropdown-trigger" class="button" aria-haspopup="true" 
                             aria-controls="track-dropdown">
-                                <!-- TODO: ADD DOWN ARROW --> 
-                                <span>Select Track</span>
+                                <span>Select Track</span><i class="fas fa-caret-down has-margin-left"></i>
                             </button>
                         </div>
                         <div class="dropdown-menu" id="track-dropdown" role="menu">
@@ -924,26 +950,7 @@ function loadSettings() {
             </div>
             
             <div class="column has-text-centered">
-                <div id="rgb-dropdown-container" class="dropdown">
-                    <div class="dropdown-trigger">
-                        <button id="rgb-dropdown-trigger" class="button" aria-haspopup="true" aria-controls="rgb-dropdown">
-                            <!-- TODO: ADD DOWN ARROW --> 
-                             <span>Select Colorspace</span>
-                        </button>
-                    </div>
-                    <div class="dropdown-menu" id="rgb-dropdown" role="menu">
-                        <div class="dropdown-content">
-                            <div id=rgb class="dropdown-item">
-                                RGB
-                            </div>
-                        </div>
-                        <div class="dropdown-content">
-                            <div id=greyscale class="dropdown-item">
-                                Greyscale
-                            </div>                        
-                        </div>
-                    </div>
-                </div>
+                ${generateColorspaceDropdown(0).html()}
             </div>
             
             <div class="column">
@@ -981,11 +988,11 @@ function loadSettings() {
 `);
     $("#settingsInput").append(setupSettingsInput);
     let track_trigger = $("#track-dropdown-trigger");
-    let color_trigger = $("#rgb-dropdown-trigger");
+    let color_trigger = $("#rgb-dropdown-trigger-0");
     let track_container = $("#track-dropdown-container");
-    let color_container = $("#rgb-dropdown-container");
+    let color_container = $("#rgb-dropdown-container-0");
     let track_dropdown = $("#track-dropdown");
-    let color_dropdown = $("#rgb-dropdown");
+    let color_dropdown = $("#rgb-dropdown-0");
 
 
     track_trigger.on("click", function () {
@@ -1048,7 +1055,7 @@ function loadSettings() {
     });
 
     color_dropdown.on("click", ".dropdown-item", function (event) {
-        changeColorSpace(event.target.id === "rgb" ? RGB : GREYSCALE);
+        changeColorSpace(event.target.id.split("-")[0] === "rgb" ? RGB : GREYSCALE);
         if (color_container.hasClass("is-active")) {
             color_container.removeClass("is-active");
         }
@@ -1110,30 +1117,128 @@ function loadVideo(files, index) {
     let currentFile = files[index];
     let curURL = URL.createObjectURL(currentFile);
 
+    let COMMON_FRAME_RATES = [
+        29.97,
+        30,
+        50,
+        59.94,
+        60
+    ];
+
+    let generateFrameRateMenuOption = (frameRate) => {
+
+        let idableFrameRate = `${frameRate}`.replace(".", "DOT");
+        let dropDownItem = $(`
+            <div id="frameRate-${idableFrameRate}-container" class="dropdown-content narrow-content">
+                <div id="frameRate-${idableFrameRate}" class="dropdown-item">
+                    ${frameRate}
+                </div>
+            </div>
+        `);
+
+        $('body').on('click', `#frameRate-${idableFrameRate}`, function (e) {
+            $("#drop-down-display").text(frameRate);
+            FRAME_RATE = frameRate;
+            e.stopPropagation();
+        });
+        return dropDownItem;
+    };
+
+
+    // Why do we have a buffer div? Since jquery doesn't use the html from the top element when it converts
+    // a object to HTML, we need a buffer div to get the div we actually want later in this function!
+    let frameRateMenu = $(`<div id="buffer-div"><div class="dropdown-menu horizontal-menu" id="frame-rate-dropdown" role="menu"></div></div>`);
+    for (let i = 0; i < COMMON_FRAME_RATES.length; i++) {
+        frameRateMenu.find("#frame-rate-dropdown").append(generateFrameRateMenuOption(COMMON_FRAME_RATES[i]));
+    }
+    frameRateMenu.find("#frame-rate-dropdown").append($(`
+        <div id="frameRate-custom-container" class="dropdown-content narrow-content">
+            <div id="frameRate-custom" class="dropdown-item">
+                Custom
+            </div>
+        </div>
+    `));
+
+
     // THIS IS THE CASE WHERE WE ONLY NEED FRAME RATE (OFFSET = 0)
     if (index === 0) {
         let inputContent = $(`            
             <div class="columns is-centered is-multiline">
-                <div class="column is-12">
-                    <div id="offset-controller" class="controller">
-                        <div class="label">
-                            <label class="has-text-white" id="offset-label">Offset for ${files[index].name}</label>
-                        </div>
-                        <input id="offset-input" class="input" type="text">
-                    </div>
-                    <div id="frame-rate-controller" class="controller">
-                        <div class="label">
-                            <label class="has-text-white" id="frame-rate-label">Frame Rate for ${files[index].name}</label>
-                        </div>
-                        <input id="frame-rate-input" class="input" type="text">
-                    </div>
+                <div class="column is-12 has-text-centered">
+                   <h1 class="has-julius has-text-white">Video Properties for ${files[index].name}</h1>
                 </div>
-
+                
                 <div class="column">
-                    <button id="confirm-button" class="button">Ok</button>
+                    <div class="columns">
+                        <div class="column is-narrow">
+                            <div class="columns is-multiline">
+                                <div class="column is-12">
+                                    <div id="offset-controller" class="controller">
+                                        <div class="label">
+                                            <label class="has-text-white" id="offset-label">Offset for ${files[index].name}</label>
+                                        </div>
+                                        <input id="offset-input" class="input small-input" type="text">
+                                    </div>
+                                </div>
+                                
+                                <div class="column is-12">
+                                    <div class="controller">
+                                       <div class="label"><label class="has-text-white">Frame Rate:</label></div>
+                                        
+                                        <div id="frame-rate-dropdown" class="dropdown">
+                                                <div class="dropdown-trigger">
+                                                    <button id="frame-rate-dropdown-trigger" class="button" aria-haspopup="true" 
+                                                    aria-controls="track-dropdown">
+                                                        <span id="drop-down-display">30</span> <i class="fas fa-caret-down has-margin-left"></i>
+                                                    </button>
+                                                </div>
+                                                ${frameRateMenu.html()}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>  
+                            </div>
+                            
+                        <div class="column">
+                            ${generateColorspaceDropdown(1).html()}
+                        </div>
+                        
+                        
+                        <div class="column">
+                        
+                        </div>
+                    </div>
                 </div>
             </div>
         `);
+        let modal = $("#generic-input-modal");
+        let modalContentContainer = $("#modal-content-container");
+
+        let frameRateDropdown = inputContent.find("#frame-rate-dropdown");
+        let frameRateDropdownTrigger = inputContent.find("#frame-rate-dropdown-trigger");
+
+        // This happens because the modal doesn't know how big the dropdown is and thus it does not
+        // allocate size to accommodate for the items in the dropdown
+        let HEIGHT_OFFSET_CHANGE = 0;
+        frameRateDropdownTrigger.on("click", function (e) {
+
+            if (frameRateDropdown.hasClass("is-active")) {
+                frameRateDropdown.removeClass("is-active");
+                modalContentContainer.css('height', '');
+            } else {
+                HEIGHT_OFFSET_CHANGE = parseInt($("#frameRate-30-container").height(), 10) + 90;
+                frameRateDropdown.addClass("is-active");
+                modalContentContainer.css("height", parseInt(modalContentContainer.height(), 10) + HEIGHT_OFFSET_CHANGE);
+            }
+            e.stopPropagation();
+        });
+
+        $(modal).on("click", function () {
+            if (frameRateDropdown.hasClass('is-active')) {
+                frameRateDropdown.removeClass('is-active');
+                modalContentContainer.css('height', '');
+            }
+        });
 
         let validate = (input) => {
             let offsetParse = parseInt(input[0]);
@@ -1158,8 +1263,6 @@ function loadVideo(files, index) {
                 return returnValue
             }
         };
-        let modal = $("#generic-input-modal");
-        let modalContentContainer = $("#modal-content-container");
 
         let callback = (parsedInput) => {
             FRAME_RATE = parsedInput.frameRate;
@@ -1181,14 +1284,39 @@ function loadVideo(files, index) {
         };
 
         modalContentContainer.append(inputContent);
+
+        let color_trigger = $("#rgb-dropdown-trigger-1");
+        let color_container = $("#rgb-dropdown-container-1");
+        let color_dropdown = $("#rgb-dropdown-1");
+
+        color_trigger.on("click", function () {
+            if (color_container.hasClass("is-active")) {
+                color_container.removeClass("is-active");
+            } else {
+                color_container.addClass("is-active");
+            }
+        });
+
+        color_dropdown.on("click", ".dropdown-item", function (event) {
+            let colorspace = event.target.id.split("-")[0] === "rgb" ? RGB : GREYSCALE;
+            COLORSPACE = colorspace === RGB ? "grayscale(0%)" : "grayscale(100%)";
+            if (color_container.hasClass("is-active")) {
+                color_container.removeClass("is-active");
+            }
+        });
+
+
+
+
+
         let confirmButton = $("#confirm-button");
         let offsetInput = $("#offset-input");
-        let frameRateInput = $("#frame-rate-input");
+
+        // TODO: Come back and validate custom input (once that is implemented)
 
         let validateAndCallback = (e) => {
             let offsetInputVal = offsetInput.val();
-            let frameRateInputVal = frameRateInput.val();
-            let parsedInput = validate([offsetInputVal, frameRateInputVal]);
+            let parsedInput = validate([offsetInputVal, FRAME_RATE]);
             if (parsedInput.valid === true) {
                 genericInputCleanUp(modalContentContainer, modal);
                 callback(parsedInput);
@@ -1219,7 +1347,7 @@ function loadVideo(files, index) {
 
         modal.addClass("is-active");
         $("#blurrable").css("filter", "blur(5px)");
-        animateGenericInput(function () {
+        animateGenericInput(500, function () {
             offsetInput.focus();
         });
     }
@@ -1489,7 +1617,7 @@ function createProject(loggedIn) {
                     <div class="columns is-centered is-vcentered is-multiline">
                         <div class="column is-12">
                             <div class="field">
-                                <label class="label has-text-white">Project Name</label>
+                                <label class="label has-text-white">Project Name${toolTipBuilder("Give a name to your project", false).html()}</label>
                                 <div class="control">
                                     <input id="project-name-input" class="input">
                                 </div>
@@ -1563,6 +1691,8 @@ function createProject(loggedIn) {
             </div>
         </div>
     `);
+    $("#blurrable").css("filter", "blur(10px)");
+    $("#footer").css("filter", "blur(10px)");
     contentContainer.append(form);
     animateGenericInput(500, function () {
         $("#project-name-input").focus()
@@ -1572,6 +1702,8 @@ function createProject(loggedIn) {
     let titleInput = $("#project-name-input");
     let descriptionInput = $("#description-input");
     let fileInput = $("#video-file-input");
+
+    let removedFiles = new Set();
 
     let validate = () => {
         if (titleInput.val().length !== 0 || descriptionInput.val().length !== 0) {
@@ -1591,7 +1723,7 @@ function createProject(loggedIn) {
             createButton.removeClass("disabled");
             // Stored in the template file to have relative url
             createButton.on("click", function () {
-                createValidProject(loggedIn)
+                createValidProject(loggedIn, removedFiles)
             });
         } else {
             createButton.off();
@@ -1605,19 +1737,36 @@ function createProject(loggedIn) {
 
     titleInput.on('input', updateIfValid);
     fileInput.on("change", function () {
+        console.log("I've been changed");
+        removedFiles = new Set();
+
         let selectedFilesContainer = $("#files-selected-container");
         selectedFilesContainer.empty();
 
         let selectedFiles = Array.from(fileInput.prop("files"));
         for (let i = 0; i < selectedFiles.length; i++) {
             let name = selectedFiles[i].name.toString();
-            name = name.slice(0, 27);
+            name = name.slice(0, 20);
             name += "...";
             selectedFilesContainer.append(`
-                <div class="column is-12">
-                    <p>${name}</p>
+                <div id="selectedFile-${i}-container" class="column is-12">
+                    <div class="level">
+                        <div class="level-left">
+                            <p class="has-text-white">${name}</p>
+                        </div>
+                        <div class="level-right">
+                            <button id="deleteSelectedFile-${i}" class="delete delete-selected-file"></button>
+                        </div>
+                    </div>
                 </div>
             `);
+            selectedFilesContainer.find(`#deleteSelectedFile-${i}`).on("click", function (e) {
+                $(`#selectedFile-${e.target.id.split('-')[1]}-container`).remove();
+                removedFiles.add(i);
+                if (removedFiles.size === selectedFiles.length) {
+                    fileInput.val('');
+                }
+            })
         }
 
         updateIfValid();
@@ -1629,7 +1778,7 @@ function createProject(loggedIn) {
         if (code === 13) {
             let valid = validate();
             if (valid) {
-                createValidProject(loggedIn);
+                createValidProject(loggedIn, removedFiles);
             }
         } else if (code === 27) {
             genericInputCleanUp(contentContainer, modal);

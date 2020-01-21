@@ -78,9 +78,16 @@
 
         <script type="text/javascript">
 
-            function createValidProject(loggedIn) {
+            function createValidProject(loggedIn, removedFiles) {
                 let fileInput = $("#video-file-input");
                 let files = Array.from(fileInput.prop("files"));
+
+                removedFiles.forEach((removedIndex) => {
+                    files[removedIndex] = null;
+                });
+                files = files.filter((value) => value != null);
+                console.log(files);
+
                 let description = $("#description-input").val();
                 let title = $("#project-name-input").val();
                 if (loggedIn) {

@@ -2,6 +2,33 @@ html, body {
     height: 100%;
 }
 
+.delete-selected-file {
+    margin-left: 15px;
+}
+
+.dropdown.is-active > .dropdown-menu.horizontal-menu {
+    display: inline-flex;
+}
+
+.has-margin-left {
+    margin-left: 15px;
+}
+
+input.input.small-input {
+    width: 30%;
+}
+
+.narrow-content {
+    margin: 3px;
+    min-width: auto;
+}
+
+.tooltip-button {
+    border: none;
+    background: none;
+    cursor: pointer;
+	outline: none;
+}
 
 .hidden-video {
     visibility: hidden;

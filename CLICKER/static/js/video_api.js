@@ -847,10 +847,15 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
     });
 }
 
-function toolTipBuilder(helpText) {
-    return $('')
+function toolTipBuilder(helpText, multiline) {
+    return $(`
+      <div class="buffer-div">
+      <button class="is-primary tooltip-button ${multiline === true?'has-tooltip-multiline':''}" data-tooltip="${helpText}">
+        <i class="fas fa-question-circle is-primary"></i>
+      </button>
+      </div>
+    `);
 }
-
 
 
 // ----- UNDERLYING MATHEMATICS ----- \\
