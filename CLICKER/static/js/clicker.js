@@ -679,8 +679,9 @@ function popOutVideo(event, videoURL) {
     let currentSection = $(`#canvas-columns-${videoIndex}`);
     currentSection.hide();
     $(videos[videoIndex].zoomCanvas).hide();
+    let URL = generatePopOutURL();
 
-    let poppedOut = window.open("http://152.2.14.117:8000/clicker/popped_window", `${event.target.id}`,
+    let poppedOut = window.open(URL, `${event.target.id}`,
         `location=yes,height=${600},width=${800},scrollbars=yes,status=yes`);
     if (!poppedOut || poppedOut.closed || typeof poppedOut.closed == 'undefined') {
         init_communicator.close();
@@ -862,7 +863,7 @@ function generateColorspaceDropdown(uniqueID) {
         <div id="rgb-dropdown-container-${uniqueID}" class="dropdown">
             <div class="dropdown-trigger">
                 <button id="rgb-dropdown-trigger-${uniqueID}" class="button" aria-haspopup="true" aria-controls="rgb-dropdown">
-                     <span>Select Colorspace</span><i class="fas fa-caret-down has-margin-left"></i>
+                     <span id="current-colorspace-selection-${uniqueID}">RGB</span><i class="fas fa-caret-down has-margin-left"></i>
                 </button>
             </div>
             <div class="dropdown-menu" id="rgb-dropdown-${uniqueID}" role="menu">
@@ -1113,6 +1114,73 @@ function mainWindowDeletePoint(e) {
 }
 
 
+function generateIndex0SetupMenu(currentFile, frameRateMenu) {
+    return $(`            
+            <div class="columns is-centered is-multiline">
+                <div class="column is-12 has-text-centered">
+                   <h1 class="has-julius has-text-white">Video Properties for ${currentFile.name}</h1>
+                </div>
+                
+                <div class="column">
+                    <div class="columns is-multiline">
+                        <div class="column is-narrow">
+                            <div class="columns is-multiline">
+                                <div class="column is-12">
+                                    <div id="offset-controller" class="controller">
+                                        <div class="label">
+                                            <label class="has-text-white" id="offset-label">Offset for ${currentFile.name}</label>
+                                        </div>
+                                        <input id="offset-input" class="input small-input" type="text">
+                                    </div>
+                                </div>
+                                
+                                <div class="column is-12">
+                                    <div class="controller">
+                                        <div class="label"><label class="has-text-white">Frame Rate:</label></div>
+                                    
+                                        <div id="frame-rate-dropdown" class="dropdown">
+                                            <div class="dropdown-trigger">
+                                                <button id="frame-rate-dropdown-trigger" class="button" aria-haspopup="true" 
+                                                aria-controls="track-dropdown">
+                                                    <span id="drop-down-display">30</span> <i class="fas fa-caret-down has-margin-left"></i>
+                                                </button>
+                                            </div>
+                                            <!-- Gone: Display: none --> 
+                                            <div id="custom-frame-rate-container" class="is-not-display">
+                                                <div class="columns has-margin-left is-gapless">
+                                                    <!-- Why use is-4 and not small-input? columns will take up 
+                                                    the same amount of space no matter if I only want 30% or 100% 
+                                                    is-4 limits the input anyway -->
+                                                    <div id="frame-rate-input-container" class="column is-4">
+                                                        <input id="frame-rate-input" class="input" type="text" placeholder="Framerate">
+                                                        <p id="modal-input-warning-frame-rate" class="help is-danger is-not-display">Please input a valid framerate!</p>
+                                                    </div>
+                                                    <div class="column is-narrow">
+                                                        <button id="frame-rate-save-button" class="button">Save</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            ${frameRateMenu.html()}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>  
+                        </div>
+                            
+                        <div class="column">
+                            ${generateColorspaceDropdown(1).html()}
+                        </div>
+                        <div class="column is-12">
+                            <label class="label has-text-white">Preview:</label>
+                            <canvas id="current-preview"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `);
+}
+
+
 function loadVideo(files, index) {
     let currentFile = files[index];
     let curURL = URL.createObjectURL(currentFile);
@@ -1137,6 +1205,7 @@ function loadVideo(files, index) {
         `);
 
         $('body').on('click', `#frameRate-${idableFrameRate}`, function (e) {
+            $("#custom-framerate-container").addClass("is-not-display");
             $("#drop-down-display").text(frameRate);
             FRAME_RATE = frameRate;
             e.stopPropagation();
@@ -1160,78 +1229,56 @@ function loadVideo(files, index) {
     `));
 
 
-    // THIS IS THE CASE WHERE WE ONLY NEED FRAME RATE (OFFSET = 0)
+    let video = loadHiddenVideo(index, curURL);
+
+    // THIS IS THE CASE WHERE WE ONLY NEED FRAME RATE
     if (index === 0) {
-        let inputContent = $(`            
-            <div class="columns is-centered is-multiline">
-                <div class="column is-12 has-text-centered">
-                   <h1 class="has-julius has-text-white">Video Properties for ${files[index].name}</h1>
-                </div>
-                
-                <div class="column">
-                    <div class="columns">
-                        <div class="column is-narrow">
-                            <div class="columns is-multiline">
-                                <div class="column is-12">
-                                    <div id="offset-controller" class="controller">
-                                        <div class="label">
-                                            <label class="has-text-white" id="offset-label">Offset for ${files[index].name}</label>
-                                        </div>
-                                        <input id="offset-input" class="input small-input" type="text">
-                                    </div>
-                                </div>
-                                
-                                <div class="column is-12">
-                                    <div class="controller">
-                                       <div class="label"><label class="has-text-white">Frame Rate:</label></div>
-                                        
-                                        <div id="frame-rate-dropdown" class="dropdown">
-                                                <div class="dropdown-trigger">
-                                                    <button id="frame-rate-dropdown-trigger" class="button" aria-haspopup="true" 
-                                                    aria-controls="track-dropdown">
-                                                        <span id="drop-down-display">30</span> <i class="fas fa-caret-down has-margin-left"></i>
-                                                    </button>
-                                                </div>
-                                                ${frameRateMenu.html()}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>  
-                            </div>
-                            
-                        <div class="column">
-                            ${generateColorspaceDropdown(1).html()}
-                        </div>
-                        
-                        
-                        <div class="column">
-                        
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `);
+        let inputContent = generateIndex0SetupMenu(files[0], frameRateMenu);
         let modal = $("#generic-input-modal");
         let modalContentContainer = $("#modal-content-container");
+        modalContentContainer.parent().css("width", "900px");
 
         let frameRateDropdown = inputContent.find("#frame-rate-dropdown");
         let frameRateDropdownTrigger = inputContent.find("#frame-rate-dropdown-trigger");
 
-        // This happens because the modal doesn't know how big the dropdown is and thus it does not
-        // allocate size to accommodate for the items in the dropdown
-        let HEIGHT_OFFSET_CHANGE = 0;
         frameRateDropdownTrigger.on("click", function (e) {
-
             if (frameRateDropdown.hasClass("is-active")) {
                 frameRateDropdown.removeClass("is-active");
-                modalContentContainer.css('height', '');
             } else {
-                HEIGHT_OFFSET_CHANGE = parseInt($("#frameRate-30-container").height(), 10) + 90;
                 frameRateDropdown.addClass("is-active");
-                modalContentContainer.css("height", parseInt(modalContentContainer.height(), 10) + HEIGHT_OFFSET_CHANGE);
             }
             e.stopPropagation();
         });
+
+        let addCustomFrameRate = () => {
+            let dropdownSelection = $("#drop-down-display");
+            let frameRateContainer = $("#custom-frame-rate-container");
+            dropdownSelection.text("Custom");
+            if (frameRateContainer.hasClass("is-not-display")) {
+                frameRateContainer.removeClass("is-not-display");
+                let frameRateInput = $("#frame-rate-input");
+                let saveButton =  $("#frame-rate-save-button");
+                saveButton.on("click", function(){
+                   let input = frameRateInput.val();
+                   let parse = parseFloat(input);
+                  let warning = $("#modal-input-warning-frame-rate");
+                   if (!isNaN(parse)) {
+                       FRAME_RATE = parse;
+                       dropdownSelection.text(input);
+                       warning.addClass("is-not-display");
+                       frameRateContainer.addClass("is-not-display");
+                       saveButton.off();
+                   } else {
+                       FRAME_RATE = null;
+                       if (warning.hasClass("is-not-display")) {
+                           warning.removeClass("is-not-display");
+                       }
+                   }
+                });
+            }
+        };
+
+        inputContent.on("click", "#frameRate-custom", addCustomFrameRate);
 
         $(modal).on("click", function () {
             if (frameRateDropdown.hasClass('is-active')) {
@@ -1285,6 +1332,32 @@ function loadVideo(files, index) {
 
         modalContentContainer.append(inputContent);
 
+        let previewCanvas = $("#current-preview").get(0);
+        previewCanvas.style.height = '100%';
+        previewCanvas.style.width = '100%';
+
+        let loadPreviewFrame = (videoWidth, videoHeight) => {
+            let ctx = previewCanvas.getContext("2d");
+            ctx.filter = COLORSPACE;
+            ctx.drawImage(document.getElementById(`video-${index}`),
+                0, 0, videoWidth, videoHeight);
+        };
+
+
+        let videoHeight = null;
+        let videoWidth = null;
+
+        let setupFunction = (jqueryVideo) => {
+            let video = jqueryVideo.get(0);
+            videoHeight = video.videoHeight;
+            videoWidth = video.videoWidth;
+            previewCanvas.height = videoHeight;
+            previewCanvas.width = videoWidth;
+            loadPreviewFrame(videoWidth, videoHeight);
+        };
+
+        video.currentTime = 1;
+
         let color_trigger = $("#rgb-dropdown-trigger-1");
         let color_container = $("#rgb-dropdown-container-1");
         let color_dropdown = $("#rgb-dropdown-1");
@@ -1300,13 +1373,12 @@ function loadVideo(files, index) {
         color_dropdown.on("click", ".dropdown-item", function (event) {
             let colorspace = event.target.id.split("-")[0] === "rgb" ? RGB : GREYSCALE;
             COLORSPACE = colorspace === RGB ? "grayscale(0%)" : "grayscale(100%)";
+            $(`#current-colorspace-selection-${1}`).text(colorspace === RGB ? "RGB" : "Greyscale");
+            loadPreviewFrame(videoWidth, videoHeight);
             if (color_container.hasClass("is-active")) {
                 color_container.removeClass("is-active");
             }
         });
-
-
-
 
 
         let confirmButton = $("#confirm-button");
@@ -1349,10 +1421,12 @@ function loadVideo(files, index) {
         $("#blurrable").css("filter", "blur(5px)");
         animateGenericInput(500, function () {
             offsetInput.focus();
+            setupFunction(video)
         });
+
     }
 
-    // THIS IS THE CASE WHERE WE GET BOTH OFFSET AND FRAME RATE
+    // Here we only need offset (we do not support multi-framerate at the time of writing)
     else {
         let inputContent = $(`            
             <div class="columns is-centered is-multiline">
@@ -1608,7 +1682,7 @@ function generateDOMSavedState(result, index) {
 }
 
 
-function createProject(loggedIn) {
+function createNewProject(loggedIn) {
     let contentContainer = $("#modal-content-container");
     let form = $(`
         <div class="columns is-centered is-multiline">
@@ -1617,7 +1691,14 @@ function createProject(loggedIn) {
                     <div class="columns is-centered is-vcentered is-multiline">
                         <div class="column is-12">
                             <div class="field">
-                                <label class="label has-text-white">Project Name${toolTipBuilder("Give a name to your project", false).html()}</label>
+                                <div class="level is-fake-label">
+                                    <div class="level-left">
+                                        <label class="label has-text-white">Project Name</label>    
+                                    </div>
+                                    <div class="level-right">
+                                        ${toolTipBuilder("Give a name to your project!", false).html()}
+                                    </div>
+                                </div>
                                 <div class="control">
                                     <input id="project-name-input" class="input">
                                 </div>
@@ -1626,7 +1707,14 @@ function createProject(loggedIn) {
                         
                         <div class="column is-12">
                             <div class="field">
-                                <label class="label has-text-white">Project Description</label>
+                                <div class="level is-fake-label">
+                                    <div class="level-left">
+                                        <label class="label has-text-white">Project Description</label>
+                                    </div>
+                                    <div class="level-right">
+                                        ${toolTipBuilder("(Optional) Describe your project!", false).html()}    
+                                    </div>
+                                </div>
                                 <div class="control">
                                     <input id="description-input" class="input">
                                 </div>
@@ -1645,6 +1733,9 @@ function createProject(loggedIn) {
                                         <div class="control">
                                             <input id="public-input" class="checkbox large-checkbox" type="checkbox">
                                         </div>    
+                                    </div>
+                                    <div class="column is-narrow">
+                                        ${toolTipBuilder("Checking this will allow others to help contribute to your project!", false, "right").html()}    
                                     </div>
                                 </div>
                             </div>
@@ -1909,7 +2000,7 @@ function loadNewlyCreatedProject(title, description, files) {
 $(document).ready(async function () {
     let loggedIn = await testLoggedIn();
     $("#new-project-button").on("click", function () {
-        createProject(loggedIn);
+        createNewProject(loggedIn);
     });
     $("#continue-working-button").on("click", function (_) {
         displaySavedStates(0);

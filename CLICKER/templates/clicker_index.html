@@ -205,6 +205,10 @@
                 });
             }
 
+            function generatePopOutURL(){
+                return "{% url 'clicker:popped-window' %}";
+            }
+
             autoHeightAnimate($($(".animated")[1]), 600, function () {
                 autoHeightAnimate($($(".animated")[2]), 600, function () {
                     autoHeightAnimate($($(".animated")[0]), 300, function () {

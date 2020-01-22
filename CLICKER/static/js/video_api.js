@@ -23,9 +23,6 @@ class Video {
         this.videoCanvas = document.getElementById(`videoCanvas-${videosIndex}`);
         this.videoCanvasContext = this.videoCanvas.getContext("2d");
 
-        // this.zoomCanvas = document.getElementById(`zoomCanvas-${videosIndex}`);
-        // this.zoomCanvasContext = this.zoomCanvas.getContext("2d");
-
         this.epipolarCanvas = document.getElementById(`epipolarCanvas-${videosIndex}`);
         this.epipolarCanvasContext = this.epipolarCanvas.getContext("2d");
 
@@ -688,6 +685,21 @@ function zoomOutZoomWindow(index) {
 }
 
 
+function loadHiddenVideo(index, objectURL) {
+    // Adds a video into the DOM that is hidden (0 width, 0 height, not able to mess up anything)
+    // Returns a jquery object of that video
+
+    // Index - Provides the number that allows for a unique ID
+    // If this isn't a number in the sequence 0 - N videos, something is probably wrong!
+
+    // Object URL - This is gotten from the file the user inputs, as far as I understand,
+    // the browser loads part of the video into memory and this URL points to that point in
+    // memory, wow!
+    let curVideo = $(`<video class="hidden-video" id="video-${index}" src="${objectURL}"></video>`);
+    $("#videos").append(curVideo);
+    return curVideo;
+}
+
 function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClick, isMainWindow, offsetArg = 0,
                            videoFinishedLoadingCallback = null) {
     // offsetArg - {"offset": offset for the video being loaded, "askForOffset": If it is the main window, should it
@@ -716,8 +728,12 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
         `);
 
     $("#canvases").append(curCanvases);
-    let curVideo = $(`<video class="hidden-video" id="video-${index}" src="${curURL}"></video>`);
-    $("#videos").append(curVideo);
+
+    let curVideo = $(`#video-${index}`);
+    if (curVideo.length === 0) {
+        curVideo = loadHiddenVideo(index, curURL);
+    }
+
     clickedPoints[index] = [];
     clickedPoints[index][0] = [];
     curCanvases = document.getElementById(`canvas-${index}`);
@@ -833,7 +849,7 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
 
         videos[index].goToFrame(1.001);
 
-        locks[`initFrameLoaded ${index}`] = true;
+        locks[`init_frame_loaded ${index}`] = true;
         if (videoFinishedLoadingCallback !== null) {
             videoFinishedLoadingCallback();
         }
@@ -841,17 +857,19 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
 
 
     curVideo.one('canplay', setupFunction);
-
+    curVideo.get(0).currentTime = 0;
     curVideo.on('canplay', function () {
         videos[index].loadFrame();
     });
+
 }
 
-function toolTipBuilder(helpText, multiline) {
+function toolTipBuilder(helpText, multiline, direction = "left") {
+    // direction defaults to left
     return $(`
       <div class="buffer-div">
-      <button class="is-primary tooltip-button ${multiline === true?'has-tooltip-multiline':''}" data-tooltip="${helpText}">
-        <i class="fas fa-question-circle is-primary"></i>
+      <button class="is-primary tooltip-button has-tooltip-${direction} ${multiline === true ? 'has-tooltip-multiline' : ''}" data-tooltip="${helpText}">
+        <i class="fas fa-question-circle is-primary" style="color: white"></i>
       </button>
       </div>
     `);

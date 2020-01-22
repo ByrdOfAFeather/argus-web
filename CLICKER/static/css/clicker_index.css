@@ -14,13 +14,25 @@ html, body {
     margin-left: 15px;
 }
 
+.columns.is-gapless.has-margin-left {
+    margin-left: 15px;
+}
+
 input.input.small-input {
     width: 30%;
+}
+
+.help.is-danger.is-not-display {
+    display: none;
 }
 
 .narrow-content {
     margin: 3px;
     min-width: auto;
+}
+
+.level:not(:last-child).is-fake-label {
+    margin-bottom: .5em;
 }
 
 .tooltip-button {
@@ -77,6 +89,10 @@ input.input.small-input {
 
 .hidden {
     opacity: 0;
+}
+
+.is-not-display {
+    display: none;
 }
 
 .zoom-canvas {
