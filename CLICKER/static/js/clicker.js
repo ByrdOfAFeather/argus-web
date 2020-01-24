@@ -680,9 +680,9 @@ function popOutVideo(event, videoURL) {
     currentSection.hide();
     $(videos[videoIndex].zoomCanvas).hide();
     let URL = generatePopOutURL();
-
-    let poppedOut = window.open(URL, `${event.target.id}`,
-        `location=yes,height=${600},width=${800},scrollbars=yes,status=yes`);
+    // `${event.target.id}`,
+    let poppedOut = window.open(URL, "detab",
+        `location=yes,height=${600},width=${800},scrollbars=yes,status=yes,detab=yes,toolbar=0`);
     if (!poppedOut || poppedOut.closed || typeof poppedOut.closed == 'undefined') {
         init_communicator.close();
         currentSection.show();
@@ -950,8 +950,12 @@ function loadSettings() {
                 </div>
             </div>
             
-            <div class="column has-text-centered">
-                ${generateColorspaceDropdown(0).html()}
+            <div class="column">
+                <div class="columns is-multiline is-vcentered">
+                    <div class="column is-12 has-text-centered">
+                        ${generateColorspaceDropdown(0).html()}
+                    </div>
+                </div>
             </div>
             
             <div class="column">
@@ -1257,23 +1261,23 @@ function loadVideo(files, index) {
             if (frameRateContainer.hasClass("is-not-display")) {
                 frameRateContainer.removeClass("is-not-display");
                 let frameRateInput = $("#frame-rate-input");
-                let saveButton =  $("#frame-rate-save-button");
-                saveButton.on("click", function(){
-                   let input = frameRateInput.val();
-                   let parse = parseFloat(input);
-                  let warning = $("#modal-input-warning-frame-rate");
-                   if (!isNaN(parse)) {
-                       FRAME_RATE = parse;
-                       dropdownSelection.text(input);
-                       warning.addClass("is-not-display");
-                       frameRateContainer.addClass("is-not-display");
-                       saveButton.off();
-                   } else {
-                       FRAME_RATE = null;
-                       if (warning.hasClass("is-not-display")) {
-                           warning.removeClass("is-not-display");
-                       }
-                   }
+                let saveButton = $("#frame-rate-save-button");
+                saveButton.on("click", function () {
+                    let input = frameRateInput.val();
+                    let parse = parseFloat(input);
+                    let warning = $("#modal-input-warning-frame-rate");
+                    if (!isNaN(parse)) {
+                        FRAME_RATE = parse;
+                        dropdownSelection.text(input);
+                        warning.addClass("is-not-display");
+                        frameRateContainer.addClass("is-not-display");
+                        saveButton.off();
+                    } else {
+                        FRAME_RATE = null;
+                        if (warning.hasClass("is-not-display")) {
+                            warning.removeClass("is-not-display");
+                        }
+                    }
                 });
             }
         };

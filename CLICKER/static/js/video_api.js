@@ -35,6 +35,8 @@ class Video {
         this.popVideoID = `popVideo-${videosIndex}`;
 
         this.lastFrame = (FRAME_RATE * this.video.duration);
+
+        this.isDisplayingFocusedPoint = false;
     }
 
     static createPointObject(index) {
@@ -203,7 +205,7 @@ class Video {
         videoHeight = this.video.videoHeight;
         videoWidth = this.video.videoWidth;
 
-        this.videoCanvasContext.filter = COLORSPACE;
+        // this.videoCanvasContext.filter = "brightness(25%)";
         this.videoCanvasContext.fillRect(0, 0, videoWidth, videoHeight);
         this.videoCanvasContext.drawImage(this.video, 0, 0, videoWidth, videoHeight);
 
@@ -211,8 +213,37 @@ class Video {
         if (!locks["can_click"]) {
             locks["can_click"] = true;
         }
+        let localPoints = getClickedPoints(this.index, trackTracker.currentTrack);
+        let pointIndex = Video.checkIfPointAlreadyExists(localPoints, frameTracker[this.index]);
+        if (pointIndex !== null) {
+            if (this.isDisplayingFocusedPoint) {
+                this.clearPoints();
+                this.redrawPoints(localPoints);
+            } else {
+                this.isDisplayingFocusedPoint = true;
+            }
+            this.drawFocusedPoint(localPoints[pointIndex].x, localPoints[pointIndex].y, 20);
+        } else {
+            if (this.isDisplayingFocusedPoint === true) {
+                this.clearPoints();
+                this.redrawPoints(localPoints);
+            }
+            this.isDisplayingFocusedPoint = false;
+        }
     }
 
+    drawFocusedPoint(x, y, r) {
+        this.canvasContext.strokeStyle = "rgb(0,190,57)";
+        this.canvasContext.beginPath();
+        this.canvasContext.arc(x, y, r, 0, Math.PI);
+        this.canvasContext.stroke();
+
+        this.canvasContext.strokeStyle = "rgb(0,18,190)";
+        this.canvasContext.beginPath();
+        this.canvasContext.arc(x, y, r, Math.PI, 2 * Math.PI);
+        this.canvasContext.stroke();
+
+    }
 
     drawLine(point1, point2, lineType = LINETYPE_POINT_TO_POINT) {
         let ctx = lineType === LINETYPE_EPIPOLAR ? this.epipolarCanvasContext : this.canvasContext;
@@ -709,9 +740,15 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
               <div class="container">
               <div id="canvas-columns-${index}" class="columns has-text-centered is-multiline">
                     <div class="column is-12 video-label-container">
-                    <p class="video-label render-unselectable" id="videoLabel-${index}"></p>
+                        <div class="level">
+                            <div class="level-left">
+                                <p class="video-label render-unselectable" id="videoLabel-${index}"></p>
+                            </div>
+                            <div id="pop-out-${index}-placeholder" class="level-right">
+                            </div>
+                        </div>
                     </div>
-                    <div class="column is-12">
+                    <div class="column">
                       <div id="container-for-canvas-${index}" class="container-for-canvas">
                         <canvas class="clickable-canvas absolute" id="canvas-${index}" style="z-index: 3;"></canvas>
                         <canvas class="epipolar-canvas absolute" id="epipolarCanvas-${index}" style="z-index: 2;"></canvas>
@@ -719,10 +756,19 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
                       </div>
                     </div>
                     <div class="column">
-                        <canvas class="zoom-canvas" id="zoomCanvas-${index}" style="z-index: 2;"></canvas>
+                        <div id="misc-settings-${index}" class="columns is-multiline">
+                            <div class="column">
+                                <label class="label">Brightness Slider:</label>
+                                <input id="brightnessSlider-${index}" class="slider is-fullwidth" step="1" min="0" max="200" value="100" type="range">
+                            </div>
+                            <div class="column is-12" id="goToFrame-${index}-placeholder">
+                            </div>
+                            <div class="column">
+                                <canvas class="zoom-canvas" id="zoomCanvas-${index}" style="z-index: 2;"></canvas>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                </div>
+              </div>
               </div>
             </div>
         `);
@@ -747,19 +793,22 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
     curCanvases.on("mousemove", setMousePos);
     curCanvases.on("scroll", setMousePos);
     if (isMainWindow) {
-        $(document.body).find(`#canvas-columns-${index}`).append($(`
-                        <div class="column">
-                           <button id="popVideo-${index}" class="button">Pop into new Window</button>
-                        </div>`));
+        $(document.body).find(`#pop-out-${index}-placeholder`).append($(`
+            <button id="popVideo-${index}" class="button">Pop into new Window</button>
+        `));
     }
 
     // TODO
-    $(document.body).find(`#canvas-columns-${index}`).append($(`
-                        <div class="column">
-                           <label class="label render-unselectable">Go To Frame</label>
-                           <input class="input" type="text">
-                           <button class="button">Go</button>
-                        </div>`));
+    $(document.body).find(`#goToFrame-${index}-placeholder`).append($(`                    
+        <label class="label render-unselectable">Go To Frame</label>
+        <input class="input" type="text">
+        <button class="button">Go</button>
+     `));
+
+    $(`#brightnessSlider-${index}`).on("change", function () {
+        videos[index].videoCanvasContext.filter = `brightness(${$(`#brightnessSlider-${index}`).val()}%)`;
+        videos[index].loadFrame();
+    });
 
 
     curVideo.on("error", function () {

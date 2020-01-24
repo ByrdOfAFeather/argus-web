@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Loading...</title>
-    {% load static  %}
+    {% load static %}
     <script
             src="https://code.jquery.com/jquery-3.4.1.min.js"
             integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
@@ -14,13 +14,16 @@
     <link type="text/css" href="{% static 'css/clicker_index.css' %}" rel="stylesheet">
     <link type="text/css"
           href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css" rel="stylesheet">
-     <script
+    <script
             src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"
             integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU="
             crossorigin="anonymous"></script>
+    <script src="{% static 'js/bulma-slider.js' %}"></script>
+    <link type="text/css" href="{% static 'css/bulma-tooltip.min.css' %}" rel="stylesheet">
+    <link type="text/css" href="{% static 'css/bulma-slider.min.css' %}" rel="stylesheet">
 </head>
 <body>
-    <div id="videos"></div>
+<div id="videos"></div>
 <div id="generic-input-modal" class="modal">
     <div id="generic-input-modal-background" class="modal-background"></div>
     <div id="generic-input-modal-content" class="modal-content">
@@ -28,6 +31,6 @@
         </div>
     </div>
 </div>
-    <div id="canvases"></div>
+<div id="canvases"></div>
 </body>
 </html>
