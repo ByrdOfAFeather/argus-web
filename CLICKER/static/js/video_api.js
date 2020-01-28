@@ -10,6 +10,61 @@ let videos = [];
 let RGB = 0;
 let GREYSCALE = 1;
 
+
+class DrawSecondaryTracksManager {
+    constructor() {
+        this.track_indicies = [];
+    }
+
+    removeIndex(indexToRemove) {
+        let index = this.track_indicies.indexOf(indexToRemove);
+        if (index >= 0) {
+            this.track_indicies.splice(index, 1);
+        }
+    }
+
+    addIndex(indexToAdd) {
+        let index = this.track_indicies.indexOf(indexToAdd);
+        if (index < 0) {
+            this.track_indicies.push(indexToAdd);
+        }
+    }
+
+    hasIndex(indexToCheckFor) {
+        let test = this.track_indicies.indexOf(indexToCheckFor);
+        return test >= 0;
+    }
+
+    drawTracks(redraw=false) {
+        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+            if (redraw) {
+                videos[i].clearPoints();
+                let points = getClickedPoints(i, trackTracker.currentTrack);
+                videos[i].drawPoints(points);
+                videos[i].drawLines(points);
+            }
+            for (let j = 0; j < this.track_indicies.length; j++) {
+                if (this.track_indicies[j] !== trackTracker.currentTrack) {
+                    let points = getClickedPoints(i, this.track_indicies[j]);
+                    let styleSave = videos[i].currentStrokeStyle;
+                    let trackTrackerObject = trackTracker.tracks.find((track) => track.index === this.track_indicies[j]);
+
+                    if (trackTrackerObject !== undefined) {
+                        videos[i].currentStrokeStyle = trackTrackerObject.color;
+                        videos[i].drawPoints(points);
+                        videos[i].drawLines(points);
+                        videos[i].currentStrokeStyle = styleSave;
+                    }
+
+                }
+            }
+        }
+    }
+}
+
+let drawSecondaryTracksTracker = new DrawSecondaryTracksManager();
+
+
 class Video {
     constructor(videosIndex, offset) {
         this.index = videosIndex;
@@ -50,6 +105,7 @@ class Video {
     redrawPoints(points) {
         this.drawPoints(points);
         this.drawLines(points);
+        drawSecondaryTracksTracker.drawTracks();
     }
 
     drawZoomWindow() {

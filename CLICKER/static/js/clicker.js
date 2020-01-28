@@ -77,6 +77,120 @@ let trackTracker = [];
 let PROJECT_NAME = "";
 let PROJET_DESCRIPTION = "";
 
+class TrackDropDown {
+    // STATIC CLASS CONTAINER FOR VARIOUS FUNCTIONS RELATING TO THE TRACK MANAGER AND SECONDARY TRACK MANAGER
+    constructor() {
+    }
+}
+
+// TRACK DROP DOWN VARIABLES
+TrackDropDown.dropDown = $(`
+            <div class="columns is-centered is-vcentered">
+                <div class="column">
+                    <div id="track-dropdown-container" class="dropdown">
+                        <div class="dropdown-trigger">
+                            <button id="track-dropdown-trigger" class="button" aria-haspopup="true" 
+                            aria-controls="track-dropdown">
+                                <span>Select Track</span><i class="fas fa-caret-down has-margin-left"></i>
+                            </button>
+                        </div>
+                        <div class="dropdown-menu" id="track-dropdown" role="menu">
+                            <div id="track-Track-1" class="dropdown-content">
+                                <div id=track-0 class="dropdown-item has-text-centered">
+                                    Track 1
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="column">
+                    <p id="current-track-display">Current Track: Track 1</p>
+                </div>
+            </div>
+        `);
+
+TrackDropDown.currentForcedDisplay = null;
+
+// TRACK DROP DOWN FUNCTIONS
+TrackDropDown.generateDropDownOption = (trackName, deleteButton, curIndex) =>
+    $(`
+        <div id=track-${trackName.replace(/ /g, "-")} class="dropdown-content">
+        <div class="container">
+            <div class="level">
+                <div class="level-left">
+                    <div class="column is-narrow"><label class="label is-small">Disp.</label></div>
+                    <div class="column is-narrow"><input id="track-${curIndex}-disp" type="checkbox" class="checkbox" checked="checked" disabled></div>
+                    <div id=track-${curIndex} class="dropdown-item has-text-centered">
+                        ${trackName}
+                    </div>
+                </div>
+                <!-- TODO: cleanup --> 
+                <div class="level-right">
+                ${deleteButton === true ? `<div class="column is-narrow"><button id="track-${curIndex}-delete" class="dropdown-item-delete delete">Delete</button></div>` :
+        ``
+    }</div>
+                
+                </div>
+            </div>
+            </div>
+    `);
+
+
+TrackDropDown.addTrack = (trackName, deleteButton = true) => {
+    if (trackName.length === 0) {
+        generateError("Track name can't be empty!");
+    } else if (trackTracker["tracks"].some((trackObject) => trackObject.name === trackName)) {
+        generateError("You can't add a track with the same name twice!");
+    } else {
+        let previousIndex = trackTracker.currentTrack;
+
+        addNewTrack(trackName);
+        $("#current-track-display").text(`Current Track: ${trackName}`);
+        let curIndex = trackTracker["currentTrack"];
+        let newDropdownItem = TrackDropDown.generateDropDownOption(trackName, deleteButton, curIndex);
+
+        TrackDropDown.currentForcedDisplay = newDropdownItem;
+
+        let dropDownItemsContainer = TrackDropDown.dropDown.find("#track-dropdown");
+        dropDownItemsContainer.append(newDropdownItem);
+        dropDownItemsContainer.find($(`#track-${previousIndex}-disp`)).prop('checked', false);
+
+        let displayOption = $(`#track-${curIndex}-disp`);
+        displayOption.on("change", function () {
+            if (drawSecondaryTracksTracker.hasIndex(curIndex)) {
+                drawSecondaryTracksTracker.removeIndex(curIndex);
+                drawSecondaryTracksTracker.drawTracks(true);
+            } else {
+                drawSecondaryTracksTracker.addIndex(curIndex);
+                drawSecondaryTracksTracker.drawTracks();
+            }
+        });
+
+        // Defaults to true since a new track is automatically switched to
+        displayOption.prop('checked', true);
+    }
+};
+
+TrackDropDown.disableForcedDisplay = () => {
+    TrackDropDown.currentForcedDisplay.find(".checkbox").prop("disabled", "");
+    TrackDropDown.currentForcedDisplay.find(".checkbox").prop("checked", "");
+};
+
+TrackDropDown.enableForcedDisplay = () => {
+    TrackDropDown.currentForcedDisplay.find(".checkbox").prop("disabled", "disabled");
+    TrackDropDown.currentForcedDisplay.find(".checkbox").prop("checked", "checked");
+};
+
+
+TrackDropDown.changeTracks = (trackID) => {
+
+    $("#current-track-display").text(`Current Track: ${trackTracker["tracks"][trackTracker["currentTrack"]].name}`);
+    TrackDropDown.disableForcedDisplay();
+    TrackDropDown.currentForcedDisplay = $(`#track-${trackID}-disp`).parent();
+    TrackDropDown.enableForcedDisplay();
+};
+
+
 function loadPoints(text) {
     colorIndex = 0;
     clickedPoints = [];
@@ -350,35 +464,7 @@ function removeTrack(trackIndex) {
 }
 
 function addTrackToDropDown(trackName, deleteButton = true) {
-    if (trackName.length === 0) {
-        generateError("Track name can't be empty!");
-    } else if (trackTracker["tracks"].some((trackObject) => trackObject.name === trackName)) {
-        generateError("You can't add a track with the same name twice!");
-    } else {
-        addNewTrack(trackName);
-        $("#current-track-display").text(`Current Track: ${trackName}`);
-        let curIndex = trackTracker["currentTrack"];
-        let newDropdownItem = $(`
-                <div id=track-${trackName.replace(/ /g, "-")} class="dropdown-content">
-                <div class="container">
-                    <div class="columns is-vcentered">
-                        <div class="column">
-                            <div id=track-${curIndex} class="dropdown-item has-text-centered">
-                                ${trackName}
-                            </div>
-                        </div>
-                        <!-- TODO: cleanup --> 
-                        <div class="column is-narrow">
-                        ${deleteButton === true ? `<div class="column is-narrow"><button id="track-${curIndex}-delete" class="dropdown-item-delete delete">Delete</button></div>` :
-            ``
-        }</div>
-                        
-                        </div>
-                    </div>
-                    </div>
-`);
-        $("#track-dropdown").append(newDropdownItem);
-    }
+
 }
 
 
@@ -927,27 +1013,7 @@ function loadSettings() {
                 </div>
             </div>
             
-            <div class="columns is-centered is-vcentered">
-                <div class="column">
-                    <div id="track-dropdown-container" class="dropdown">
-                        <div class="dropdown-trigger">
-                            <button id="track-dropdown-trigger" class="button" aria-haspopup="true" 
-                            aria-controls="track-dropdown">
-                                <span>Select Track</span><i class="fas fa-caret-down has-margin-left"></i>
-                            </button>
-                        </div>
-                        <div class="dropdown-menu" id="track-dropdown" role="menu">
-                            <div id="track-Track-1" class="dropdown-content">
-                                <div id=track-0 class="dropdown-item has-text-centered">
-                                    Track 1
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="column">
-                    <p id="current-track-display">Current Track: Track 1</p>
-                </div>
+            <div id="track-dropdown-container-column" class="column">
             </div>
             
             <div class="column">
@@ -991,7 +1057,9 @@ function loadSettings() {
         <hr>
 </section>
 `);
+
     $("#settingsInput").append(setupSettingsInput);
+    $("#track-dropdown-container-column").append(TrackDropDown.dropDown);
     let track_trigger = $("#track-dropdown-trigger");
     let color_trigger = $("#rgb-dropdown-trigger-0");
     let track_container = $("#track-dropdown-container");
@@ -1043,7 +1111,7 @@ function loadSettings() {
         }
 
 
-        $("#current-track-display").text(`Current Track: ${trackTracker["tracks"][trackTracker["currentTrack"]].name}`);
+        TrackDropDown.changeTracks(trackID);
         if (track_container.hasClass("is-active")) {
             track_container.removeClass("is-active");
         }
@@ -1051,7 +1119,7 @@ function loadSettings() {
 
     $("#add-track-button").on("click", function (_) {
         let newTrack = $("#new-track-input").val();
-        addTrackToDropDown(newTrack);
+        TrackDropDown.addTrack(newTrack);
     });
 
     track_dropdown.on("click", ".dropdown-item-delete", function (event) {
@@ -1145,7 +1213,7 @@ function generateIndex0SetupMenu(currentFile, frameRateMenu) {
                                         <div id="frame-rate-dropdown" class="dropdown">
                                             <div class="dropdown-trigger">
                                                 <button id="frame-rate-dropdown-trigger" class="button" aria-haspopup="true" 
-                                                aria-controls="track-dropdown">
+                                                aria-controls="frame-rate-dropdown">
                                                     <span id="drop-down-display">30</span> <i class="fas fa-caret-down has-margin-left"></i>
                                                 </button>
                                             </div>
