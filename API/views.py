@@ -33,7 +33,10 @@ def saved_states(request):
         if not user_states:
             end_of_pagination = True
             query_set_length = len(saved_state_query_set)
-            user_states = saved_state_query_set[query_set_length - 6: query_set_length - 1]
+            if query_set_length == 0:
+                user_states = []
+            else:
+                user_states = saved_state_query_set[query_set_length - 6: query_set_length - 1]
 
         else:
             if len(user_states) < 5: end_of_pagination = True

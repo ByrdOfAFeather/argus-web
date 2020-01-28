@@ -149,7 +149,12 @@ TrackDropDown.addTrack = (trackName, deleteButton = true) => {
         let curIndex = trackTracker["currentTrack"];
         let newDropdownItem = TrackDropDown.generateDropDownOption(trackName, deleteButton, curIndex);
 
+        if (TrackDropDown.currentForcedDisplay !== null) {
+            TrackDropDown.disableForcedDisplay();
+        }
         TrackDropDown.currentForcedDisplay = newDropdownItem;
+
+        drawSecondaryTracksTracker.removeIndex(curIndex);
 
         let dropDownItemsContainer = TrackDropDown.dropDown.find("#track-dropdown");
         dropDownItemsContainer.append(newDropdownItem);
@@ -157,12 +162,13 @@ TrackDropDown.addTrack = (trackName, deleteButton = true) => {
 
         let displayOption = $(`#track-${curIndex}-disp`);
         displayOption.on("change", function () {
-            if (drawSecondaryTracksTracker.hasIndex(curIndex)) {
-                drawSecondaryTracksTracker.removeIndex(curIndex);
-                drawSecondaryTracksTracker.drawTracks(true);
-            } else {
+            if (displayOption.prop("checked") === true) {
+                console.log("HERE");
                 drawSecondaryTracksTracker.addIndex(curIndex);
                 drawSecondaryTracksTracker.drawTracks();
+            } else {
+                drawSecondaryTracksTracker.removeIndex(curIndex);
+                drawSecondaryTracksTracker.drawTracks(true)
             }
         });
 
@@ -183,7 +189,6 @@ TrackDropDown.enableForcedDisplay = () => {
 
 
 TrackDropDown.changeTracks = (trackID) => {
-
     $("#current-track-display").text(`Current Track: ${trackTracker["tracks"][trackTracker["currentTrack"]].name}`);
     TrackDropDown.disableForcedDisplay();
     TrackDropDown.currentForcedDisplay = $(`#track-${trackID}-disp`).parent();
@@ -1096,6 +1101,12 @@ function loadSettings() {
 
     track_dropdown.on("click", ".dropdown-item", function (event) {
         let trackID = parseInt(event.target.id.split("-")[1], 10);
+
+        TrackDropDown.changeTracks(trackID);
+        if (track_container.hasClass("is-active")) {
+            track_container.removeClass("is-active");
+        }
+
         let cameraIndex = [];
         for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
             cameraIndex.push(i);
@@ -1108,12 +1119,6 @@ function loadSettings() {
                     "track": trackID
                 }
             });
-        }
-
-
-        TrackDropDown.changeTracks(trackID);
-        if (track_container.hasClass("is-active")) {
-            track_container.removeClass("is-active");
         }
     });
 

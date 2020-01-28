@@ -436,6 +436,8 @@ function changeTracks(trackIndex, cameras) {
             videos[cameras[index]].changeTracks(trackIndex);
         }
     }
+
+    drawSecondaryTracksTracker.drawTracks();
 }
 
 
