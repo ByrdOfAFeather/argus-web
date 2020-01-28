@@ -152,6 +152,7 @@ TrackDropDown.addTrack = (trackName, deleteButton = true) => {
         if (TrackDropDown.currentForcedDisplay !== null) {
             TrackDropDown.disableForcedDisplay();
         }
+
         TrackDropDown.currentForcedDisplay = newDropdownItem;
 
         drawSecondaryTracksTracker.removeIndex(curIndex);
@@ -178,13 +179,25 @@ TrackDropDown.addTrack = (trackName, deleteButton = true) => {
 };
 
 TrackDropDown.disableForcedDisplay = () => {
-    TrackDropDown.currentForcedDisplay.find(".checkbox").prop("disabled", "");
-    TrackDropDown.currentForcedDisplay.find(".checkbox").prop("checked", "");
+    let checkboxIndices = TrackDropDown.currentForcedDisplay.find('.checkbox');
+
+    if (checkboxIndices.length !== 0) {
+        checkboxIndices.prop("disabled", "");
+        checkboxIndices.prop("checked", "");
+
+        let id = parseInt(TrackDropDown.currentForcedDisplay.find(".checkbox")[0].id.split("-")[1], 10);
+        console.log(id);
+        console.log(drawSecondaryTracksTracker.removeIndex(id));
+        drawSecondaryTracksTracker.drawTracks(true);
+    }
 };
 
 TrackDropDown.enableForcedDisplay = () => {
-    TrackDropDown.currentForcedDisplay.find(".checkbox").prop("disabled", "disabled");
-    TrackDropDown.currentForcedDisplay.find(".checkbox").prop("checked", "checked");
+    let checkboxIndices = TrackDropDown.currentForcedDisplay.find('.checkbox');
+    if (checkboxIndices.length !== 0) {
+        checkboxIndices.prop("disabled", "disabled");
+        checkboxIndices.prop("checked", "checked");
+    };
 };
 
 
