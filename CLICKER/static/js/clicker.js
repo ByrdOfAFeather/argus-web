@@ -75,7 +75,8 @@ let trackTracker = [];
 
 // Global to be set by user.
 let PROJECT_NAME = "";
-let PROJET_DESCRIPTION = "";
+let PROJECT_DESCRIPTION = "";
+let PROJECT_ID = null;
 
 class TrackDropDown {
     // STATIC CLASS CONTAINER FOR VARIOUS FUNCTIONS RELATING TO THE TRACK MANAGER AND SECONDARY TRACK MANAGER
@@ -155,7 +156,7 @@ TrackDropDown.addTrack = (trackName, deleteButton = true) => {
 
         TrackDropDown.currentForcedDisplay = newDropdownItem;
 
-        drawSecondaryTracksTracker.removeIndex(curIndex);
+        secondaryTracksTracker.removeIndex(curIndex);
 
         let dropDownItemsContainer = TrackDropDown.dropDown.find("#track-dropdown");
         dropDownItemsContainer.append(newDropdownItem);
@@ -164,12 +165,20 @@ TrackDropDown.addTrack = (trackName, deleteButton = true) => {
         let displayOption = $(`#track-${curIndex}-disp`);
         displayOption.on("change", function () {
             if (displayOption.prop("checked") === true) {
-                console.log("HERE");
-                drawSecondaryTracksTracker.addIndex(curIndex);
-                drawSecondaryTracksTracker.drawTracks();
+                let message = messageCreator("updateSecondaryTracks", {"add": curIndex});
+                let callback = () => {
+                    secondaryTracksTracker.addIndex(curIndex);
+                };
+                updateAllLocalOrCommunicator(callback, message);
+                secondaryTracksTracker.drawTracks();
+
             } else {
-                drawSecondaryTracksTracker.removeIndex(curIndex);
-                drawSecondaryTracksTracker.drawTracks(true)
+                let message = messageCreator("updateSecondaryTracks", {"remove": curIndex});
+                let callback = () => {
+                    secondaryTracksTracker.removeIndex(curIndex);
+                };
+                updateAllLocalOrCommunicator(callback, message);
+                secondaryTracksTracker.drawTracks(true);
             }
         });
 
@@ -186,9 +195,8 @@ TrackDropDown.disableForcedDisplay = () => {
         checkboxIndices.prop("checked", "");
 
         let id = parseInt(TrackDropDown.currentForcedDisplay.find(".checkbox")[0].id.split("-")[1], 10);
-        console.log(id);
-        console.log(drawSecondaryTracksTracker.removeIndex(id));
-        drawSecondaryTracksTracker.drawTracks(true);
+        secondaryTracksTracker.removeIndex(id);
+        secondaryTracksTracker.drawTracks(true);
     }
 };
 
@@ -197,7 +205,7 @@ TrackDropDown.enableForcedDisplay = () => {
     if (checkboxIndices.length !== 0) {
         checkboxIndices.prop("disabled", "disabled");
         checkboxIndices.prop("checked", "checked");
-    };
+    }
 };
 
 
@@ -330,7 +338,7 @@ function exportConfig(autoSaved = false) {
     let output_json = {
         videos: videoObjects,
         title: PROJECT_NAME,
-        description: PROJET_DESCRIPTION,
+        description: PROJECT_DESCRIPTION,
         dateSaved: date,
         points: clickedPoints,
         frameTracker: frameTracker,
@@ -342,7 +350,7 @@ function exportConfig(autoSaved = false) {
         colorSpace: COLORSPACE
     };
 
-    createNewSavedState(output_json, autoSaved);
+    createNewSavedState(output_json, autoSaved, PROJECT_ID);
 }
 
 function getSavedStateVideoPaths(videoConfigs, index, cameras, pointConfig, frameTrackerConfig) {
@@ -406,7 +414,7 @@ function loadSavedState(config) {
     NUMBER_OF_CAMERAS = config.videos.length;
     FRAME_RATE = config.frameRate;
     COLORSPACE = config.colorSpace;
-    PROJET_DESCRIPTION = config.description;
+    PROJECT_DESCRIPTION = config.description;
 
 
     trackTracker.currentTrack = config.trackTracker.currentTrack;
@@ -766,6 +774,7 @@ function popOutVideo(event, videoURL) {
             "clickedPoints": clickedPoints,
             "offset": videos[videoIndex].offset,
             "currentTracks": trackTracker,
+            "currentSecondaryTracks": secondaryTracksTracker,
             "initFrame": frameTracker[videoIndex],
             "currentColorSpace": COLORSPACE,
             "frameRate": FRAME_RATE
@@ -1115,7 +1124,6 @@ function loadSettings() {
     track_dropdown.on("click", ".dropdown-item", function (event) {
         let trackID = parseInt(event.target.id.split("-")[1], 10);
 
-        TrackDropDown.changeTracks(trackID);
         if (track_container.hasClass("is-active")) {
             track_container.removeClass("is-active");
         }
@@ -1124,6 +1132,7 @@ function loadSettings() {
         for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
             cameraIndex.push(i);
         }
+        // This change tracks changes the underlying representation ( trackTracker & drawings )
         changeTracks(trackID, cameraIndex);
         if (communicators.length !== 0) {
             updateCommunicators({
@@ -1133,6 +1142,9 @@ function loadSettings() {
                 }
             });
         }
+
+        // This change tracks changes the dropdown display, including managing the display options
+        TrackDropDown.changeTracks(trackID);
     });
 
     $("#add-track-button").on("click", function (_) {
@@ -1730,7 +1742,7 @@ function sendKillNotification() {
 
 function handleSavedStateDelete(event) {
     event.stopPropagation();
-    // deleteSavedState(event.target.id.split("-")[1]);
+    deleteSavedState(event.target.id.split("-")[1]);
 }
 
 
@@ -2012,16 +2024,23 @@ async function displaySavedStates(currentPagination, direction = null) {
     let parsedResults = [];
 
     for (let i = 0; i < results.length; i++) {
-        parsedResults.push(JSON.parse(results[i]))
+        console.log(results[i]);
+        parsedResults.push({
+            "state_data": JSON.parse(results[i].state_data),
+            "project_id": results[i].project_id,
+            "state_id": results[i].state_id
+        })
     }
+
     parsedResults.sort((a, b) => new Date(b.dateSaved) - new Date(a.dateSaved));
     for (let i = 0; i < parsedResults.length; i++) {
-        let newState = generateDOMSavedState(parsedResults[i], i);
+        let newState = generateDOMSavedState(parsedResults[i].state_data, parsedResults[i].state_id);
         section.append(newState);
-        $(`#saved-states-${i}`).on("click", function () {
+        $(`#saved-states-${parsedResults[i].state_id}`).on("click", function () {
             $("#starter-menu").remove();
             $("#footer").remove();
-            loadSavedState(parsedResults[i]);
+            PROJECT_ID = parsedResults[i].project_id;
+            loadSavedState(parsedResults[i].state_data);
         });
     }
     section.find(".card").css("box-shadow", "0px 0px");
@@ -2031,9 +2050,9 @@ async function displaySavedStates(currentPagination, direction = null) {
     if (currentPagination === 0) {
         for (let i = 0; i < parsedResults.length; i++) {
             $("#saved-states-columns").css("display", "");
-            autoHeightAnimate($(`#saved-states-${i}`), 650 + (100 * i), function () {
-                $(`#saved-states-${i}-card`).animate({boxShadow: "0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1)"}, function () {
-                    $(`#saved-states-${i}-card`).removeAttr("style");
+            autoHeightAnimate($(`#saved-states-${parsedResults[i].state_id}`), 650 + (100 * i), function () {
+                $(`#saved-states-${parsedResults[i].state_id}-card`).animate({boxShadow: "0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1)"}, function () {
+                    $(`#saved-states-${parsedResults[i].state_id}-card`).removeAttr("style");
                 });
             });
         }
@@ -2080,9 +2099,10 @@ async function displaySavedStates(currentPagination, direction = null) {
 }
 
 
-function loadNewlyCreatedProject(title, description, files) {
+function loadNewlyCreatedProject(title, description, projectID, files) {
     PROJECT_NAME = title;
-    PROJET_DESCRIPTION = description;
+    PROJECT_DESCRIPTION = description;
+    PROJECT_ID = projectID;
     loadVideos(files);
 }
 

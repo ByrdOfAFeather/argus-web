@@ -11,15 +11,17 @@ let RGB = 0;
 let GREYSCALE = 1;
 
 
-class DrawSecondaryTracksManager {
+class SecondaryTracksManager {
     constructor() {
         this.track_indicies = [];
+        this.drawn_tracker = {};
     }
 
     removeIndex(indexToRemove) {
         let index = this.track_indicies.indexOf(indexToRemove);
         if (index >= 0) {
             this.track_indicies.splice(index, 1);
+            this.drawn_tracker[indexToRemove] = false;
         }
     }
 
@@ -35,21 +37,29 @@ class DrawSecondaryTracksManager {
         return test >= 0;
     }
 
-    drawTracks(redraw=false) {
+    drawTracks(redraw = false) {
         for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+
             if (redraw) {
+                this.drawn_tracker = {};
                 videos[i].clearPoints();
                 let points = getClickedPoints(i, trackTracker.currentTrack);
                 videos[i].drawPoints(points);
                 videos[i].drawLines(points);
             }
+
             for (let j = 0; j < this.track_indicies.length; j++) {
+                if (this.drawn_tracker[j] === true) {
+                    continue;
+                }
+
                 if (this.track_indicies[j] !== trackTracker.currentTrack) {
                     let points = getClickedPoints(i, this.track_indicies[j]);
                     let styleSave = videos[i].currentStrokeStyle;
                     let trackTrackerObject = trackTracker.tracks.find((track) => track.index === this.track_indicies[j]);
 
                     if (trackTrackerObject !== undefined) {
+                        this.drawn_tracker[j] = true;
                         videos[i].currentStrokeStyle = trackTrackerObject.color;
                         videos[i].drawPoints(points);
                         videos[i].drawLines(points);
@@ -62,7 +72,7 @@ class DrawSecondaryTracksManager {
     }
 }
 
-let drawSecondaryTracksTracker = new DrawSecondaryTracksManager();
+let secondaryTracksTracker = new SecondaryTracksManager();
 
 
 class Video {
@@ -105,7 +115,7 @@ class Video {
     redrawPoints(points) {
         this.drawPoints(points);
         this.drawLines(points);
-        drawSecondaryTracksTracker.drawTracks();
+        secondaryTracksTracker.drawTracks();
     }
 
     drawZoomWindow() {
@@ -437,7 +447,7 @@ function changeTracks(trackIndex, cameras) {
         }
     }
 
-    drawSecondaryTracksTracker.drawTracks();
+    secondaryTracksTracker.drawTracks();
 }
 
 

@@ -90,6 +90,16 @@ function handleColorSpaceChange(data) {
     video.loadFrame();
 }
 
+function handleSecondaryTrackChange(data) {
+    if (data["add"] !== undefined) {
+        secondaryTracksTracker.addIndex(data["add"]);
+        secondaryTracksTracker.drawTracks();
+    } else {
+        secondaryTracksTracker.removeIndex(data["remove"]);
+        secondaryTracksTracker.drawTracks(true);
+    }
+}
+
 function handleChange(message) {
     let messageContent = message.data;
     if (messageContent.type === "goToFrame") {
@@ -102,6 +112,8 @@ function handleChange(message) {
         handleDrawEpipolarLine(messageContent.data);
     } else if (messageContent.type === "drawDiamond") {
         handleDrawDiamond(messageContent.data);
+    } else if (messageContent.type === "updateSecondaryTracks") {
+        handleSecondaryTrackChange(messageContent.data);
     } else if (messageContent.type === "loadPoints") {
         handleLoadPoints(messageContent.data);
     } else if (messageContent.type === "changeColorSpace") {

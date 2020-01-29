@@ -81,6 +81,22 @@
 
         <script type="text/javascript">
 
+            function deleteSavedState(id) {
+                let csrf_token = $("[name=csrfmiddlewaretoken]").val();
+
+                $.ajax({
+                    url: `{% url 'api:saved-states' %}`,
+                    headers: {
+                        "X-CSRFToken": csrf_token
+                    },
+                    method: "DELETE",
+                    data: {"id": id},
+                    success: function (result) {
+                        $(`#saved-states-${id}`).remove();
+                    }
+                });
+            }
+
             function createValidProject(loggedIn, removedFiles) {
                 let fileInput = $("#video-file-input");
                 let files = Array.from(fileInput.prop("files"));
@@ -117,9 +133,9 @@
                         headers: {
                             "X-CSRFToken": csrftoken
                         },
-                        success: (_) => {
+                        success: (results) => {
                             genericInputCleanUp($("#modal-content-container"), $("#generic-input-modal"));
-                            loadNewlyCreatedProject(title, description, files);
+                            loadNewlyCreatedProject(title, description, results.success.data.id, files);
                         },
                         error: (error) => {
                             console.log(error);
@@ -140,7 +156,7 @@
                         url: "{% url 'api:saved-states' %}",
                         method: "GET",
                         data: {
-                          pagination: pagination,
+                            pagination: pagination,
                         },
                         error: (error) => {
                             if (error.status === 403) {
@@ -169,7 +185,7 @@
                 }
             }
 
-            function createNewSavedState(outputJson, autoSaved) {
+            function createNewSavedState(outputJson, autoSaved, projectID) {
                 let csrftoken = $("[name=csrfmiddlewaretoken]").val();
 
                 $.ajax({
@@ -177,7 +193,8 @@
                     method: "POST",
                     data: {
                         json: JSON.stringify(outputJson),
-                        autosave: autoSaved === true ? "true" : ""
+                        autosave: autoSaved === true ? "true" : "",
+                        projectID: projectID
                     },
                     headers: {
                         "X-CSRFToken": csrftoken
@@ -208,7 +225,7 @@
                 });
             }
 
-            function generatePopOutURL(){
+            function generatePopOutURL() {
                 return "{% url 'clicker:popped-window' %}";
             }
 
