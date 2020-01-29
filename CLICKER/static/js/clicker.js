@@ -17,7 +17,7 @@ let colorIndex = 0;
 
 // DEBUGGING CONSTANTS
 const PINHOLE = 1;
-let FRAME_RATE = null;
+let FRAME_RATE = 30;
 
 // GLOBALS FOR THE CAMERA PROFILE AND DLT COEFFICENTS
 let CAMERA_PROFILE = null;
@@ -26,6 +26,9 @@ let AUTO_SAVE_INTERVAL_ID = null;
 
 // COLORSPACE MANAGER
 let COLORSPACE = "";
+
+// Point Radius Manager
+let POINT_RADIUS = 10;
 
 // MANAGER FOR POP OUT WINDOWS
 let communicators = [];
@@ -44,7 +47,6 @@ let mouseTracker = {
     y: 0,
 };
 
-let fileObjects = [];
 
 // TRACKS WHICH VIDEOS ARE IN WHICH FRAMES
 // {videoIndex: frameNumber}
@@ -75,7 +77,147 @@ let trackTracker = [];
 
 // Global to be set by user.
 let PROJECT_NAME = "";
-let PROJET_DESCRIPTION = "";
+let PROJECT_DESCRIPTION = "";
+let PROJECT_ID = null;
+
+class TrackDropDown {
+    // STATIC CLASS CONTAINER FOR VARIOUS FUNCTIONS RELATING TO THE TRACK MANAGER AND SECONDARY TRACK MANAGER
+    constructor() {
+    }
+}
+
+// TRACK DROP DOWN VARIABLES
+TrackDropDown.dropDown = $(`
+            <div class="columns is-centered is-vcentered">
+                <div class="column">
+                    <div id="track-dropdown-container" class="dropdown">
+                        <div class="dropdown-trigger">
+                            <button id="track-dropdown-trigger" class="button" aria-haspopup="true" 
+                            aria-controls="track-dropdown">
+                                <span>Select Track</span><i class="fas fa-caret-down has-margin-left"></i>
+                            </button>
+                        </div>
+                        <div class="dropdown-menu" id="track-dropdown" role="menu">
+                            <div id="track-Track-1" class="dropdown-content">
+                                <div id=track-0 class="dropdown-item has-text-centered">
+                                    Track 1
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="column">
+                    <p id="current-track-display">Current Track: Track 1</p>
+                </div>
+            </div>
+        `);
+
+TrackDropDown.currentForcedDisplay = null;
+
+// TRACK DROP DOWN FUNCTIONS
+TrackDropDown.generateDropDownOption = (trackName, deleteButton, curIndex) =>
+    $(`
+        <div id=track-${trackName.replace(/ /g, "-")} class="dropdown-content">
+        <div class="container">
+            <div class="level">
+                <div class="level-left">
+                    <div class="column is-narrow"><label class="label is-small">Disp.</label></div>
+                    <div class="column is-narrow"><input id="track-${curIndex}-disp" type="checkbox" class="checkbox" checked="checked" disabled></div>
+                    <div id=track-${curIndex} class="dropdown-item has-text-centered">
+                        ${trackName}
+                    </div>
+                </div>
+                <!-- TODO: cleanup --> 
+                <div class="level-right">
+                ${deleteButton === true ? `<div class="column is-narrow"><button id="track-${curIndex}-delete" class="dropdown-item-delete delete">Delete</button></div>` :
+        ``
+    }</div>
+                
+                </div>
+            </div>
+            </div>
+    `);
+
+
+TrackDropDown.addTrack = (trackName, deleteButton = true) => {
+    if (trackName.length === 0) {
+        generateError("Track name can't be empty!");
+    } else if (trackTracker["tracks"].some((trackObject) => trackObject.name === trackName)) {
+        generateError("You can't add a track with the same name twice!");
+    } else {
+        let previousIndex = trackTracker.currentTrack;
+
+        addNewTrack(trackName);
+        $("#current-track-display").text(`Current Track: ${trackName}`);
+        let curIndex = trackTracker["currentTrack"];
+        let newDropdownItem = TrackDropDown.generateDropDownOption(trackName, deleteButton, curIndex);
+
+        if (TrackDropDown.currentForcedDisplay !== null) {
+            TrackDropDown.disableForcedDisplay();
+        }
+
+        TrackDropDown.currentForcedDisplay = newDropdownItem;
+
+        secondaryTracksTracker.removeIndex(curIndex);
+
+        let dropDownItemsContainer = TrackDropDown.dropDown.find("#track-dropdown");
+        dropDownItemsContainer.append(newDropdownItem);
+        dropDownItemsContainer.find($(`#track-${previousIndex}-disp`)).prop('checked', false);
+
+        let displayOption = $(`#track-${curIndex}-disp`);
+        displayOption.on("change", function () {
+            if (displayOption.prop("checked") === true) {
+                let message = messageCreator("updateSecondaryTracks", {"add": curIndex});
+                let callback = () => {
+                    secondaryTracksTracker.addIndex(curIndex);
+                };
+                updateAllLocalOrCommunicator(callback, message);
+                secondaryTracksTracker.drawTracks();
+
+            } else {
+                let message = messageCreator("updateSecondaryTracks", {"remove": curIndex});
+                let callback = () => {
+                    secondaryTracksTracker.removeIndex(curIndex);
+                };
+                updateAllLocalOrCommunicator(callback, message);
+                secondaryTracksTracker.drawTracks(true);
+            }
+        });
+
+        // Defaults to true since a new track is automatically switched to
+        displayOption.prop('checked', true);
+    }
+};
+
+TrackDropDown.disableForcedDisplay = () => {
+    let checkboxIndices = TrackDropDown.currentForcedDisplay.find('.checkbox');
+
+    if (checkboxIndices.length !== 0) {
+        checkboxIndices.prop("disabled", "");
+        checkboxIndices.prop("checked", "");
+
+        let id = parseInt(TrackDropDown.currentForcedDisplay.find(".checkbox")[0].id.split("-")[1], 10);
+        secondaryTracksTracker.removeIndex(id);
+        secondaryTracksTracker.drawTracks(true);
+    }
+};
+
+TrackDropDown.enableForcedDisplay = () => {
+    let checkboxIndices = TrackDropDown.currentForcedDisplay.find('.checkbox');
+    if (checkboxIndices.length !== 0) {
+        checkboxIndices.prop("disabled", "disabled");
+        checkboxIndices.prop("checked", "checked");
+    }
+};
+
+
+TrackDropDown.changeTracks = (trackID) => {
+    $("#current-track-display").text(`Current Track: ${trackTracker["tracks"][trackTracker["currentTrack"]].name}`);
+    TrackDropDown.disableForcedDisplay();
+    TrackDropDown.currentForcedDisplay = $(`#track-${trackID}-disp`).parent();
+    TrackDropDown.enableForcedDisplay();
+};
+
 
 function loadPoints(text) {
     colorIndex = 0;
@@ -198,7 +340,7 @@ function exportConfig(autoSaved = false) {
     let output_json = {
         videos: videoObjects,
         title: PROJECT_NAME,
-        description: PROJET_DESCRIPTION,
+        description: PROJECT_DESCRIPTION,
         dateSaved: date,
         points: clickedPoints,
         frameTracker: frameTracker,
@@ -210,7 +352,7 @@ function exportConfig(autoSaved = false) {
         colorSpace: COLORSPACE
     };
 
-    createNewSavedState(output_json, autoSaved);
+    createNewSavedState(output_json, autoSaved, PROJECT_ID);
 }
 
 function getSavedStateVideoPaths(videoConfigs, index, cameras, pointConfig, frameTrackerConfig) {
@@ -274,12 +416,8 @@ function loadSavedState(config) {
     NUMBER_OF_CAMERAS = config.videos.length;
     FRAME_RATE = config.frameRate;
     COLORSPACE = config.colorSpace;
-    console.log(config);
+    PROJECT_DESCRIPTION = config.description;
 
-
-    for (let i = 1; i < config.trackTracker.tracks.length; i++) {
-        addTrackToDropDown(config.trackTracker.tracks[i].name);
-    }
 
     trackTracker.currentTrack = config.trackTracker.currentTrack;
 
@@ -294,6 +432,11 @@ function loadSavedState(config) {
 
     $("#saved-states-section").empty();
     loadSettings();
+
+
+    for (let i = 1; i < config.trackTracker.tracks.length; i++) {
+        addTrackToDropDown(config.trackTracker.tracks[i].name);
+    }
 
     getSavedStateVideoPaths(config.videos, 0, cameras, config.points, config.frameTracker);
 }
@@ -349,35 +492,7 @@ function removeTrack(trackIndex) {
 }
 
 function addTrackToDropDown(trackName, deleteButton = true) {
-    if (trackName.length === 0) {
-        generateError("Track name can't be empty!");
-    } else if (trackTracker["tracks"].some((trackObject) => trackObject.name === trackName)) {
-        generateError("You can't add a track with the same name twice!");
-    } else {
-        addNewTrack(trackName);
-        $("#current-track-display").text(`Current Track: ${trackName}`);
-        let curIndex = trackTracker["currentTrack"];
-        let newDropdownItem = $(`
-                <div id=track-${trackName.replace(/ /g, "-")} class="dropdown-content">
-                <div class="container">
-                    <div class="columns is-vcentered">
-                        <div class="column">
-                            <div id=track-${curIndex} class="dropdown-item has-text-centered">
-                                ${trackName}
-                            </div>
-                        </div>
-                        <!-- TODO: cleanup --> 
-                        <div class="column is-narrow">
-                        ${deleteButton === true ? `<div class="column is-narrow"><button id="track-${curIndex}-delete" class="dropdown-item-delete delete">Delete</button></div>` :
-            ``
-            }</div>
-                        
-                        </div>
-                    </div>
-                    </div>
-`);
-        $("#track-dropdown").append(newDropdownItem);
-    }
+
 }
 
 
@@ -661,6 +776,7 @@ function popOutVideo(event, videoURL) {
             "clickedPoints": clickedPoints,
             "offset": videos[videoIndex].offset,
             "currentTracks": trackTracker,
+            "currentSecondaryTracks": secondaryTracksTracker,
             "initFrame": frameTracker[videoIndex],
             "currentColorSpace": COLORSPACE,
             "frameRate": FRAME_RATE
@@ -678,9 +794,10 @@ function popOutVideo(event, videoURL) {
     let currentSection = $(`#canvas-columns-${videoIndex}`);
     currentSection.hide();
     $(videos[videoIndex].zoomCanvas).hide();
-
-    let poppedOut = window.open("http://152.2.14.117:8000/clicker/popped_window", `${event.target.id}`,
-        `location=yes,height=${600},width=${800},scrollbars=yes,status=yes`);
+    let URL = generatePopOutURL();
+    // `${event.target.id}`,
+    let poppedOut = window.open(URL, "detab",
+        `location=yes,height=${600},width=${800},scrollbars=yes,status=yes,detab=yes,toolbar=0`);
     if (!poppedOut || poppedOut.closed || typeof poppedOut.closed == 'undefined') {
         init_communicator.close();
         currentSection.show();
@@ -855,137 +972,181 @@ function exportPoints() {
 }
 
 
+function generateColorspaceDropdown(uniqueID) {
+    return $(`
+    <div class="buffer-div">
+        <div id="rgb-dropdown-container-${uniqueID}" class="dropdown">
+            <div class="dropdown-trigger">
+                <button id="rgb-dropdown-trigger-${uniqueID}" class="button" aria-haspopup="true" aria-controls="rgb-dropdown">
+                     <span id="current-colorspace-selection-${uniqueID}">RGB</span><i class="fas fa-caret-down has-margin-left"></i>
+                </button>
+            </div>
+            <div class="dropdown-menu" id="rgb-dropdown-${uniqueID}" role="menu">
+                <div class="dropdown-content">
+                    <div id="rgb-${uniqueID}" class="dropdown-item">
+                        RGB
+                    </div>
+                </div>
+                <div class="dropdown-content">
+                    <div id="greyscale-${uniqueID}" class="dropdown-item">
+                        Greyscale
+                    </div>                        
+                </div>
+            </div>
+        </div>
+    </div>
+    `);
+}
+
+
 function loadSettings() {
     let setupSettingsInput = $(`
 <section class="section"> 
         <hr>
         <div class="columns is-multiline is-vcentered">
             <div class="column is-12 has-text-centered"><h1 class="title">SETTINGS</h1></div>
-            <div class="column">
-                <div class="columns is-centered is-vcentered is-multiline">
-                    <div class="column is-12">
-                        <div class="centered-file-input file">
-                            <label class="file-label">
-                                <input id="dlt-coeff-input" class="file-input" accept="text/csv" type=file>
-                                <span class="file-cta">
-                                  <span class="file-label">
-                                    Load DLT Coefficients 
-                                  </span>
-                                </span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="column is-12">
-                        <div class="centered-file-input file">
-                            <label class="file-label">
-                                <input id="camera-profile-input" class="file-input" accept=".txt" type=file>
-                                <span class="file-cta">
-                                  <span class="file-label">
-                                    Load Camera Profile 
-                                  </span>
-                                </span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-                
-            <div class="column">
-                <div class="control">
-                    <label class="label">Add New Track: </label>
-                    <input id="new-track-input" type="text">
-                    <input id="add-track-button" type="button" value="=>">
-                </div>
-            </div>
-            
-            <div class="columns is-centered is-vcentered">
-                <div class="column">
-                    <div id="track-dropdown-container" class="dropdown">
-                        <div class="dropdown-trigger">
-                            <button id="track-dropdown-trigger" class="button" aria-haspopup="true" 
-                            aria-controls="track-dropdown">
-                                <!-- TODO: ADD DOWN ARROW --> 
-                                <span>Select Track</span>
-                            </button>
-                        </div>
-                        <div class="dropdown-menu" id="track-dropdown" role="menu">
-                            <div id="track-Track-1" class="dropdown-content">
-                                <div id=track-0 class="dropdown-item has-text-centered">
-                                    Track 1
+            <div class="column is-12">
+                <div class="columns">
+                    <div class="column">
+                          <div class="columns is-centered is-vcentered is-multiline">
+                            <div class="column is-12">
+                                <div class="centered-file-input file">
+                                    <label class="file-label">
+                                        <input id="dlt-coeff-input" class="file-input" accept="text/csv" type=file>
+                                        <span class="file-cta">
+                                          <span class="file-label">
+                                            Load DLT Coefficients 
+                                          </span>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="column is-12">
+                                <div class="centered-file-input file">
+                                    <label class="file-label">
+                                        <input id="camera-profile-input" class="file-input" accept=".txt" type=file>
+                                        <span class="file-cta">
+                                          <span class="file-label">
+                                            Load Camera Profile 
+                                          </span>
+                                        </span>
+                                    </label>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="column">
-                    <p id="current-track-display">Current Track: Track 1</p>
-                </div>
-            </div>
-            
-            <div class="column has-text-centered">
-                <div id="rgb-dropdown-container" class="dropdown">
-                    <div class="dropdown-trigger">
-                        <button id="rgb-dropdown-trigger" class="button" aria-haspopup="true" aria-controls="rgb-dropdown">
-                            <!-- TODO: ADD DOWN ARROW --> 
-                             <span>Select Colorspace</span>
-                        </button>
-                    </div>
-                    <div class="dropdown-menu" id="rgb-dropdown" role="menu">
-                        <div class="dropdown-content">
-                            <div id=rgb class="dropdown-item">
-                                RGB
+                    
+                     <div class="column">
+                        <div class="field">
+                            <label class="label">Add New Track: </label>
+                            <div class="control">
+                                <input id="new-track-input" type="text" class="input small-input">
+                                <input id="add-track-button" type="button" class="button" value="=>">
                             </div>
                         </div>
-                        <div class="dropdown-content">
-                            <div id=greyscale class="dropdown-item">
-                                Greyscale
-                            </div>                        
-                        </div>
                     </div>
-                </div>
-            </div>
-            
-            <div class="column">
-                <div class="columns is-centered is-vcentered is-multiline">
-                    <div class="column is-12">
-                        <div class="column has-text-centered">
-                            <button id="save-points-button" class="button">Save Points</button>
-                        </div>  
-                    </div>
+                               
+                    <div id="track-dropdown-container-column" class="column">
+                    </div>       
                     
-                    <div class="column is-12">
-                        <div class="centered-file-input file">
-                            <label class="file-label">
-                                <input id="load-points-button" class="file-input" accept=".csv" type=file>
-                                    <span class="file-cta">
-                                        <span class="file-label">
-                                            Load Points 
+                    <div class="column">
+                        <div class="columns is-multiline is-vcentered">
+                            <div class="column is-12 has-text-centered">
+                                ${generateColorspaceDropdown(0).html()}
+                            </div>
+                        </div>
+                    </div>     
+                    
+                    <div class="column">
+                        <div class="columns is-centered is-vcentered is-multiline">
+                            <div class="column is-12">
+                                <div class="column has-text-centered">
+                                    <button id="save-points-button" class="button">Save Points</button>
+                                </div>  
+                            </div>
+                            
+                            <div class="column is-12">
+                                <div class="centered-file-input file">
+                                    <label class="file-label">
+                                        <input id="load-points-button" class="file-input" accept=".csv" type=file>
+                                            <span class="file-cta">
+                                                <span class="file-label">
+                                                    Load Points 
+                                                </span>
                                         </span>
-                                </span>
-                            </label>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>        
+                    
+                     <div class="column">
+                        <label class="label">Auto Advance:</label>
+                        <input id="auto-advance-setting" type="checkbox" class="checkbox" onclick="settings['auto-advance'] = !settings['auto-advance'];" checked="${settings["auto-advance"] ? "checked" : ""}">
+                        <label class="label">Sync:</label>
+                        <input id="sync-setting" type="checkbox" onclick="settings['sync'] = !settings['sync'];" class="checkbox" checked="${settings["sync"] ? "checked" : ""}">
+                    </div>                                                               
+                </div>
+                
+            </div>
+            <div class="column is-12">
+                <div class="columns is-vcentered is-centered">
+                    <div class="column is-narrow">
+                        <div class="field">
+                            <label class="label">Point Marker Size</label>
+                            <div class="control">
+                                <input id="point-size-input" class="input small-input">
+                                <input id="set-point-size-button" type="button" class="button" value="SET">
+                            </div>
                         </div>
                     </div>
+                    <div class="column">
+                        <label class="label">Preview</label>
+                        <canvas id="point-preview-canvas" height="100" width="100" style="height: 100px; width: 100px;">
+                        </canvas>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="column">
-                <label class="label">Auto Advance:</label>
-                <input id="auto-advance-setting" type="checkbox" class="checkbox" onclick="settings['auto-advance'] = !settings['auto-advance'];" checked="${settings["auto-advance"] ? "checked" : ""}">
-                <label class="label">Sync:</label>
-                <input id="sync-setting" type="checkbox" onclick="settings['sync'] = !settings['sync'];" class="checkbox" checked="${settings["sync"] ? "checked" : ""}">
             </div>
         </div>
         <hr>
 </section>
 `);
-    $("#settingsInput").append(setupSettingsInput);
-    let track_trigger = $("#track-dropdown-trigger");
-    let color_trigger = $("#rgb-dropdown-trigger");
-    let track_container = $("#track-dropdown-container");
-    let color_container = $("#rgb-dropdown-container");
-    let track_dropdown = $("#track-dropdown");
-    let color_dropdown = $("#rgb-dropdown");
 
+    $("#settingsInput").append(setupSettingsInput);
+    $("#track-dropdown-container-column").append(TrackDropDown.dropDown);
+    let track_trigger = $("#track-dropdown-trigger");
+    let color_trigger = $("#rgb-dropdown-trigger-0");
+    let track_container = $("#track-dropdown-container");
+    let color_container = $("#rgb-dropdown-container-0");
+    let track_dropdown = $("#track-dropdown");
+    let color_dropdown = $("#rgb-dropdown-0");
+
+    let pointPreviewCanvas = document.getElementById("point-preview-canvas");
+    let ctx = pointPreviewCanvas.getContext("2d");
+    ctx.arc(50, 50, POINT_RADIUS, 0, Math.PI);
+    ctx.arc(50, 50, POINT_RADIUS, Math.PI, 2 * Math.PI);
+    ctx.stroke();
+
+    $("#point-size-input").on("keyup", function () {
+        let pointPreviewCanvas = document.getElementById("point-preview-canvas");
+        let ctx = pointPreviewCanvas.getContext("2d");
+
+        let testRadius = $("#point-size-input").val();
+        ctx.clearRect(0, 0, 100, 100);
+        ctx.beginPath();
+        ctx.arc(50, 50, testRadius, 0, Math.PI);
+        ctx.arc(50, 50, testRadius, Math.PI, 2 * Math.PI);
+        ctx.stroke();
+    });
+
+    $("#set-point-size-button").on("click", function () {
+        POINT_RADIUS = $("#point-size-input").val() * videos[0].canvas.width / 800;
+        for (let i=0; i<NUMBER_OF_CAMERAS; i++) {
+            let points = getClickedPoints(i, trackTracker.currentTrack);
+            videos[i].clearPoints();
+            videos[i].redrawPoints(points);
+        }
+    });
 
     track_trigger.on("click", function () {
         if (track_container.hasClass("is-active")) {
@@ -1015,10 +1176,16 @@ function loadSettings() {
 
     track_dropdown.on("click", ".dropdown-item", function (event) {
         let trackID = parseInt(event.target.id.split("-")[1], 10);
+
+        if (track_container.hasClass("is-active")) {
+            track_container.removeClass("is-active");
+        }
+
         let cameraIndex = [];
         for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
             cameraIndex.push(i);
         }
+        // This change tracks changes the underlying representation ( trackTracker & drawings )
         changeTracks(trackID, cameraIndex);
         if (communicators.length !== 0) {
             updateCommunicators({
@@ -1029,16 +1196,13 @@ function loadSettings() {
             });
         }
 
-
-        $("#current-track-display").text(`Current Track: ${trackTracker["tracks"][trackTracker["currentTrack"]].name}`);
-        if (track_container.hasClass("is-active")) {
-            track_container.removeClass("is-active");
-        }
+        // This change tracks changes the dropdown display, including managing the display options
+        TrackDropDown.changeTracks(trackID);
     });
 
     $("#add-track-button").on("click", function (_) {
         let newTrack = $("#new-track-input").val();
-        addTrackToDropDown(newTrack);
+        TrackDropDown.addTrack(newTrack);
     });
 
     track_dropdown.on("click", ".dropdown-item-delete", function (event) {
@@ -1047,7 +1211,7 @@ function loadSettings() {
     });
 
     color_dropdown.on("click", ".dropdown-item", function (event) {
-        changeColorSpace(event.target.id === "rgb" ? RGB : GREYSCALE);
+        changeColorSpace(event.target.id.split("-")[0] === "rgb" ? RGB : GREYSCALE);
         if (color_container.hasClass("is-active")) {
             color_container.removeClass("is-active");
         }
@@ -1105,34 +1269,178 @@ function mainWindowDeletePoint(e) {
 }
 
 
+function generateIndex0SetupMenu(currentFile, frameRateMenu) {
+    return $(`            
+            <div class="columns is-centered is-multiline">
+                <div class="column is-12 has-text-centered">
+                   <h1 class="has-julius has-text-white">Video Properties for ${currentFile.name}</h1>
+                </div>
+                
+                <div class="column">
+                    <div class="columns is-multiline">
+                        <div class="column is-narrow">
+                            <div class="columns is-multiline">
+                                <div class="column is-12">
+                                    <div id="offset-controller" class="controller">
+                                        <div class="label">
+                                            <label class="has-text-white" id="offset-label">Offset for ${currentFile.name}</label>
+                                        </div>
+                                        <input id="offset-input" class="input small-input" type="text">
+                                    </div>
+                                </div>
+                                
+                                <div class="column is-12">
+                                    <div class="controller">
+                                        <div class="label"><label class="has-text-white">Frame Rate:</label></div>
+                                    
+                                        <div id="frame-rate-dropdown" class="dropdown">
+                                            <div class="dropdown-trigger">
+                                                <button id="frame-rate-dropdown-trigger" class="button" aria-haspopup="true" 
+                                                aria-controls="frame-rate-dropdown">
+                                                    <span id="drop-down-display">30</span> <i class="fas fa-caret-down has-margin-left"></i>
+                                                </button>
+                                            </div>
+                                            <!-- Gone: Display: none --> 
+                                            <div id="custom-frame-rate-container" class="is-not-display">
+                                                <div class="columns has-margin-left is-gapless">
+                                                    <!-- Why use is-4 and not small-input? columns will take up 
+                                                    the same amount of space no matter if I only want 30% or 100% 
+                                                    is-4 limits the input anyway -->
+                                                    <div id="frame-rate-input-container" class="column is-4">
+                                                        <input id="frame-rate-input" class="input" type="text" placeholder="Framerate">
+                                                        <p id="modal-input-warning-frame-rate" class="help is-danger is-not-display">Please input a valid framerate!</p>
+                                                    </div>
+                                                    <div class="column is-narrow">
+                                                        <button id="frame-rate-save-button" class="button">Save</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            ${frameRateMenu.html()}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>  
+                        </div>
+                            
+                        <div class="column">
+                            ${generateColorspaceDropdown(1).html()}
+                        </div>
+                        <div class="column is-12">
+                            <label class="label has-text-white">Preview:</label>
+                            <canvas id="current-preview"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `);
+}
+
+
 function loadVideo(files, index) {
     let currentFile = files[index];
     let curURL = URL.createObjectURL(currentFile);
 
-    // THIS IS THE CASE WHERE WE ONLY NEED FRAME RATE (OFFSET = 0)
-    if (index === 0) {
-        let inputContent = $(`            
-            <div class="columns is-centered is-multiline">
-                <div class="column is-12">
-                    <div id="offset-controller" class="controller">
-                        <div class="label">
-                            <label class="has-text-white" id="offset-label">Offset for ${files[index].name}</label>
-                        </div>
-                        <input id="offset-input" class="input" type="text">
-                    </div>
-                    <div id="frame-rate-controller" class="controller">
-                        <div class="label">
-                            <label class="has-text-white" id="frame-rate-label">Frame Rate for ${files[index].name}</label>
-                        </div>
-                        <input id="frame-rate-input" class="input" type="text">
-                    </div>
-                </div>
+    let COMMON_FRAME_RATES = [
+        29.97,
+        30,
+        50,
+        59.94,
+        60
+    ];
 
-                <div class="column">
-                    <button id="confirm-button" class="button">Ok</button>
+    let generateFrameRateMenuOption = (frameRate) => {
+
+        let idableFrameRate = `${frameRate}`.replace(".", "DOT");
+        let dropDownItem = $(`
+            <div id="frameRate-${idableFrameRate}-container" class="dropdown-content narrow-content">
+                <div id="frameRate-${idableFrameRate}" class="dropdown-item">
+                    ${frameRate}
                 </div>
             </div>
         `);
+
+        $('body').on('click', `#frameRate-${idableFrameRate}`, function (e) {
+            $("#custom-framerate-container").addClass("is-not-display");
+            $("#drop-down-display").text(frameRate);
+            FRAME_RATE = frameRate;
+            e.stopPropagation();
+        });
+        return dropDownItem;
+    };
+
+
+    // Why do we have a buffer div? Since jquery doesn't use the html from the top element when it converts
+    // a object to HTML, we need a buffer div to get the div we actually want later in this function!
+    let frameRateMenu = $(`<div id="buffer-div"><div class="dropdown-menu horizontal-menu" id="frame-rate-dropdown" role="menu"></div></div>`);
+    for (let i = 0; i < COMMON_FRAME_RATES.length; i++) {
+        frameRateMenu.find("#frame-rate-dropdown").append(generateFrameRateMenuOption(COMMON_FRAME_RATES[i]));
+    }
+    frameRateMenu.find("#frame-rate-dropdown").append($(`
+        <div id="frameRate-custom-container" class="dropdown-content narrow-content">
+            <div id="frameRate-custom" class="dropdown-item">
+                Custom
+            </div>
+        </div>
+    `));
+
+
+    let video = loadHiddenVideo(index, curURL);
+
+    // THIS IS THE CASE WHERE WE ONLY NEED FRAME RATE
+    if (index === 0) {
+        let inputContent = generateIndex0SetupMenu(files[0], frameRateMenu);
+        let modal = $("#generic-input-modal");
+        let modalContentContainer = $("#modal-content-container");
+        modalContentContainer.parent().css("width", "900px");
+
+        let frameRateDropdown = inputContent.find("#frame-rate-dropdown");
+        let frameRateDropdownTrigger = inputContent.find("#frame-rate-dropdown-trigger");
+
+        frameRateDropdownTrigger.on("click", function (e) {
+            if (frameRateDropdown.hasClass("is-active")) {
+                frameRateDropdown.removeClass("is-active");
+            } else {
+                frameRateDropdown.addClass("is-active");
+            }
+            e.stopPropagation();
+        });
+
+        let addCustomFrameRate = () => {
+            let dropdownSelection = $("#drop-down-display");
+            let frameRateContainer = $("#custom-frame-rate-container");
+            dropdownSelection.text("Custom");
+            if (frameRateContainer.hasClass("is-not-display")) {
+                frameRateContainer.removeClass("is-not-display");
+                let frameRateInput = $("#frame-rate-input");
+                let saveButton = $("#frame-rate-save-button");
+                saveButton.on("click", function () {
+                    let input = frameRateInput.val();
+                    let parse = parseFloat(input);
+                    let warning = $("#modal-input-warning-frame-rate");
+                    if (!isNaN(parse)) {
+                        FRAME_RATE = parse;
+                        dropdownSelection.text(input);
+                        warning.addClass("is-not-display");
+                        frameRateContainer.addClass("is-not-display");
+                        saveButton.off();
+                    } else {
+                        FRAME_RATE = null;
+                        if (warning.hasClass("is-not-display")) {
+                            warning.removeClass("is-not-display");
+                        }
+                    }
+                });
+            }
+        };
+
+        inputContent.on("click", "#frameRate-custom", addCustomFrameRate);
+
+        $(modal).on("click", function () {
+            if (frameRateDropdown.hasClass('is-active')) {
+                frameRateDropdown.removeClass('is-active');
+                modalContentContainer.css('height', '');
+            }
+        });
 
         let validate = (input) => {
             let offsetParse = parseInt(input[0]);
@@ -1157,8 +1465,6 @@ function loadVideo(files, index) {
                 return returnValue
             }
         };
-        let modal = $("#generic-input-modal");
-        let modalContentContainer = $("#modal-content-container");
 
         let callback = (parsedInput) => {
             FRAME_RATE = parsedInput.frameRate;
@@ -1180,25 +1486,80 @@ function loadVideo(files, index) {
         };
 
         modalContentContainer.append(inputContent);
+
+        let previewCanvas = $("#current-preview").get(0);
+        previewCanvas.style.height = '100%';
+        previewCanvas.style.width = '100%';
+
+        let loadPreviewFrame = (videoWidth, videoHeight) => {
+            let ctx = previewCanvas.getContext("2d");
+            ctx.filter = COLORSPACE;
+            ctx.drawImage(document.getElementById(`video-${index}`),
+                0, 0, videoWidth, videoHeight);
+        };
+
+
+        let videoHeight = null;
+        let videoWidth = null;
+
+        let setupFunction = (jqueryVideo) => {
+            let video = jqueryVideo.get(0);
+            videoHeight = video.videoHeight;
+            videoWidth = video.videoWidth;
+            previewCanvas.height = videoHeight;
+            previewCanvas.width = videoWidth;
+            loadPreviewFrame(videoWidth, videoHeight);
+        };
+
+        video.currentTime = 1;
+
+        let color_trigger = $("#rgb-dropdown-trigger-1");
+        let color_container = $("#rgb-dropdown-container-1");
+        let color_dropdown = $("#rgb-dropdown-1");
+
+        color_trigger.on("click", function () {
+            if (color_container.hasClass("is-active")) {
+                color_container.removeClass("is-active");
+            } else {
+                color_container.addClass("is-active");
+            }
+        });
+
+        color_dropdown.on("click", ".dropdown-item", function (event) {
+            let colorspace = event.target.id.split("-")[0] === "rgb" ? RGB : GREYSCALE;
+            COLORSPACE = colorspace === RGB ? "grayscale(0%)" : "grayscale(100%)";
+            $(`#current-colorspace-selection-${1}`).text(colorspace === RGB ? "RGB" : "Greyscale");
+            loadPreviewFrame(videoWidth, videoHeight);
+            if (color_container.hasClass("is-active")) {
+                color_container.removeClass("is-active");
+            }
+        });
+
+
         let confirmButton = $("#confirm-button");
         let offsetInput = $("#offset-input");
-        let frameRateInput = $("#frame-rate-input");
+
+        // TODO: Come back and validate custom input (once that is implemented)
 
         let validateAndCallback = (e) => {
             let offsetInputVal = offsetInput.val();
-            let frameRateInputVal = frameRateInput.val();
-            let parsedInput = validate([offsetInputVal, frameRateInputVal]);
+            let parsedInput = validate([offsetInputVal, FRAME_RATE]);
             if (parsedInput.valid === true) {
                 genericInputCleanUp(modalContentContainer, modal);
                 callback(parsedInput);
             } else {
                 if (parsedInput.offsetInvalid === true) {
                     offsetInput.addClass("is-danger");
-                    $("#offset-controller").append(`<p class="help is-danger">This is not a valid integer!</p>`)
+
+                    if ($("#modal-input-warning-offset").length === 0) {
+                        $("#offset-controller").append(`<p id='modal-input-warning-offset' class="help is-danger">This is not a valid integer!</p>`)
+                    }
                 }
                 if (parsedInput.frameRateInvalid === true) {
                     frameRateInput.addClass("is-danger");
-                    $("#frame-rate-controller").append(`<p class="help is-danger">This is not a valid integer!</p>`)
+                    if ($("#modal-input-warning-frame-rate").length === 0) {
+                        $("#frame-rate-controller").append(`<p id='modal-input-warning-frame-rate' class="help is-danger">This is not a valid integer!</p>`)
+                    }
                 }
             }
         };
@@ -1213,12 +1574,14 @@ function loadVideo(files, index) {
 
         modal.addClass("is-active");
         $("#blurrable").css("filter", "blur(5px)");
-        animateGenericInput(function () {
+        animateGenericInput(500, function () {
             offsetInput.focus();
+            setupFunction(video)
         });
+
     }
 
-    // THIS IS THE CASE WHERE WE GET BOTH OFFSET AND FRAME RATE
+    // Here we only need offset (we do not support multi-framerate at the time of writing)
     else {
         let inputContent = $(`            
             <div class="columns is-centered is-multiline">
@@ -1284,7 +1647,9 @@ function loadVideo(files, index) {
             } else {
                 if (parsedInput.offsetInvalid === true) {
                     offsetInput.addClass("is-danger");
-                    $("#offset-controller").append(`<p class="help is-danger">This is not a valid integer!</p>`)
+                    if ($("#modal-input-warning-offset").length === 0) {
+                        $("#offset-controller").append(`<p id='modal-input-warning-offset' class="help is-danger">This is not a valid integer!</p>`)
+                    }
                 }
             }
         };
@@ -1428,15 +1793,28 @@ function sendKillNotification() {
     ))
 }
 
-function generateSavedState(result, index) {
+function handleSavedStateDelete(event) {
+    event.stopPropagation();
+    deleteSavedState(event.target.id.split("-")[1]);
+}
+
+
+function generateDOMSavedState(result, index) {
     let date = new Date(result.dateSaved);
     let card = $(`
             <div id="saved-states-${index}" class="column hidden">
                 <div id="saved-states-${index}-card" class="card">
                     <header class="card-header">
-                        <p class="card-header-title">
-                            ${result.title}
-                        </p>
+                        <div class="level">
+                            <div class="level-left">
+                                <p class="card-header-title level-left">
+                                    ${result.title}
+                                </p>
+                            </div>
+                            <div class="level-right">
+                                <button id='savedState-${index}-delete' class="delete"></button>
+                            </div>
+                        </div>
                     </header>
                     <div class="card-content">
                         <div class="content">
@@ -1453,11 +1831,13 @@ function generateSavedState(result, index) {
                 </div>
             </div>
     `);
+
+    card.find(`#savedState-${index}-delete`).on('click', handleSavedStateDelete);
     return card;
 }
 
 
-function createProject(loggedIn) {
+function createNewProject(loggedIn) {
     let contentContainer = $("#modal-content-container");
     let form = $(`
         <div class="columns is-centered is-multiline">
@@ -1466,7 +1846,14 @@ function createProject(loggedIn) {
                     <div class="columns is-centered is-vcentered is-multiline">
                         <div class="column is-12">
                             <div class="field">
-                                <label class="label has-text-white">Project Name</label>
+                                <div class="level is-fake-label">
+                                    <div class="level-left">
+                                        <label class="label has-text-white">Project Name</label>    
+                                    </div>
+                                    <div class="level-right">
+                                        ${toolTipBuilder("Give a name to your project!", false).html()}
+                                    </div>
+                                </div>
                                 <div class="control">
                                     <input id="project-name-input" class="input">
                                 </div>
@@ -1475,7 +1862,14 @@ function createProject(loggedIn) {
                         
                         <div class="column is-12">
                             <div class="field">
-                                <label class="label has-text-white">Project Description</label>
+                                <div class="level is-fake-label">
+                                    <div class="level-left">
+                                        <label class="label has-text-white">Project Description</label>
+                                    </div>
+                                    <div class="level-right">
+                                        ${toolTipBuilder("(Optional) Describe your project!", false).html()}    
+                                    </div>
+                                </div>
                                 <div class="control">
                                     <input id="description-input" class="input">
                                 </div>
@@ -1494,6 +1888,9 @@ function createProject(loggedIn) {
                                         <div class="control">
                                             <input id="public-input" class="checkbox large-checkbox" type="checkbox">
                                         </div>    
+                                    </div>
+                                    <div class="column is-narrow">
+                                        ${toolTipBuilder("Checking this will allow others to help contribute to your project!", false, "right").html()}    
                                     </div>
                                 </div>
                             </div>
@@ -1518,6 +1915,9 @@ function createProject(loggedIn) {
                                             </label>
                                         </div>
                                     </div>
+                                    
+                                    <div class="columns is-multiline" id="files-selected-container">
+                                    </div>
                                 </div>
         
                                 <div class="level-right">
@@ -1537,6 +1937,8 @@ function createProject(loggedIn) {
             </div>
         </div>
     `);
+    $("#blurrable").css("filter", "blur(10px)");
+    $("#footer").css("filter", "blur(10px)");
     contentContainer.append(form);
     animateGenericInput(500, function () {
         $("#project-name-input").focus()
@@ -1546,6 +1948,8 @@ function createProject(loggedIn) {
     let titleInput = $("#project-name-input");
     let descriptionInput = $("#description-input");
     let fileInput = $("#video-file-input");
+
+    let removedFiles = new Set();
 
     let validate = () => {
         if (titleInput.val().length !== 0 || descriptionInput.val().length !== 0) {
@@ -1561,10 +1965,11 @@ function createProject(loggedIn) {
     let updateIfValid = () => {
         let valid = validate();
         if (valid) {
+            createButton.off();
             createButton.removeClass("disabled");
             // Stored in the template file to have relative url
             createButton.on("click", function () {
-                createValidProject(loggedIn)
+                createValidProject(loggedIn, removedFiles)
             });
         } else {
             createButton.off();
@@ -1577,16 +1982,49 @@ function createProject(loggedIn) {
     });
 
     titleInput.on('input', updateIfValid);
-    fileInput.on("change", updateIfValid);
+    fileInput.on("change", function () {
+        console.log("I've been changed");
+        removedFiles = new Set();
+
+        let selectedFilesContainer = $("#files-selected-container");
+        selectedFilesContainer.empty();
+
+        let selectedFiles = Array.from(fileInput.prop("files"));
+        for (let i = 0; i < selectedFiles.length; i++) {
+            let name = selectedFiles[i].name.toString();
+            name = name.slice(0, 20);
+            name += "...";
+            selectedFilesContainer.append(`
+                <div id="selectedFile-${i}-container" class="column is-12">
+                    <div class="level">
+                        <div class="level-left">
+                            <p class="has-text-white">${name}</p>
+                        </div>
+                        <div class="level-right">
+                            <button id="deleteSelectedFile-${i}" class="delete delete-selected-file"></button>
+                        </div>
+                    </div>
+                </div>
+            `);
+            selectedFilesContainer.find(`#deleteSelectedFile-${i}`).on("click", function (e) {
+                $(`#selectedFile-${e.target.id.split('-')[1]}-container`).remove();
+                removedFiles.add(i);
+                if (removedFiles.size === selectedFiles.length) {
+                    fileInput.val('');
+                }
+            })
+        }
+
+        updateIfValid();
+    });
     modal.addClass("is-active");
 
     modal.on("keydown", function (e) {
         let code = (e.keyCode ? e.keyCode : e.which);
-        console.log(code);
         if (code === 13) {
             let valid = validate();
             if (valid) {
-                createValidProject(loggedIn);
+                createValidProject(loggedIn, removedFiles);
             }
         } else if (code === 27) {
             genericInputCleanUp(contentContainer, modal);
@@ -1595,7 +2033,39 @@ function createProject(loggedIn) {
 }
 
 
-function displaySavedStates(results) {
+function slideSavedStates(savedStatesLength, direction) {
+    $("#saved-states-columns").show("slide", {direction: direction}, 250, function () {
+        for (let i = 0; i < savedStatesLength; i++) {
+            $(`#saved-states-${i}-card`).animate({boxShadow: "0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1)"}, function () {
+                $(`#saved-states-${i}-card`).removeAttr("style");
+            });
+        }
+    });
+}
+
+function savedStatePaginationHandler(newPagination, type) {
+    let direction;
+    let oppisiteDirection;
+    if (type === 'forwards') {
+        direction = 'left';
+        oppisiteDirection = 'right';
+    } else {
+        direction = 'right';
+        oppisiteDirection = 'left';
+    }
+    $("#saved-states-columns").hide("slide", {direction: direction}, 250, function () {
+        $("#saved-states-columns").empty();
+        // $("#saved-states-columns").css("display", "");
+        displaySavedStates(newPagination, oppisiteDirection);
+    });
+}
+
+
+async function displaySavedStates(currentPagination, direction = null) {
+    let response = await getSavedStates(currentPagination);
+    let endOfPagination = response.endOfPagination;
+    let results = response.results;
+
     let section = $("#saved-states-columns");
 
     if (results.length === 0) {
@@ -1607,37 +2077,85 @@ function displaySavedStates(results) {
     let parsedResults = [];
 
     for (let i = 0; i < results.length; i++) {
-        parsedResults.push(JSON.parse(results[i]))
+        console.log(results[i]);
+        parsedResults.push({
+            "state_data": JSON.parse(results[i].state_data),
+            "project_id": results[i].project_id,
+            "state_id": results[i].state_id
+        })
     }
+
     parsedResults.sort((a, b) => new Date(b.dateSaved) - new Date(a.dateSaved));
     for (let i = 0; i < parsedResults.length; i++) {
-        let newState = generateSavedState(parsedResults[i], i);
+        let newState = generateDOMSavedState(parsedResults[i].state_data, parsedResults[i].state_id);
         section.append(newState);
-        $(`#saved-states-${i}`).on("click", function () {
+        $(`#saved-states-${parsedResults[i].state_id}`).on("click", function () {
             $("#starter-menu").remove();
             $("#footer").remove();
-            loadSavedState(parsedResults[i]);
+            PROJECT_ID = parsedResults[i].project_id;
+            loadSavedState(parsedResults[i].state_data);
         });
     }
     section.find(".card").css("box-shadow", "0px 0px");
 
     $("#saved-states-section").removeClass("no-display");
 
-    for (let i = 0; i < parsedResults.length; i++) {
-        autoHeightAnimate($(`#saved-states-${i}`), 650 + (100 * i), function () {
-            $(`#saved-states-${i}-card`).animate({boxShadow: "0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1)"}, function () {
-                $(`#saved-states-${i}-card`).removeAttr("style");
+    if (currentPagination === 0) {
+        for (let i = 0; i < parsedResults.length; i++) {
+            $("#saved-states-columns").css("display", "");
+            autoHeightAnimate($(`#saved-states-${parsedResults[i].state_id}`), 650 + (100 * i), function () {
+                $(`#saved-states-${parsedResults[i].state_id}-card`).animate({boxShadow: "0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1)"}, function () {
+                    $(`#saved-states-${parsedResults[i].state_id}-card`).removeAttr("style");
+                });
             });
-        });
+        }
+    } else {
+        $(".column, .hidden").removeClass("hidden");
+        slideSavedStates(parsedResults.length, direction);
     }
 
+
     $("#continue-working-button").off();
+
+
+    if (!endOfPagination) {
+        let forwardPaginationButton = $(`
+                             <div class="column is-narrow" id="button-column">
+                                 <button id="pagination-button" class="rounded-button">
+                                    <span class='icon'>
+                                        <i class="fas fa-arrow-right"></i>
+                                    </span>
+                                </button>
+                            </div>`);
+
+        forwardPaginationButton.find("#pagination-button").on('click', function () {
+            savedStatePaginationHandler(currentPagination + 5, 'forwards');
+        });
+        $('#saved-states-columns').append(forwardPaginationButton);
+    }
+
+    if (!(currentPagination === 0)) {
+        let backwardPaginationButton = $(`
+                             <div class="column is-narrow" id="button-column">
+                                 <button id="pagination-button" class="rounded-button">
+                                    <span class='icon'>
+                                        <i class="fas fa-arrow-left"></i>
+                                    </span>
+                                </button>
+                            </div>`);
+
+        backwardPaginationButton.find("#pagination-button").on('click', function () {
+            savedStatePaginationHandler(currentPagination - 5, 'backwards');
+        });
+        $('#saved-states-columns').prepend(backwardPaginationButton);
+    }
 }
 
 
-function loadNewlyCreatedProject(title, description, files) {
+function loadNewlyCreatedProject(title, description, projectID, files) {
     PROJECT_NAME = title;
-    PROJET_DESCRIPTION = description;
+    PROJECT_DESCRIPTION = description;
+    PROJECT_ID = projectID;
     loadVideos(files);
 }
 
@@ -1645,9 +2163,11 @@ function loadNewlyCreatedProject(title, description, files) {
 $(document).ready(async function () {
     let loggedIn = await testLoggedIn();
     $("#new-project-button").on("click", function () {
-        createProject(loggedIn);
+        createNewProject(loggedIn);
     });
-    $("#continue-working-button").on("click", handleContinueWorking);
+    $("#continue-working-button").on("click", function (_) {
+        displaySavedStates(0);
+    });
 
     $(window).on('beforeunload', sendKillNotification);
 });

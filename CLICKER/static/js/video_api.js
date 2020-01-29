@@ -2,13 +2,78 @@ let videoObjects = [];
 
 let LINETYPE_EPIPOLAR = 1;
 let LINETYPE_POINT_TO_POINT = 2;
-let TEMP_MOVE_ZOOM = false;
+let ZOOM_WINDOW_MOVING = false;
 let ZOOM_BEING_MOVED = null;
 
 let videos = [];
 
 let RGB = 0;
 let GREYSCALE = 1;
+
+
+class SecondaryTracksManager {
+    constructor() {
+        this.track_indicies = [];
+        this.drawn_tracker = {};
+    }
+
+    removeIndex(indexToRemove) {
+        let index = this.track_indicies.indexOf(indexToRemove);
+        if (index >= 0) {
+            this.track_indicies.splice(index, 1);
+            this.drawn_tracker[indexToRemove] = false;
+        }
+    }
+
+    addIndex(indexToAdd) {
+        let index = this.track_indicies.indexOf(indexToAdd);
+        if (index < 0) {
+            this.track_indicies.push(indexToAdd);
+        }
+    }
+
+    hasIndex(indexToCheckFor) {
+        let test = this.track_indicies.indexOf(indexToCheckFor);
+        return test >= 0;
+    }
+
+    drawTracks(redraw = false) {
+        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+
+            if (redraw) {
+                this.drawn_tracker = {};
+                videos[i].clearPoints();
+                let points = getClickedPoints(i, trackTracker.currentTrack);
+                videos[i].drawPoints(points);
+                videos[i].drawLines(points);
+            }
+
+            for (let j = 0; j < this.track_indicies.length; j++) {
+                if (this.drawn_tracker[j] === true) {
+                    continue;
+                }
+
+                if (this.track_indicies[j] !== trackTracker.currentTrack) {
+                    let points = getClickedPoints(i, this.track_indicies[j]);
+                    let styleSave = videos[i].currentStrokeStyle;
+                    let trackTrackerObject = trackTracker.tracks.find((track) => track.index === this.track_indicies[j]);
+
+                    if (trackTrackerObject !== undefined) {
+                        this.drawn_tracker[j] = true;
+                        videos[i].currentStrokeStyle = trackTrackerObject.color;
+                        videos[i].drawPoints(points);
+                        videos[i].drawLines(points);
+                        videos[i].currentStrokeStyle = styleSave;
+                    }
+
+                }
+            }
+        }
+    }
+}
+
+let secondaryTracksTracker = new SecondaryTracksManager();
+
 
 class Video {
     constructor(videosIndex, offset) {
@@ -23,9 +88,6 @@ class Video {
         this.videoCanvas = document.getElementById(`videoCanvas-${videosIndex}`);
         this.videoCanvasContext = this.videoCanvas.getContext("2d");
 
-        // this.zoomCanvas = document.getElementById(`zoomCanvas-${videosIndex}`);
-        // this.zoomCanvasContext = this.zoomCanvas.getContext("2d");
-
         this.epipolarCanvas = document.getElementById(`epipolarCanvas-${videosIndex}`);
         this.epipolarCanvasContext = this.epipolarCanvas.getContext("2d");
 
@@ -38,6 +100,8 @@ class Video {
         this.popVideoID = `popVideo-${videosIndex}`;
 
         this.lastFrame = (FRAME_RATE * this.video.duration);
+
+        this.isDisplayingFocusedPoint = false;
     }
 
     static createPointObject(index) {
@@ -51,6 +115,8 @@ class Video {
     redrawPoints(points) {
         this.drawPoints(points);
         this.drawLines(points);
+        secondaryTracksTracker.drawn_tracker = {};
+        secondaryTracksTracker.drawTracks();
     }
 
     drawZoomWindow() {
@@ -206,7 +272,7 @@ class Video {
         videoHeight = this.video.videoHeight;
         videoWidth = this.video.videoWidth;
 
-        this.videoCanvasContext.filter = COLORSPACE;
+        // this.videoCanvasContext.filter = "brightness(25%)";
         this.videoCanvasContext.fillRect(0, 0, videoWidth, videoHeight);
         this.videoCanvasContext.drawImage(this.video, 0, 0, videoWidth, videoHeight);
 
@@ -214,8 +280,37 @@ class Video {
         if (!locks["can_click"]) {
             locks["can_click"] = true;
         }
+        let localPoints = getClickedPoints(this.index, trackTracker.currentTrack);
+        let pointIndex = Video.checkIfPointAlreadyExists(localPoints, frameTracker[this.index]);
+        if (pointIndex !== null) {
+            if (this.isDisplayingFocusedPoint) {
+                this.clearPoints();
+                this.redrawPoints(localPoints);
+            } else {
+                this.isDisplayingFocusedPoint = true;
+            }
+            this.drawFocusedPoint(localPoints[pointIndex].x, localPoints[pointIndex].y, 20);
+        } else {
+            if (this.isDisplayingFocusedPoint === true) {
+                this.clearPoints();
+                this.redrawPoints(localPoints);
+            }
+            this.isDisplayingFocusedPoint = false;
+        }
     }
 
+    drawFocusedPoint(x, y) {
+        this.canvasContext.strokeStyle = "rgb(0,190,57)";
+        this.canvasContext.beginPath();
+        this.canvasContext.arc(x, y, POINT_RADIUS, 0, Math.PI);
+        this.canvasContext.stroke();
+
+        this.canvasContext.strokeStyle = "rgb(0,18,190)";
+        this.canvasContext.beginPath();
+        this.canvasContext.arc(x, y, POINT_RADIUS, Math.PI, 2 * Math.PI);
+        this.canvasContext.stroke();
+
+    }
 
     drawLine(point1, point2, lineType = LINETYPE_POINT_TO_POINT) {
         let ctx = lineType === LINETYPE_EPIPOLAR ? this.epipolarCanvasContext : this.canvasContext;
@@ -250,7 +345,7 @@ class Video {
         this.canvasContext.strokeStyle = this.currentStrokeStyle;
 
         this.canvasContext.beginPath();
-        this.canvasContext.arc(x, y, r, 0, 2 * Math.PI);
+        this.canvasContext.arc(x, y, POINT_RADIUS, 0, 2 * Math.PI);
         this.canvasContext.stroke();
     }
 
@@ -352,19 +447,36 @@ function changeTracks(trackIndex, cameras) {
             videos[cameras[index]].changeTracks(trackIndex);
         }
     }
+
+    secondaryTracksTracker.drawTracks();
 }
 
 
 function setMousePos(e) {
-    if (TEMP_MOVE_ZOOM) {
+    if (ZOOM_WINDOW_MOVING) {
         let zoom = ZOOM_BEING_MOVED;
         zoom.css("position", "absolute");
         mouseTracker.x = e.pageX - (parseInt(zoom.css("width"), 10) / 2);
         mouseTracker.y = e.pageY - (parseInt(zoom.css("height"), 10) / 2);
 
-        // TODO: EFFICENT WAY OF MAKING SURE IT ISN'T PLACE ONTO ANOTHER CANVAS
+
+        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+            let voidArea = $(`#${videos[i].canvas.id}`);
+            let leftBorder = voidArea.offset().left;
+            let rightBorder = leftBorder + voidArea.width();
+            let heightStart = voidArea.offset().top;
+            let heightEnd = heightStart + voidArea.height();
+
+            if ((mouseTracker.x + 400 >= leftBorder && mouseTracker.x <= rightBorder) &&
+                (mouseTracker.y + 400 >= heightStart && mouseTracker.y <= heightEnd)) {
+                return;
+            }
+        }
+
         zoom.css("left", mouseTracker.x + "px");
         zoom.css("top", mouseTracker.y + "px");
+
+
     } else {
         if (e.target.id.startsWith("canvas")) {
             currentResizable = e.target;
@@ -614,11 +726,9 @@ function getGenericFileInput(inputLabel, callBackOkay, callBackCancel) {
 }
 
 
-function loadVideoOnPlay(video) {
-
-}
-
 function startMovingZoomWindow(zoomCanvas) {
+    $('.render-unselectable').addClass('unselectable');
+
     let index = zoomCanvas.id.split("-")[1];
 
     let rect = zoomCanvas.getBoundingClientRect();
@@ -631,7 +741,8 @@ function startMovingZoomWindow(zoomCanvas) {
     newZoom.css("position", "absolute");
     newZoom.css("left", x);
     newZoom.css("top", y);
-    zoomCanvas.remove();
+    zoomCanvas.css('visibility', 'hidden');
+    zoomCanvas.attr('id', '');
     $(document.body).append(newZoom);
     newZoom.on("mousedown", function () {
         startMovingZoomWindow(document.getElementById(newZoom.attr("id")));
@@ -640,17 +751,19 @@ function startMovingZoomWindow(zoomCanvas) {
     videos[index].zoomCanvas = document.getElementById(newZoom.attr("id"));
     videos[index].zoomCanvasContext = videos[index].zoomCanvas.getContext("2d");
 
-    TEMP_MOVE_ZOOM = true;
+    ZOOM_WINDOW_MOVING = true;
     $(document).on("mousemove", setMousePos);
     $(document).on("mouseup", function () {
-        stopMovingZoomWindow(zoomCanvas)
+        stopMovingZoomWindow(zoomCanvas);
+        $('.render-unselectable').removeClass('unselectable');
+
     });
     ZOOM_BEING_MOVED = newZoom;
 
 }
 
 function stopMovingZoomWindow(zoomCanvas) {
-    TEMP_MOVE_ZOOM = false;
+    ZOOM_WINDOW_MOVING = false;
     $(document).off();
 }
 
@@ -672,6 +785,21 @@ function zoomOutZoomWindow(index) {
 }
 
 
+function loadHiddenVideo(index, objectURL) {
+    // Adds a video into the DOM that is hidden (0 width, 0 height, not able to mess up anything)
+    // Returns a jquery object of that video
+
+    // Index - Provides the number that allows for a unique ID
+    // If this isn't a number in the sequence 0 - N videos, something is probably wrong!
+
+    // Object URL - This is gotten from the file the user inputs, as far as I understand,
+    // the browser loads part of the video into memory and this URL points to that point in
+    // memory, wow!
+    let curVideo = $(`<video class="hidden-video" id="video-${index}" src="${objectURL}"></video>`);
+    $("#videos").append(curVideo);
+    return curVideo;
+}
+
 function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClick, isMainWindow, offsetArg = 0,
                            videoFinishedLoadingCallback = null) {
     // offsetArg - {"offset": offset for the video being loaded, "askForOffset": If it is the main window, should it
@@ -681,9 +809,15 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
               <div class="container">
               <div id="canvas-columns-${index}" class="columns has-text-centered is-multiline">
                     <div class="column is-12 video-label-container">
-                    <p class="video-label" id="videoLabel-${index}"></p>
+                        <div class="level">
+                            <div class="level-left">
+                                <p class="video-label render-unselectable" id="videoLabel-${index}"></p>
+                            </div>
+                            <div id="pop-out-${index}-placeholder" class="level-right">
+                            </div>
+                        </div>
                     </div>
-                    <div class="column is-12">
+                    <div class="column">
                       <div id="container-for-canvas-${index}" class="container-for-canvas">
                         <canvas class="clickable-canvas absolute" id="canvas-${index}" style="z-index: 3;"></canvas>
                         <canvas class="epipolar-canvas absolute" id="epipolarCanvas-${index}" style="z-index: 2;"></canvas>
@@ -691,17 +825,30 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
                       </div>
                     </div>
                     <div class="column">
-                        <canvas class="zoom-canvas" id="zoomCanvas-${index}" style="z-index: 2;"></canvas>
+                        <div id="misc-settings-${index}" class="columns is-multiline">
+                            <div class="column">
+                                <label class="label">Brightness Slider:</label>
+                                <input id="brightnessSlider-${index}" class="slider is-fullwidth" step="1" min="0" max="200" value="100" type="range">
+                            </div>
+                            <div class="column is-12" id="goToFrame-${index}-placeholder">
+                            </div>
+                            <div class="column">
+                                <canvas class="zoom-canvas" id="zoomCanvas-${index}" style="z-index: 2;"></canvas>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                </div>
+              </div>
               </div>
             </div>
         `);
 
     $("#canvases").append(curCanvases);
-    let curVideo = $(`<video class="hidden-video" id="video-${index}" src="${curURL}"></video>`);
-    $("#videos").append(curVideo);
+
+    let curVideo = $(`#video-${index}`);
+    if (curVideo.length === 0) {
+        curVideo = loadHiddenVideo(index, curURL);
+    }
+
     clickedPoints[index] = [];
     clickedPoints[index][0] = [];
     curCanvases = document.getElementById(`canvas-${index}`);
@@ -715,19 +862,22 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
     curCanvases.on("mousemove", setMousePos);
     curCanvases.on("scroll", setMousePos);
     if (isMainWindow) {
-        $(document.body).find(`#canvas-columns-${index}`).append($(`
-                        <div class="column">
-                           <button id="popVideo-${index}" class="button">Pop into new Window</button>
-                        </div>`));
+        $(document.body).find(`#pop-out-${index}-placeholder`).append($(`
+            <button id="popVideo-${index}" class="button">Pop into new Window</button>
+        `));
     }
 
     // TODO
-    $(document.body).find(`#canvas-columns-${index}`).append($(`
-                        <div class="column">
-                           <label class="label">Go To Frame</label>
-                           <input class="input" type="text">
-                           <button class="button">Go</button>
-                        </div>`));
+    $(document.body).find(`#goToFrame-${index}-placeholder`).append($(`                    
+        <label class="label render-unselectable">Go To Frame</label>
+        <input class="input" type="text">
+        <button class="button">Go</button>
+     `));
+
+    $(`#brightnessSlider-${index}`).on("change", function () {
+        videos[index].videoCanvasContext.filter = `brightness(${$(`#brightnessSlider-${index}`).val()}%)`;
+        videos[index].loadFrame();
+    });
 
 
     curVideo.on("error", function () {
@@ -817,7 +967,7 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
 
         videos[index].goToFrame(1.001);
 
-        locks[`initFrameLoaded ${index}`] = true;
+        locks[`init_frame_loaded ${index}`] = true;
         if (videoFinishedLoadingCallback !== null) {
             videoFinishedLoadingCallback();
         }
@@ -825,11 +975,24 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
 
 
     curVideo.one('canplay', setupFunction);
-
+    curVideo.get(0).currentTime = 0;
     curVideo.on('canplay', function () {
         videos[index].loadFrame();
     });
+
 }
+
+function toolTipBuilder(helpText, multiline, direction = "left") {
+    // direction defaults to left
+    return $(`
+      <div class="buffer-div">
+      <button class="is-primary tooltip-button has-tooltip-${direction} ${multiline === true ? 'has-tooltip-multiline' : ''}" data-tooltip="${helpText}">
+        <i class="fas fa-question-circle is-primary" style="color: white"></i>
+      </button>
+      </div>
+    `);
+}
+
 
 // ----- UNDERLYING MATHEMATICS ----- \\
 
@@ -1046,9 +1209,9 @@ function getEpipolarLines(videoIndex, DLTCoefficients, pointsIndex) {
             let yCoord = coord[1][1];
 
             if (CAMERA_PROFILE) {
-                let undistortPoints = undistortPoints([[xCoord, yCoord]], CAMERA_PROFILE[coord[0]][0]);
-                xCoord = undistortPoints[0];
-                yCoord = undistortPoints[1];
+                let undistortedPoints = undistortPoints([[xCoord, yCoord]], CAMERA_PROFILE[coord[0]][0]);
+                xCoord = undistortedPoints[0];
+                yCoord = undistortedPoints[1];
 
                 let slopeAndIntercept = getDLTLine(xCoord, yCoord, dlcCoeff1, dltCoeff2);
                 let slope = slopeAndIntercept[0];

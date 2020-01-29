@@ -2,6 +2,45 @@ html, body {
     height: 100%;
 }
 
+.delete-selected-file {
+    margin-left: 15px;
+}
+
+.dropdown.is-active > .dropdown-menu.horizontal-menu {
+    display: inline-flex;
+}
+
+.has-margin-left {
+    margin-left: 15px;
+}
+
+.columns.is-gapless.has-margin-left {
+    margin-left: 15px;
+}
+
+input.input.small-input {
+    width: 30%;
+}
+
+.help.is-danger.is-not-display {
+    display: none;
+}
+
+.narrow-content {
+    margin: 3px;
+    min-width: auto;
+}
+
+.level:not(:last-child).is-fake-label {
+    margin-bottom: .5em;
+}
+
+.tooltip-button {
+    border: none;
+    background: none;
+    cursor: pointer;
+	outline: none;
+}
 
 .hidden-video {
     visibility: hidden;
@@ -10,8 +49,29 @@ html, body {
     position: absolute;
 }
 
+.rounded-button {
+    width: 50px;
+    height: 50px;
+    border-radius: 30px;
+    border: 1px black solid;
+    background-color: transparent;
+    outline: none;
+}
+.rounded-button:hover {
+    opacity: .5;
+    cursor: pointer;
+}
+
+.unselectable {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
 .video-label-container {
-    border: 1px solid gray;
+    border: 2px solid gray;
     border-radius: 3px;
     color: white;
     text-transform: uppercase;
@@ -31,6 +91,10 @@ html, body {
     opacity: 0;
 }
 
+.is-not-display {
+    display: none;
+}
+
 .zoom-canvas {
     background-color: black;
 }
@@ -46,6 +110,11 @@ html, body {
 #generic-input-modal-background {
     background-color: rgba(0, 0, 0, .4);
     color: transparent;
+}
+
+#files-selected-container {
+    max-width: 0px;
+    padding-left: 15px;
 }
 
 .absolute {
