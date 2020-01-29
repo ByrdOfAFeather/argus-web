@@ -47,7 +47,6 @@ let mouseTracker = {
     y: 0,
 };
 
-let fileObjects = [];
 
 // TRACKS WHICH VIDEOS ARE IN WHICH FRAMES
 // {videoIndex: frameNumber}
@@ -1141,7 +1140,7 @@ function loadSettings() {
     });
 
     $("#set-point-size-button").on("click", function () {
-        POINT_RADIUS = $("#point-size-input").val();
+        POINT_RADIUS = $("#point-size-input").val() * videos[0].canvas.width / 800;
         for (let i=0; i<NUMBER_OF_CAMERAS; i++) {
             let points = getClickedPoints(i, trackTracker.currentTrack);
             videos[i].clearPoints();
