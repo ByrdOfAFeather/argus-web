@@ -115,6 +115,7 @@ class Video {
     redrawPoints(points) {
         this.drawPoints(points);
         this.drawLines(points);
+        secondaryTracksTracker.drawn_tracker = {};
         secondaryTracksTracker.drawTracks();
     }
 
@@ -298,15 +299,15 @@ class Video {
         }
     }
 
-    drawFocusedPoint(x, y, r) {
+    drawFocusedPoint(x, y) {
         this.canvasContext.strokeStyle = "rgb(0,190,57)";
         this.canvasContext.beginPath();
-        this.canvasContext.arc(x, y, r, 0, Math.PI);
+        this.canvasContext.arc(x, y, POINT_RADIUS, 0, Math.PI);
         this.canvasContext.stroke();
 
         this.canvasContext.strokeStyle = "rgb(0,18,190)";
         this.canvasContext.beginPath();
-        this.canvasContext.arc(x, y, r, Math.PI, 2 * Math.PI);
+        this.canvasContext.arc(x, y, POINT_RADIUS, Math.PI, 2 * Math.PI);
         this.canvasContext.stroke();
 
     }
@@ -344,7 +345,7 @@ class Video {
         this.canvasContext.strokeStyle = this.currentStrokeStyle;
 
         this.canvasContext.beginPath();
-        this.canvasContext.arc(x, y, r, 0, 2 * Math.PI);
+        this.canvasContext.arc(x, y, POINT_RADIUS, 0, 2 * Math.PI);
         this.canvasContext.stroke();
     }
 

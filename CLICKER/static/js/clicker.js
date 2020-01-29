@@ -27,6 +27,9 @@ let AUTO_SAVE_INTERVAL_ID = null;
 // COLORSPACE MANAGER
 let COLORSPACE = "";
 
+// Point Radius Manager
+let POINT_RADIUS = 10;
+
 // MANAGER FOR POP OUT WINDOWS
 let communicators = [];
 
@@ -1003,82 +1006,107 @@ function loadSettings() {
         <hr>
         <div class="columns is-multiline is-vcentered">
             <div class="column is-12 has-text-centered"><h1 class="title">SETTINGS</h1></div>
-            <div class="column">
-                <div class="columns is-centered is-vcentered is-multiline">
-                    <div class="column is-12">
-                        <div class="centered-file-input file">
-                            <label class="file-label">
-                                <input id="dlt-coeff-input" class="file-input" accept="text/csv" type=file>
-                                <span class="file-cta">
-                                  <span class="file-label">
-                                    Load DLT Coefficients 
-                                  </span>
-                                </span>
-                            </label>
+            <div class="column is-12">
+                <div class="columns">
+                    <div class="column">
+                          <div class="columns is-centered is-vcentered is-multiline">
+                            <div class="column is-12">
+                                <div class="centered-file-input file">
+                                    <label class="file-label">
+                                        <input id="dlt-coeff-input" class="file-input" accept="text/csv" type=file>
+                                        <span class="file-cta">
+                                          <span class="file-label">
+                                            Load DLT Coefficients 
+                                          </span>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="column is-12">
+                                <div class="centered-file-input file">
+                                    <label class="file-label">
+                                        <input id="camera-profile-input" class="file-input" accept=".txt" type=file>
+                                        <span class="file-cta">
+                                          <span class="file-label">
+                                            Load Camera Profile 
+                                          </span>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="column is-12">
-                        <div class="centered-file-input file">
-                            <label class="file-label">
-                                <input id="camera-profile-input" class="file-input" accept=".txt" type=file>
-                                <span class="file-cta">
-                                  <span class="file-label">
-                                    Load Camera Profile 
-                                  </span>
-                                </span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-                
-            <div class="column">
-                <div class="control">
-                    <label class="label">Add New Track: </label>
-                    <input id="new-track-input" type="text">
-                    <input id="add-track-button" type="button" value="=>">
-                </div>
-            </div>
-            
-            <div id="track-dropdown-container-column" class="column">
-            </div>
-            
-            <div class="column">
-                <div class="columns is-multiline is-vcentered">
-                    <div class="column is-12 has-text-centered">
-                        ${generateColorspaceDropdown(0).html()}
-                    </div>
-                </div>
-            </div>
-            
-            <div class="column">
-                <div class="columns is-centered is-vcentered is-multiline">
-                    <div class="column is-12">
-                        <div class="column has-text-centered">
-                            <button id="save-points-button" class="button">Save Points</button>
-                        </div>  
                     </div>
                     
-                    <div class="column is-12">
-                        <div class="centered-file-input file">
-                            <label class="file-label">
-                                <input id="load-points-button" class="file-input" accept=".csv" type=file>
-                                    <span class="file-cta">
-                                        <span class="file-label">
-                                            Load Points 
-                                        </span>
-                                </span>
-                            </label>
+                     <div class="column">
+                        <div class="field">
+                            <label class="label">Add New Track: </label>
+                            <div class="control">
+                                <input id="new-track-input" type="text" class="input small-input">
+                                <input id="add-track-button" type="button" class="button" value="=>">
+                            </div>
                         </div>
                     </div>
+                               
+                    <div id="track-dropdown-container-column" class="column">
+                    </div>       
+                    
+                    <div class="column">
+                        <div class="columns is-multiline is-vcentered">
+                            <div class="column is-12 has-text-centered">
+                                ${generateColorspaceDropdown(0).html()}
+                            </div>
+                        </div>
+                    </div>     
+                    
+                    <div class="column">
+                        <div class="columns is-centered is-vcentered is-multiline">
+                            <div class="column is-12">
+                                <div class="column has-text-centered">
+                                    <button id="save-points-button" class="button">Save Points</button>
+                                </div>  
+                            </div>
+                            
+                            <div class="column is-12">
+                                <div class="centered-file-input file">
+                                    <label class="file-label">
+                                        <input id="load-points-button" class="file-input" accept=".csv" type=file>
+                                            <span class="file-cta">
+                                                <span class="file-label">
+                                                    Load Points 
+                                                </span>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>        
+                    
+                     <div class="column">
+                        <label class="label">Auto Advance:</label>
+                        <input id="auto-advance-setting" type="checkbox" class="checkbox" onclick="settings['auto-advance'] = !settings['auto-advance'];" checked="${settings["auto-advance"] ? "checked" : ""}">
+                        <label class="label">Sync:</label>
+                        <input id="sync-setting" type="checkbox" onclick="settings['sync'] = !settings['sync'];" class="checkbox" checked="${settings["sync"] ? "checked" : ""}">
+                    </div>                                                               
                 </div>
+                
             </div>
-            
-            <div class="column">
-                <label class="label">Auto Advance:</label>
-                <input id="auto-advance-setting" type="checkbox" class="checkbox" onclick="settings['auto-advance'] = !settings['auto-advance'];" checked="${settings["auto-advance"] ? "checked" : ""}">
-                <label class="label">Sync:</label>
-                <input id="sync-setting" type="checkbox" onclick="settings['sync'] = !settings['sync'];" class="checkbox" checked="${settings["sync"] ? "checked" : ""}">
+            <div class="column is-12">
+                <div class="columns is-vcentered is-centered">
+                    <div class="column is-narrow">
+                        <div class="field">
+                            <label class="label">Point Marker Size</label>
+                            <div class="control">
+                                <input id="point-size-input" class="input small-input">
+                                <input id="set-point-size-button" type="button" class="button" value="SET">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column">
+                        <label class="label">Preview</label>
+                        <canvas id="point-preview-canvas" height="100" width="100" style="height: 100px; width: 100px;">
+                        </canvas>
+                    </div>
+                </div>
             </div>
         </div>
         <hr>
@@ -1094,6 +1122,32 @@ function loadSettings() {
     let track_dropdown = $("#track-dropdown");
     let color_dropdown = $("#rgb-dropdown-0");
 
+    let pointPreviewCanvas = document.getElementById("point-preview-canvas");
+    let ctx = pointPreviewCanvas.getContext("2d");
+    ctx.arc(50, 50, POINT_RADIUS, 0, Math.PI);
+    ctx.arc(50, 50, POINT_RADIUS, Math.PI, 2 * Math.PI);
+    ctx.stroke();
+
+    $("#point-size-input").on("keyup", function () {
+        let pointPreviewCanvas = document.getElementById("point-preview-canvas");
+        let ctx = pointPreviewCanvas.getContext("2d");
+
+        let testRadius = $("#point-size-input").val();
+        ctx.clearRect(0, 0, 100, 100);
+        ctx.beginPath();
+        ctx.arc(50, 50, testRadius, 0, Math.PI);
+        ctx.arc(50, 50, testRadius, Math.PI, 2 * Math.PI);
+        ctx.stroke();
+    });
+
+    $("#set-point-size-button").on("click", function () {
+        POINT_RADIUS = $("#point-size-input").val();
+        for (let i=0; i<NUMBER_OF_CAMERAS; i++) {
+            let points = getClickedPoints(i, trackTracker.currentTrack);
+            videos[i].clearPoints();
+            videos[i].redrawPoints(points);
+        }
+    });
 
     track_trigger.on("click", function () {
         if (track_container.hasClass("is-active")) {
