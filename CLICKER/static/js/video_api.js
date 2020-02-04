@@ -11,17 +11,17 @@ let RGB = 0;
 let GREYSCALE = 1;
 
 
-class SecondaryTracksManager {
+class SubTracksManager {
+    // Stores IDs of tracks to draw alongside the current track
     constructor() {
         this.track_indicies = [];
-        this.drawn_tracker = {};
+        this.currentTrackStash = null;
     }
 
     removeIndex(indexToRemove) {
         let index = this.track_indicies.indexOf(indexToRemove);
         if (index >= 0) {
             this.track_indicies.splice(index, 1);
-            this.drawn_tracker[indexToRemove] = false;
         }
     }
 
@@ -37,42 +37,20 @@ class SecondaryTracksManager {
         return test >= 0;
     }
 
-    drawTracks(redraw = false) {
-        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+    stash(indexToStash) {
+        this.currentTrackStash = indexToStash;
+    }
 
-            if (redraw) {
-                this.drawn_tracker = {};
-                videos[i].clearPoints();
-                let points = getClickedPoints(i, trackTracker.currentTrack);
-                videos[i].drawPoints(points);
-                videos[i].drawLines(points);
-            }
-
-            for (let j = 0; j < this.track_indicies.length; j++) {
-                if (this.drawn_tracker[j] === true) {
-                    continue;
-                }
-
-                if (this.track_indicies[j] !== trackTracker.currentTrack) {
-                    let points = getClickedPoints(i, this.track_indicies[j]);
-                    let styleSave = videos[i].currentStrokeStyle;
-                    let trackTrackerObject = trackTracker.tracks.find((track) => track.index === this.track_indicies[j]);
-
-                    if (trackTrackerObject !== undefined) {
-                        this.drawn_tracker[j] = true;
-                        videos[i].currentStrokeStyle = trackTrackerObject.color;
-                        videos[i].drawPoints(points);
-                        videos[i].drawLines(points);
-                        videos[i].currentStrokeStyle = styleSave;
-                    }
-
-                }
-            }
+    unstash() {
+        if (this.currentTrackStash == null) {
+            return;
         }
+        this.track_indicies.push(this.currentTrackStash);
+        this.currentTrackStash = null;
     }
 }
 
-let secondaryTracksTracker = new SecondaryTracksManager();
+let secondaryTracksTracker = new SubTracksManager();
 
 
 class Video {
@@ -158,62 +136,24 @@ class Video {
     }
 
 
-    addNewPoint(point) {
-        if (!locks["can_click"]) {
-            return;
-        }
+    drawNewPoint(point, localPoints) {
+        let newIndex = localPoints.indexOf(point);
+        if (localPoints.length > 1) {
 
-        let currentTrackIndex = trackTracker.currentTrack;
-        locks["can_click"] = !settings["auto-advance"];
-
-        let localPoints = getClickedPoints(this.index, currentTrackIndex);
-
-
-        // If there is already a point
-        let indexOfAlreadyExistingPoints = Video.checkIfPointAlreadyExists(localPoints, point.frame);
-        if (indexOfAlreadyExistingPoints !== null) {
-            this.clearPoints();
-            localPoints[indexOfAlreadyExistingPoints] = point;
-            this.redrawPoints(localPoints);
-
-        } else {
-            localPoints.push(point);
-            localPoints.sort(sortByFrame);
-            let newIndex = localPoints.indexOf(point);
-
-            let videoHeight = this.video.videoHeight;
-            let videoWidth = this.video.videoWidth;
-            let currentHeight = this.canvas.style.height;
-            let currentWidth = this.canvas.style.width;
-
-            let videoArea = parseInt(currentHeight, 10) * parseInt(currentWidth, 10);
-            this.drawPoint(point.x, point.y, 20);
-
-
-            if (localPoints.length > 1) {
-
-                // Check if there is a point after this one
-                if (localPoints[newIndex + 1] !== undefined) {
-                    // Check if consecutive
-                    if (Math.floor(point.frame) === Math.floor(localPoints[newIndex + 1].frame) - 1) {
-                        this.drawLine(localPoints[newIndex], localPoints[newIndex + 1]);
-                    }
-                }
-                // Check if there is a point before this one
-                if (localPoints[newIndex - 1] !== undefined) {
-                    // Check if consecutive
-                    if (Math.floor(point.frame) === Math.floor(localPoints[newIndex - 1].frame) + 1) {
-                        this.drawLine(localPoints[newIndex - 1], localPoints[newIndex]);
-                    }
+            // Check if there is a point after this one
+            if (localPoints[newIndex + 1] !== undefined) {
+                // Check if consecutive
+                if (Math.floor(point.frame) === Math.floor(localPoints[newIndex + 1].frame) - 1) {
+                    this.drawLine(localPoints[newIndex], localPoints[newIndex + 1]);
                 }
             }
-        }
-
-        // return the Index
-        if (indexOfAlreadyExistingPoints !== null) {
-            return indexOfAlreadyExistingPoints;
-        } else {
-            return localPoints.length - 1;
+            // Check if there is a point before this one
+            if (localPoints[newIndex - 1] !== undefined) {
+                // Check if consecutive
+                if (Math.floor(point.frame) === Math.floor(localPoints[newIndex - 1].frame) + 1) {
+                    this.drawLine(localPoints[newIndex - 1], localPoints[newIndex]);
+                }
+            }
         }
     }
 
@@ -249,7 +189,7 @@ class Video {
             this.videoCanvasContext.clearRect(0, 0, this.videoCanvas.width, this.videoCanvas.height);
         }
 
-        Video.clearCanvases();
+        Video.clearEpipolarCanvases();
         let estimatedTime = frameNumber / FRAME_RATE;
         this.video.currentTime = estimatedTime;
 
@@ -410,7 +350,7 @@ class Video {
     }
 
 
-    static clearCanvases() {
+    static clearEpipolarCanvases() {
         for (let cameraIndex = 0; cameraIndex < videos.length; cameraIndex++) {
             let curVideo = videos[cameraIndex];
             if (curVideo === undefined) {
@@ -424,11 +364,6 @@ class Video {
                 curVideo.epipolarCanvas.height);
         }
     }
-}
-
-
-function getClickedPoints(index, currentTrackIndex) {
-    return clickedPoints[index][currentTrackIndex];
 }
 
 
@@ -785,7 +720,7 @@ function zoomOutZoomWindow(index) {
 }
 
 
-function loadHiddenVideo(index, objectURL) {
+function loadHiddenVideo(objectURL, index, onCanPlay) {
     // Adds a video into the DOM that is hidden (0 width, 0 height, not able to mess up anything)
     // Returns a jquery object of that video
 
@@ -797,6 +732,7 @@ function loadHiddenVideo(index, objectURL) {
     // memory, wow!
     let curVideo = $(`<video class="hidden-video" id="video-${index}" src="${objectURL}"></video>`);
     $("#videos").append(curVideo);
+    curVideo.one("canplay", onCanPlay);
     return curVideo;
 }
 

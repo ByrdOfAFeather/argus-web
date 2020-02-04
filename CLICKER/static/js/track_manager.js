@@ -1,17 +1,24 @@
 class TrackManager {
-    constructor() {
+    constructor(initTracks = null) {
         this.colorIndex = 0;
-        this.tracks = [
-            {
-                name: "Track 0",
-                absoluteIndex: 0,
-                color: COLORS[this.colorIndex]
-            }
-        ];
+        if (initTracks !== null) {
+            this.tracks = initTracks;
+        } else {
+            this.tracks = [
+                {
+                    name: "Track 0",
+                    absoluteIndex: 0,
+                    color: COLORS[this.colorIndex]
+                }
+            ];
+        }
+
+
         this.colorIndex += 1;
 
         this.nextUnusedIndex = 1;
         this.currentTrack = this.tracks[0];
+        this.subTracks = new SubTracksManager();
     }
 
     generateTrackObject(trackName) {
@@ -55,6 +62,8 @@ class TrackManager {
             return false;
         } else {
             this.tracks.splice(indexToRemove, 1);
+            this.subTracks.remove(index);
+
             updatePopouts({
                 "type": "removeTrack",
                 "data": {
@@ -67,5 +76,20 @@ class TrackManager {
         }
     }
 
+    addSubTrack(newSubTrack) {
+        this.subTracks.addIndex(newSubTrack);
+    }
 
+    removeSubTrack(subTrackToRemove) {
+        this.subTracks.removeIndex(subTrackToRemove);
+    }
+
+    changeCurrentTrack(newTrack) {
+        this.subTracks.unstash();
+        if (this.subTracks.hasIndex(newTrack)) {
+            this.subTracks.stash(newTrack);
+            this.subTracks.removeIndex(newTrack);
+        }
+        this.currentTrack = newTrack;
+    }
 }

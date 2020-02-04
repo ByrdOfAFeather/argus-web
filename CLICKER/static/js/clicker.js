@@ -73,12 +73,13 @@ let clickedPoints = [];
 
 // KEEPS TRACK OF TRACKS, THEIR NAMES, THEIR COLOR AND THEIR INDEX
 // {[ {name: TRACK_NAME, index: TRACK_INDEX, color: TRACK_COLOR} ], currentTrack: TRACK_VALUE}
-let trackTracker = [];
+let trackTracker = new TrackManager();
 
 // Global to be set by user.
 let PROJECT_NAME = "";
 let PROJECT_DESCRIPTION = "";
 let PROJECT_ID = null;
+let windowManager = null;
 
 class TrackDropDown {
     // STATIC CLASS CONTAINER FOR VARIOUS FUNCTIONS RELATING TO THE TRACK MANAGER AND SECONDARY TRACK MANAGER
@@ -147,7 +148,6 @@ TrackDropDown.addTrack = (trackName, deleteButton = true) => {
     } else {
         let previousIndex = trackTracker.currentTrack;
 
-        addNewTrack(trackName);
         $("#current-track-display").text(`Current Track: ${trackName}`);
         let curIndex = trackTracker["currentTrack"];
         let newDropdownItem = TrackDropDown.generateDropDownOption(trackName, deleteButton, curIndex);
@@ -220,6 +220,7 @@ TrackDropDown.changeTracks = (trackID) => {
 
 
 function loadPoints(text) {
+    // TODO : rework
     colorIndex = 0;
     clickedPoints = [];
     let iterationLength = trackTracker.tracks.length - 1;
@@ -554,7 +555,7 @@ function getPointsInFrame(videosWithTheSameFrame, frameNumber) {
 
 
 function drawDiamonds(videoIndex, result) {
-    // Video.clearCanvases();
+    // Video.clearEpipolarCanvases();
     let currentPoint = reconstructUV(DLT_COEFFICIENTS[videoIndex], result[result.length - 1]);
 
     if (!checkCoordintes(currentPoint[0][0], currentPoint[0][1],
@@ -1062,7 +1063,7 @@ function mainWindowAddNewPoint(event) {
                 videos[index].moveToNextFrame();
             }
         } else {
-            Video.clearCanvases();
+            Video.clearEpipolarCanvases();
             getEpipolarLinesOrUnifiedCoord(index, frameTracker[index]);
         }
     }
@@ -1220,31 +1221,7 @@ function loadVideo(files, index) {
         });
 
         let addCustomFrameRate = () => {
-            let dropdownSelection = $("#drop-down-display");
-            let frameRateContainer = $("#custom-frame-rate-container");
-            dropdownSelection.text("Custom");
-            if (frameRateContainer.hasClass("is-not-display")) {
-                frameRateContainer.removeClass("is-not-display");
-                let frameRateInput = $("#frame-rate-input");
-                let saveButton = $("#frame-rate-save-button");
-                saveButton.on("click", function () {
-                    let input = frameRateInput.val();
-                    let parse = parseFloat(input);
-                    let warning = $("#modal-input-warning-frame-rate");
-                    if (!isNaN(parse)) {
-                        FRAME_RATE = parse;
-                        dropdownSelection.text(input);
-                        warning.addClass("is-not-display");
-                        frameRateContainer.addClass("is-not-display");
-                        saveButton.off();
-                    } else {
-                        FRAME_RATE = null;
-                        if (warning.hasClass("is-not-display")) {
-                            warning.removeClass("is-not-display");
-                        }
-                    }
-                });
-            }
+
         };
 
         inputContent.on("click", "#frameRate-custom", addCustomFrameRate);
@@ -1486,12 +1463,6 @@ function loadVideo(files, index) {
 
 
 function loadVideos(files) {
-    $("#starter-menu").remove();
-    $("#footer").remove();
-    loadSettings();
-    trackTracker = {"tracks": [{"name": "Track 1", "index": 0, "color": COLORS[colorIndex]}], "currentTrack": 0};
-    colorIndex += 1;
-    NUMBER_OF_CAMERAS = files.length;
     loadVideo(files, 0);
 }
 
@@ -1970,7 +1941,8 @@ function loadNewlyCreatedProject(title, description, projectID, files) {
     PROJECT_NAME = title;
     PROJECT_DESCRIPTION = description;
     PROJECT_ID = projectID;
-    loadVideos(files);
+    windowManager = new MainWindowManager(title, description, projectID, files);
+    windowManager.getVideosSettings(files);
 }
 
 

@@ -7,14 +7,14 @@ function genericDropDownWidget(id, defaultSelection, dropdownOptions, allItemCal
     }).attr("aria-haspopup", "true").attr("aria-controls", `${id}-dropdown`).append(
         $("<span>", {id: `${id}-current-selection`}).text(defaultSelection),
         $("<i>", {class: "fas fa-caret-down has-margin-left"})
-    ).on("click", function () {
+    ).on("click", function (e) {
         let container = $(`#${id}-dropdown-container`);
-
         if (container.hasClass("is-active")) {
             container.removeClass("is-active");
         } else {
             container.addClass("is-active");
         }
+        e.stopPropagation();
     });
 
 
@@ -37,12 +37,12 @@ function genericDropDownWidget(id, defaultSelection, dropdownOptions, allItemCal
             genericDivWidget("dropdown-menu", `${id}-dropdown`).attr("role", "menu").append(
                 dropdownOptions
             )
-        ).on("click", ".dropdown-item", allItemCallBack);
+        ).on("click", ".dropdown-item:not(.negate-all-callback)", allItemCallBack);
     }
 }
 
 
-function dropDownItemWidget(id, itemText, perItemCallBack = undefined) {
+function dropDownItemWidget(id, itemText, perItemCallBack = undefined,) {
     if (perItemCallBack === undefined) {
         return genericDivWidget("dropdown-content").append(
             genericDivWidget("dropdown-item", id).append(
@@ -51,7 +51,7 @@ function dropDownItemWidget(id, itemText, perItemCallBack = undefined) {
         );
     } else {
         return genericDivWidget("dropdown-content").append(
-            genericDivWidget("dropdown-item", id).append(
+            genericDivWidget("dropdown-item negate-all-callback", id).append(
                 itemText
             ).on("click", perItemCallBack)
         );
@@ -59,7 +59,7 @@ function dropDownItemWidget(id, itemText, perItemCallBack = undefined) {
 }
 
 function generateDropDownItems(itemNames) {
-    return itemNames.map((value) => dropDownItemWidget(value.toLowerCase(), value));
+    return itemNames.map((value) => dropDownItemWidget(value.toLowerCase().replace(".", "-"), value));
 }
 
 function colorSpaceDropDownWidget(colorSpaceIndex) {
@@ -79,10 +79,126 @@ function colorSpaceDropDownWidget(colorSpaceIndex) {
 
 function trackDropDownWidget() {
     let items = generateDropDownItems(["Track 0"]);
-    return genericDropDownWidget("track", "Select Track", items, )
+    return genericDropDownWidget("track", "Select Track", items,)
 }
 
 
+function frameRateDropDownWidget() {
+    let COMMON_FRAME_RATES = [
+        '29.97',
+        '30',
+        '50',
+        '59.94',
+        '60'
+    ];
+
+    let updateDropDownAndShowCustomForm = () => {
+        let container = $(`#frame-rate-dropdown-container`);
+        let dropdownSelection = $("#frame-rate-current-selection");
+        let frameRateContainer = $("#custom-frame-rate-container");
+        dropdownSelection.text("Custom");
+        if (container.hasClass("is-active")) {
+            container.removeClass("is-active");
+        } else {
+            container.addClass("is-active");
+        }
+        if (frameRateContainer.hasClass("is-not-display")) {
+            frameRateContainer.removeClass("is-not-display");
+            let frameRateInput = $("#frame-rate-input");
+            let saveButton = $("#frame-rate-save-button");
+            saveButton.on("click", function () {
+                let input = frameRateInput.val();
+                let parse = parseFloat(input);
+                let warning = $("#modal-input-warning-frame-rate");
+                if (!isNaN(parse)) {
+                    FRAME_RATE = parse;
+                    dropdownSelection.text(input);
+                    warning.addClass("is-not-display");
+                    frameRateContainer.addClass("is-not-display");
+                    saveButton.off();
+                } else {
+                    FRAME_RATE = null;
+                    if (warning.hasClass("is-not-display")) {
+                        warning.removeClass("is-not-display");
+                    }
+                }
+            });
+        }
+    };
+
+    let updateDropDown = (e) => {
+        let container = $(`#frame-rate-dropdown-container`);
+        $("#custom-frame-rate-container").addClass("is-not-display");
+        let frameRate = parseFloat(e.target.id.replace("-", "."));
+        $("#frame-rate-current-selection").text(frameRate);
+        FRAME_RATE = frameRate;
+        if (container.hasClass("is-active")) {
+            container.removeClass("is-active");
+        } else {
+            container.addClass("is-active");
+        }
+        e.stopPropagation();
+    };
+
+    let items = generateDropDownItems(COMMON_FRAME_RATES);
+    items.push(dropDownItemWidget("frameRate-custom", "Custom", updateDropDownAndShowCustomForm));
+    return genericDropDownWidget('frame-rate', 'Select Framerate', items, updateDropDown).append(
+        genericDivWidget("is-not-display", "custom-frame-rate-container").append(
+            genericDivWidget("columns has-margin-left is-gapless").append(
+                genericDivWidget("column is-4", "frame-rate-input-container").append(
+                    $("<input>", {class: "input", type: "text", id: "frame-rate-input", placeholder: "Framerate"}),
+                    $("<p>", {id: "modal-input-warning-frame-rate", class: "help is-danger is-not-display"}).text(
+                        "Please input a valid framerate!"
+                    )
+                ),
+                genericDivWidget("column is-narrow").append(
+                    $("<button>", {class: "button", id: "frame-rate-save-button"}).text("Save")
+                )
+            )
+        )
+    );
+}
+
+function initialVideoPropertiesWidget(videoTitle) {
+    return genericDivWidget("columns is-centered is-multiline").append(
+        genericDivWidget("column is-12 has-text-centered").append(
+            $("<h1>", {class: "has-julius has-text-white"}).text(`Video Properties for ${videoTitle}`)
+        ),
+
+        genericDivWidget("column").append(
+            genericDivWidget("columns is-multiline").append(
+                genericDivWidget("column is-narrow").append(
+                    genericDivWidget("columns is-multiline").append(
+                        genericDivWidget("column is-12").append(
+                            genericDivWidget("field", "offset-field").append(
+                                $("<label>", {class: "label has-text-white"}).text("Offset:"),
+                                genericDivWidget("controller", "offset-controller").append(
+                                    $("<input>", {class: "input small-input", id: "offset-input"})
+                                )
+                            ),
+                        ),
+
+                        genericDivWidget("column is-12").append(
+                            frameRateDropDownWidget()
+                        )
+                    )
+                ),
+
+                genericDivWidget("column").append(
+                    colorSpaceDropDownWidget(1)
+                ),
+
+                genericDivWidget("column is-12").append(
+                    $("<label>", {class: "label has-text-white"}).text("Preview:"),
+                    $("<canvas>", {
+                        style: "height: 100%; width: 100%;",
+                        id: "current-init-settings-preview-canvas"
+                    }).attr("height", 600).attr("width", 800)
+                )
+            )
+        )
+    );
+}
 
 
 function genericDivWidget(classType, id = "") {
@@ -149,6 +265,7 @@ function firstRowOfSettingsWidget() {
                         value: "=>"
                     }).on("click", function () {
                         let newTrack = $("#new-track-input").val();
+                        trackManager.addTrack(newTrack);
                         TrackDropDown.addTrack(newTrack);
                     }),
                 )
