@@ -62,7 +62,7 @@ function generateDropDownItems(itemNames) {
     return itemNames.map((value) => dropDownItemWidget(value.toLowerCase().replace(".", "-"), value));
 }
 
-function colorSpaceDropDownWidget(colorSpaceIndex) {
+function colorSpaceDropDownWidget(colorSpaceIndex, redrawVideosFunction) {
     let items = generateDropDownItems(["RGB", "Grayscale"]);
     return genericDropDownWidget(`colorspace-${colorSpaceIndex}`, "RGB", items, function (e) {
         let container = $(`#colorspace-${colorSpaceIndex}-dropdown-container`);
@@ -74,6 +74,7 @@ function colorSpaceDropDownWidget(colorSpaceIndex) {
         }
 
         $(`#colorspace-${colorSpaceIndex}-current-selection`).text(newSelection);
+        redrawVideosFunction();
     });
 }
 
@@ -159,7 +160,7 @@ function frameRateDropDownWidget() {
     );
 }
 
-function initialVideoPropertiesWidget(videoTitle) {
+function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction) {
     return genericDivWidget("columns is-centered is-multiline").append(
         genericDivWidget("column is-12 has-text-centered").append(
             $("<h1>", {class: "has-julius has-text-white"}).text(`Video Properties for ${videoTitle}`)
@@ -185,15 +186,36 @@ function initialVideoPropertiesWidget(videoTitle) {
                 ),
 
                 genericDivWidget("column").append(
-                    colorSpaceDropDownWidget(1)
+                    colorSpaceDropDownWidget(1, loadPreviewFrameFunction)
+                ),
+
+                genericDivWidget("column").append(
+                    pointSizeSelectorWidget(1)
                 ),
 
                 genericDivWidget("column is-12").append(
-                    $("<label>", {class: "label has-text-white"}).text("Preview:"),
-                    $("<canvas>", {
-                        style: "height: 100%; width: 100%;",
-                        id: "current-init-settings-preview-canvas"
-                    }).attr("height", 600).attr("width", 800)
+                    genericDivWidget("columns is-multiline").append(
+                        genericDivWidget("column is-12").append(
+                            $("<label>", {class: "label has-text-white"}).text("Preview:"),
+                        ),
+                        genericDivWidget("column is-12").append(
+                            $("<canvas>", {
+                                style: "height: 100%; width: 100%;",
+                                id: "current-init-settings-preview-canvas"
+                            }).attr("height", 600).attr("width", 800)
+                        )
+                    ),
+                ),
+
+                genericDivWidget("column is-12").append(
+                    genericDivWidget("level").append(
+                        genericDivWidget("level-left"),
+                        genericDivWidget("level-right").append(
+                            $("<button>", {class: "button", id: 'save-init-settings-button'}).on("click", function () {
+
+                            }).text("Save"),
+                        )
+                    )
                 )
             )
         )
@@ -280,7 +302,7 @@ function firstRowOfSettingsWidget() {
             genericDivWidget("columns is-multiline is-vcentered").append(
                 genericDivWidget("column is-12 has-text-centered").append(
                     colorSpaceDropDownWidget(0)
-                )
+                ),
             )
         ),
 
@@ -333,12 +355,12 @@ function firstRowOfSettingsWidget() {
 }
 
 
-function secondRowOfSettingsWidget() {
+function pointSizeSelectorWidget(index) {
     let drawPreview = () => {
-        let pointPreviewCanvas = document.getElementById("point-preview-canvas");
+        let pointPreviewCanvas = document.getElementById(`point-preview-canvas-${index}`);
         let ctx = pointPreviewCanvas.getContext("2d");
 
-        let testRadius = $("#point-size-input").val();
+        let testRadius = $(`#point-size-input-${index}`).val();
         ctx.clearRect(0, 0, 100, 100);
         ctx.beginPath();
         ctx.arc(50, 50, testRadius, 0, Math.PI);
@@ -348,11 +370,6 @@ function secondRowOfSettingsWidget() {
 
     let updatePointRaidus = () => {
         POINT_RADIUS = $("#point-size-input").val() * videos[0].canvas.width / 800;
-        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-            let points = getClickedPoints(i, trackTracker.currentTrack);
-            videos[i].clearPoints();
-            videos[i].redrawPoints(points);
-        }
     };
 
 
@@ -362,8 +379,16 @@ function secondRowOfSettingsWidget() {
             genericDivWidget("field").append(
                 $("<label>", {class: "label"}).text("Point Marker Size"),
                 genericDivWidget("control").append(
-                    $("<input>", {id: "point-size-input", class: "input small-input"}).on("keyup", drawPreview),
-                    $("<input>", {id: "set-point-size-button", type: "button", class: "button", value: "SET"}).on(
+                    $("<input>", {
+                        id: `point-size-input-${index}`,
+                        class: "input small-input"
+                    }).on("keyup", drawPreview),
+                    $("<input>", {
+                        id: `set-point-size-button-${index}`,
+                        type: "button",
+                        class: "button",
+                        value: "SET"
+                    }).on(
                         "click", updatePointRaidus
                     )
                 )
@@ -372,7 +397,7 @@ function secondRowOfSettingsWidget() {
         genericDivWidget("column").append(
             $("<label>", {class: "label"}).text("Preview"),
             $("<canvas>", {
-                id: "point-preview-canvas",
+                id: `point-preview-canvas-${index}`,
                 style: "height: 100px; width: 100px;"
             }).attr("height", 100).attr("width", 100)
         )
@@ -394,7 +419,7 @@ function settingsInputWidget() {
             ),
 
             genericDivWidget("column is-12").append(
-                secondRowOfSettingsWidget()
+                pointSizeSelectorWidget(0)
             )
         ),
         $("<hr>"),

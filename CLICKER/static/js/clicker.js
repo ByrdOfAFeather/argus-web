@@ -991,11 +991,11 @@ function loadSettings() {
     let track_container = $("#track-dropdown-container");
     let track_dropdown = $("#track-dropdown");
 
-    let pointPreviewCanvas = document.getElementById("point-preview-canvas");
-    let ctx = pointPreviewCanvas.getContext("2d");
-    ctx.arc(50, 50, POINT_RADIUS, 0, Math.PI);
-    ctx.arc(50, 50, POINT_RADIUS, Math.PI, 2 * Math.PI);
-    ctx.stroke();
+    // let pointPreviewCanvas = document.getElementById("point-preview-canvas");
+    // let ctx = pointPreviewCanvas.getContext("2d");
+    // ctx.arc(50, 50, POINT_RADIUS, 0, Math.PI);
+    // ctx.arc(50, 50, POINT_RADIUS, Math.PI, 2 * Math.PI);
+    // ctx.stroke();
 
     track_trigger.on("click", function () {
         if (track_container.hasClass("is-active")) {

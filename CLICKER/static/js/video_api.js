@@ -732,6 +732,7 @@ function loadHiddenVideo(objectURL, index, onCanPlay) {
     // memory, wow!
     let curVideo = $(`<video class="hidden-video" id="video-${index}" src="${objectURL}"></video>`);
     $("#videos").append(curVideo);
+    curVideo.get(0).currentTime = .001;
     curVideo.one("canplay", onCanPlay);
     return curVideo;
 }
