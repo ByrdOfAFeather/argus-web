@@ -922,11 +922,9 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
 function toolTipBuilder(helpText, multiline, direction = "left") {
     // direction defaults to left
     return $(`
-      <div class="buffer-div">
       <button class="is-primary tooltip-button has-tooltip-${direction} ${multiline === true ? 'has-tooltip-multiline' : ''}" data-tooltip="${helpText}">
         <i class="fas fa-question-circle is-primary" style="color: white"></i>
       </button>
-      </div>
     `);
 }
 

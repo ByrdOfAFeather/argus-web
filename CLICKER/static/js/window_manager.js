@@ -40,17 +40,65 @@ class MainWindowManager extends WindowManager {
         loadSettings();
     }
 
+
+    saveSettings(settingsContext) {
+        let index = settingsContext.index;
+        videos[index].offset = settingsContext.offset;
+        if (settingsContext.frameRate !== undefined) {
+            FRAME_RATE = settingsContext.frameRate;
+        }
+        // TODO: seperate this out probably so it's easier to update
+        videos[index].filter = settingsContext.filter;
+    }
+
     getVideoSettings(videos, index) {
         $("#blurrable").css("filter", "blur(10px)");
-        let memoryLocation = URL.createObjectURL(videos[index]);
-        let loadPreviewFrame = function () {
-            let canvas = document.getElementById("current-init-settings-preview-canvas").getContext("2d");
-            canvas.filter = COLORSPACE;
-            canvas.drawImage(document.getElementById(`video-${index}`), 0, 0, 800, 600);
+
+        // Setup in-place functions that will be later used to update the preview
+        let drawPreviewPoint = (ctx, x, y) => {
+            ctx.drawImage(document.getElementById(`video-${index}`), 0, 0, 400, 300);
+            ctx.beginPath();
+            ctx.arc(x, y, POINT_RADIUS, 0, Math.PI);
+            ctx.arc(200, 150, POINT_RADIUS, Math.PI, 2 * Math.PI);
+            ctx.stroke();
         };
 
+
+        let loadPreviewFrame = function () {
+            let canvas = document.getElementById("current-init-settings-preview-canvas").getContext("2d");
+
+            // Setup filters
+            canvas.filter = COLORSPACE;
+            canvas.filter += " " + previewBrightness;
+            canvas.filter += " " + previewContrast;
+            canvas.filter += " " + previewSaturation;
+
+            // draw nearby points
+            drawPreviewPoint(canvas, 200, 150);
+            drawPreviewPoint(canvas, 230, 150);
+        };
+
+        // Gets the video into the page so that the canvas actually has something to draw from
+        let memoryLocation = URL.createObjectURL(videos[index]);
         loadHiddenVideo(memoryLocation, index, loadPreviewFrame);
-        $("#generic-input-modal-content").append(initialVideoPropertiesWidget(videos[index].name, loadPreviewFrame));
+
+        let name = videos[index].name;
+        if (name.length > 20) {
+            name = name.slice(0, 20);
+            name += ". . .";
+        }
+
+        let context = {"nextButton": true, "previousButton": true, "index": 0};
+        if (index === videos.length - 1) {
+            context.nextButton = false;
+        }
+
+        if (index === 0) {
+            context.previousButton = false;
+        }
+
+
+        $("#modal-content-container").append(initialVideoPropertiesWidget(name, loadPreviewFrame, this.saveSettings, context));
         $("#generic-input-modal").addClass('is-active');
     }
 

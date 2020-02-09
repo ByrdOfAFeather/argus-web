@@ -13,6 +13,10 @@ Details: mozilla::SupportChecker::AddMediaFormatChecker(const mozilla::TrackInfo
 // A LIST OF COLORS THAT DEFINE TRACK COLORS IN ORDER
 const COLORS = ["rgb(228, 26, 28)", "rgb(55, 126, 184)", "rgb(77, 175, 74)", "rgb(152, 78, 163)",
     "rgb(255, 127, 0)", "rgb(255, 255, 51)", "rgb(166, 86, 40)", "rgb(247, 129, 191)"];
+let previewBrightness = "brightness(100%)";
+let previewContrast = "contrast(100%)";
+let previewSaturation = "saturate(100%);";
+
 let colorIndex = 0;
 
 // DEBUGGING CONSTANTS
@@ -25,7 +29,7 @@ let DLT_COEFFICIENTS = null;
 let AUTO_SAVE_INTERVAL_ID = null;
 
 // COLORSPACE MANAGER
-let COLORSPACE = "";
+let COLORSPACE = "grayscale(0%)";
 
 // Point Radius Manager
 let POINT_RADIUS = 10;
@@ -1777,8 +1781,11 @@ function createNewProject(loggedIn) {
         let selectedFiles = Array.from(fileInput.prop("files"));
         for (let i = 0; i < selectedFiles.length; i++) {
             let name = selectedFiles[i].name.toString();
-            name = name.slice(0, 20);
-            name += "...";
+            if (name.length > 20) {
+                name = name.slice(0, 20);
+                name += "...";
+            }
+
             selectedFilesContainer.append(`
                 <div id="selectedFile-${i}-container" class="column is-12">
                     <div class="level">

@@ -160,63 +160,180 @@ function frameRateDropDownWidget() {
     );
 }
 
-function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction) {
+function tooltipLabelWidget(labelText, tooltipText, direction) {
+    return genericDivWidget("columns is-gapless").append(
+        genericDivWidget("column is-narrow").append(
+            $("<label>", {class: "label has-text-white"}).text(labelText),
+        ),
+        genericDivWidget("column is-narrow").append(
+            toolTipBuilder(tooltipText, true, direction)
+        )
+    );
+}
+
+function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, saveCallback, context) {
+    let colorSpaceDropDown = colorSpaceDropDownWidget(1, loadPreviewFrameFunction);
+
+    // This lets the form look a little nicer by expanding the colorspace dropdown and its options to full width
+    let triggerButton = colorSpaceDropDown.find("#colorspace-1-trigger");
+    triggerButton.parent().css("width", "100%").parent().css("width", "100%");
+    triggerButton.css("width", "100%");
+
+    let optionMenu = colorSpaceDropDown.find("#colorspace-1-dropdown");
+    optionMenu.addClass("has-text-centered");
+    optionMenu.css("width", "100%");
+
+    let parseSetings = (context) => {
+        function validateFloatValue(stringValue) {
+            let parsedFloat = parseFloat(stringValue);
+            if (!isNaN(parsedFloat)) {
+                return {"valid": true, value: parsedFloat};
+            } else {
+                return {"valid": false, value: null};
+            }
+        }
+
+        // Returns if settings are valid and if not which ones are invalid
+        let parsed = {};
+        parsed["offset"] = validateFloatValue(settings.offset);
+        parsed["framerate"] = validateFloatValue(settings.framerate);
+        parsed["pointSize"] = validateFloatValue(settings.pointSize);
+        return parsed;
+    };
+
+
+    let frameRateInput = genericDivWidget("column is-narrow").append(
+        tooltipLabelWidget("Global Framerate",
+            "Argus-web doesn't support multiple " +
+            "framerates across videos, this value should be the framerate of all of the videos selected",
+            "right"),
+        frameRateDropDownWidget()
+    );
+
+    if (context.index !== 0) {
+        frameRateInput = null;
+    }
+
+
     return genericDivWidget("columns is-centered is-multiline").append(
         genericDivWidget("column is-12 has-text-centered").append(
-            $("<h1>", {class: "has-julius has-text-white"}).text(`Video Properties for ${videoTitle}`)
+            $("<h1>", {class: "has-julius has-text-white title"}).text(`Video Properties for ${videoTitle}`)
         ),
 
         genericDivWidget("column").append(
             genericDivWidget("columns is-multiline").append(
-                genericDivWidget("column is-narrow").append(
+                genericDivWidget("column").append(
                     genericDivWidget("columns is-multiline").append(
                         genericDivWidget("column is-12").append(
                             genericDivWidget("field", "offset-field").append(
-                                $("<label>", {class: "label has-text-white"}).text("Offset:"),
+                                tooltipLabelWidget("Offset",
+                                    "Your videos may start at different places, " +
+                                    " the difference in starting points is the offset (in frames)",
+                                    "right"),
                                 genericDivWidget("controller", "offset-controller").append(
-                                    $("<input>", {class: "input small-input", id: "offset-input"})
+                                    $("<input>", {class: "input", id: "offset-input", placeholder: "In Frames"})
                                 )
                             ),
                         ),
 
-                        genericDivWidget("column is-12").append(
-                            frameRateDropDownWidget()
-                        )
+                        frameRateInput
                     )
                 ),
 
-                genericDivWidget("column").append(
-                    colorSpaceDropDownWidget(1, loadPreviewFrameFunction)
-                ),
 
                 genericDivWidget("column").append(
-                    pointSizeSelectorWidget(1)
-                ),
-
-                genericDivWidget("column is-12").append(
-                    genericDivWidget("columns is-multiline").append(
+                    genericDivWidget("columns is-multiline is-vcentered").append(
                         genericDivWidget("column is-12").append(
-                            $("<label>", {class: "label has-text-white"}).text("Preview:"),
+                            tooltipLabelWidget("Colorspace",
+                                "Your videos may be easier to see by swaping colorspace",
+                                "left"),
+                            colorSpaceDropDown,
                         ),
-                        genericDivWidget("column is-12").append(
-                            $("<canvas>", {
-                                style: "height: 100%; width: 100%;",
-                                id: "current-init-settings-preview-canvas"
-                            }).attr("height", 600).attr("width", 800)
+                        genericDivWidget("column is-narrow").append(
+                            tooltipLabelWidget("Point Size",
+                                "This controls the radius of your points, the larger it is, the easier it" +
+                                " will be to see. However, this will cause overlap with other points",
+                                "left"),
+
+                            $("<input>", {
+                                class: "input",
+                                type: "text",
+                                id: "preview-point-size-input",
+                                placeholder: "Set size"
+                            }).on("keyup", function () {
+                                POINT_RADIUS = parseFloat($("#tester").val()) / 2;
+                                loadPreviewFrameFunction();
+                            })
                         )
                     ),
                 ),
 
                 genericDivWidget("column is-12").append(
-                    genericDivWidget("level").append(
-                        genericDivWidget("level-left"),
-                        genericDivWidget("level-right").append(
-                            $("<button>", {class: "button", id: 'save-init-settings-button'}).on("click", function () {
+                    genericDivWidget("columns is-multiline").append(
+                        genericDivWidget("column").append(
+                            genericDivWidget("columns").append(
+                                genericDivWidget("column is-narrow").append(
+                                    $("<label>", {class: "label has-text-white"}).text("Preview:"),
+                                    $("<canvas>", {
+                                        // style: "height: 100%; width: 100%;",
+                                        id: "current-init-settings-preview-canvas"
+                                    }).attr("height", 300).attr("width", 400)
+                                ),
+                                genericDivWidget("column").append(
+                                    genericDivWidget("columns is-multiline").append(
+                                        genericDivWidget("column is-12").append(
+                                            tooltipLabelWidget("Brightness", "TODO", "top"),
+                                            $(`<input id="preview-brightness" class="slider is-fullwidth" step="1" min="0" max="200" value="100" type="range">`).on("change", function () {
+                                                previewBrightness = `brightness(${$("#preview-brightness").val()}%)`;
+                                                loadPreviewFrameFunction();
+                                            })),
+                                        genericDivWidget("column is-12").append(
+                                            tooltipLabelWidget("Contrast", "TODO", "top"),
+                                            $(`<input id="preview-contrast" class="slider is-fullwidth" step="1" min="0" max="100" value="100" type="range">`).on("change", function () {
+                                                previewContrast = `contrast(${$("#preview-contrast").val()}%)`;
+                                                loadPreviewFrameFunction();
+                                            }),
+                                        ),
+                                        genericDivWidget("column is-12").append(
+                                            tooltipLabelWidget("Saturation", "TODO", "top"),
+                                            $(`<input id="preview-saturation" class="slider is-fullwidth" step="1" min="0" max="100" value="100" type="range">`).on("change", function () {
+                                                previewSaturation = `saturate(${$("#preview-saturation").val()}%)`;
+                                                loadPreviewFrameFunction();
+                                            }),
+                                        ),
+                                    ),
+                                ),
+                            )
+                        ),
 
-                            }).text("Save"),
+
+                        genericDivWidget("column is-12").append(
+                            genericDivWidget("level").append(
+                                genericDivWidget("level-left").append(
+
+                                ),
+                                genericDivWidget("level-right").append(
+                                    $("<button>", {
+                                        class: "button",
+                                        id: 'save-init-settings-button'
+                                    }).on("click", function () {
+                                        let parsed = parseSetings({
+                                            "frameRate": $("#frame-rate-"),
+                                            "offset": $("#offset-input").val(),
+                                            "point-size": $("#preview-point-size-input").val()
+                                        });
+
+                                        if (index !== 0) {
+                                            // TODO validate everything except framerate
+                                        } else {
+                                            // TODO Validate everything
+                                        }
+                                    }).text("Next"),
+                                )
+                            )
                         )
-                    )
-                )
+                    ),
+                ),
             )
         )
     );
