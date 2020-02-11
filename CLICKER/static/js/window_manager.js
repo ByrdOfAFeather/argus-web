@@ -56,10 +56,9 @@ class MainWindowManager extends WindowManager {
 
         // Setup in-place functions that will be later used to update the preview
         let drawPreviewPoint = (ctx, x, y) => {
-            ctx.drawImage(document.getElementById(`video-${index}`), 0, 0, 400, 300);
             ctx.beginPath();
             ctx.arc(x, y, POINT_RADIUS, 0, Math.PI);
-            ctx.arc(200, 150, POINT_RADIUS, Math.PI, 2 * Math.PI);
+            ctx.arc(x, y, POINT_RADIUS, Math.PI, 2 * Math.PI);
             ctx.stroke();
         };
 
@@ -73,15 +72,14 @@ class MainWindowManager extends WindowManager {
             canvas.filter += " " + previewContrast;
             canvas.filter += " " + previewSaturation;
 
+            canvas.drawImage(document.getElementById(`video-${index}`), 0, 0, 400, 300);
+
             // draw nearby points
             drawPreviewPoint(canvas, 200, 150);
             drawPreviewPoint(canvas, 230, 150);
         };
 
         // Gets the video into the page so that the canvas actually has something to draw from
-        let memoryLocation = URL.createObjectURL(videos[index]);
-        loadHiddenVideo(memoryLocation, index, loadPreviewFrame);
-
         let name = videos[index].name;
         if (name.length > 20) {
             name = name.slice(0, 20);
@@ -98,8 +96,12 @@ class MainWindowManager extends WindowManager {
         }
 
 
-        $("#modal-content-container").append(initialVideoPropertiesWidget(name, loadPreviewFrame, this.saveSettings, context));
+        $("#modal-content-container").append(initialVideoPropertiesWidget(name, loadPreviewFrame,
+            this.saveSettings, context));
         $("#generic-input-modal").addClass('is-active');
+
+        let memoryLocation = URL.createObjectURL(videos[index]);
+        loadHiddenVideo(memoryLocation, index, loadPreviewFrame);
     }
 
     getVideosSettings(videos) {

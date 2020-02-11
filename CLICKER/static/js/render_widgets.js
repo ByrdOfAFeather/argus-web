@@ -261,7 +261,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                                 id: "preview-point-size-input",
                                 placeholder: "Set size"
                             }).on("keyup", function () {
-                                POINT_RADIUS = parseFloat($("#tester").val()) / 2;
+                                POINT_RADIUS = parseFloat($("#preview-point-size-input").val()) / 2;
                                 loadPreviewFrameFunction();
                             })
                         )
@@ -323,7 +323,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                                             "point-size": $("#preview-point-size-input").val()
                                         });
 
-                                        if (index !== 0) {
+                                        if (context.index !== 0) {
                                             // TODO validate everything except framerate
                                         } else {
                                             // TODO Validate everything

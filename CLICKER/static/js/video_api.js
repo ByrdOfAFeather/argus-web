@@ -732,8 +732,20 @@ function loadHiddenVideo(objectURL, index, onCanPlay) {
     // memory, wow!
     let curVideo = $(`<video class="hidden-video" id="video-${index}" src="${objectURL}"></video>`);
     $("#videos").append(curVideo);
-    curVideo.get(0).currentTime = .001;
-    curVideo.one("canplay", onCanPlay);
+    curVideo.get(0).currentTime = .003;
+    let verifiedCanPlay = () => {
+        onCanPlay();
+        let currentImage = $("#current-init-settings-preview-canvas").get(0).getContext("2d").getImageData(0,0,400,300);
+        let data = currentImage.data;
+        let isShowing = true;
+        for (let i =0; i<data.length; i+=4) { if (data[i+3] < 255) { isShowing = false;}}
+        if (!isShowing) {
+            setTimeout(function(){onCanPlay();}, 570);
+        }
+    };
+
+    onCanPlay();
+    curVideo.one("loadeddata", verifiedCanPlay);
     return curVideo;
 }
 
