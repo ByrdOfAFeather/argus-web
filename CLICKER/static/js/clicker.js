@@ -21,7 +21,7 @@ let colorIndex = 0;
 
 // DEBUGGING CONSTANTS
 const PINHOLE = 1;
-let FRAME_RATE = 30;
+let FRAME_RATE = null;
 
 // GLOBALS FOR THE CAMERA PROFILE AND DLT COEFFICENTS
 let CAMERA_PROFILE = null;
@@ -1073,6 +1073,12 @@ function mainWindowAddNewPoint(event) {
     }
 }
 
+function fadeInputModalIn(animationTime, postAnimationCallback) {
+    let modalContentContainer = $("#modal-content-container");
+    modalContentContainer.hide();
+    modalContentContainer.fadeIn(animationTime, postAnimationCallback);
+}
+
 function mainWindowDeletePoint(e) {
     e.preventDefault();
     let video = e.target.id.split("-")[1];
@@ -1369,7 +1375,7 @@ function loadVideo(files, index) {
 
         modal.addClass("is-active");
         $("#blurrable").css("filter", "blur(5px)");
-        animateGenericInput(500, function () {
+        fadeInputModalIn(500, function () {
             offsetInput.focus();
             setupFunction(video)
         });
@@ -1459,7 +1465,7 @@ function loadVideo(files, index) {
 
         modal.addClass("is-active");
         $("#blurrable").css("filter", "blur(5px)");
-        animateGenericInput(function () {
+        fadeInputModalIn(function () {
             offsetInput.focus();
         });
     }
@@ -1729,7 +1735,7 @@ function createNewProject(loggedIn) {
     $("#blurrable").css("filter", "blur(10px)");
     $("#footer").css("filter", "blur(10px)");
     contentContainer.append(form);
-    animateGenericInput(500, function () {
+    fadeInputModalIn(500, function () {
         $("#project-name-input").focus()
     });
     let modal = $("#generic-input-modal");
@@ -1949,7 +1955,7 @@ function loadNewlyCreatedProject(title, description, projectID, files) {
     PROJECT_DESCRIPTION = description;
     PROJECT_ID = projectID;
     windowManager = new MainWindowManager(title, description, projectID, files);
-    windowManager.getVideosSettings(files);
+    windowManager.loadNewProject(files);
 }
 
 

@@ -122,24 +122,18 @@ def saved_states(request):
 
 @api_view(["POST"])
 def new_project(request):
-    print(request.FILES)
-    if "files" not in request.data or len(request.data['title']) == 0:
-        response = JsonResponse({"Error": "Malformed Form Data"})
-        response.status_code = 405
-        return response
-    else:
-        # files = request.FILES.getlist('files')
+    # files = request.FILES.getlist('files')
 
-        # TODO: Security concerns & Re-enable this feature
-        # https://docs.djangoproject.com/en/2.2/topics/security/#user-uploaded-content-security
-        request.data["public"] = True if request.data["public"] == "true" else False
-        project = Project(name=request.data["title"], description=request.data["description"], owner=request.user,
-                          public=request.data["public"])
-        project.save()
-        # for file in files:
-        #     instance = Videos(video=file)
-        #     instance.save()
-        #     ProjectToVideos(project=project, video=instance).save()
-        response = JsonResponse({"success": {"data": {"id": f"{project.id}"}}})
-        response.status_code = 200
-        return response
+    # TODO: Security concerns & Re-enable this feature
+    # https://docs.djangoproject.com/en/2.2/topics/security/#user-uploaded-content-security
+    public = True if request.data["public"] == "true" else False
+    project = Project(name=request.data["title"], description=request.data["description"], owner=request.user,
+                      public=public)
+    project.save()
+    # for file in files:
+    #     instance = Videos(video=file)
+    #     instance.save()
+    #     ProjectToVideos(project=project, video=instance).save()
+    response = JsonResponse({"success": {"data": {"id": f"{project.id}"}}})
+    response.status_code = 200
+    return response

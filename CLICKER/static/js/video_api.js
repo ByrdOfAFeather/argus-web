@@ -61,7 +61,7 @@ class Video {
 
         this.canvas = document.getElementById(`canvas-${videosIndex}`);
         this.canvasContext = this.canvas.getContext("2d");
-        this.currentStrokeStyle = trackTracker.tracks[trackTracker.currentTrack].color;
+        // this.currentStrokeStyle = trackTracker.tracks[trackTracker.currentTrack].color;
 
         this.videoCanvas = document.getElementById(`videoCanvas-${videosIndex}`);
         this.videoCanvasContext = this.videoCanvas.getContext("2d");
@@ -551,12 +551,6 @@ function genericInputCleanUp(modalContentContainer, modal) {
     modal.off();
 }
 
-function animateGenericInput(animationTime, postAnimationCallback) {
-    let modalContentContainer = $("#modal-content-container");
-    modalContentContainer.hide();
-    modalContentContainer.fadeIn(animationTime, postAnimationCallback);
-}
-
 
 function getGenericStringLikeInput(validate, callback, label, errorText, hasCancel = true) {
     let inputContent = $(`            
@@ -735,12 +729,18 @@ function loadHiddenVideo(objectURL, index, onCanPlay) {
     curVideo.get(0).currentTime = .003;
     let verifiedCanPlay = () => {
         onCanPlay();
-        let currentImage = $("#current-init-settings-preview-canvas").get(0).getContext("2d").getImageData(0,0,400,300);
+        let currentImage = $("#current-init-settings-preview-canvas").get(0).getContext("2d").getImageData(0, 0, 400, 300);
         let data = currentImage.data;
         let isShowing = true;
-        for (let i =0; i<data.length; i+=4) { if (data[i+3] < 255) { isShowing = false;}}
+        for (let i = 0; i < data.length; i += 4) {
+            if (data[i + 3] < 255) {
+                isShowing = false;
+            }
+        }
         if (!isShowing) {
-            setTimeout(function(){onCanPlay();}, 570);
+            setTimeout(function () {
+                onCanPlay();
+            }, 570);
         }
     };
 

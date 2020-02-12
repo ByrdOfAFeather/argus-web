@@ -119,13 +119,9 @@
                     let csrftoken = $("[name=csrfmiddlewaretoken]").val();
                     let formData = new FormData();
                     let publicInput = $("#public-input").is(":checked");
-                    for (let i = 0; i < files.length; i++) {
-                        formData.append("files", files[i], files[i].name);
-                    }
                     formData.append("title", title);
                     formData.append("description", description);
                     formData.append("public", publicInput);
-                    formData.append("upload_file", true);
 
                     $.ajax({
                         url: "{% url 'api:new-project' %}",

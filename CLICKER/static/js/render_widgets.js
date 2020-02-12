@@ -171,7 +171,154 @@ function tooltipLabelWidget(labelText, tooltipText, direction) {
     );
 }
 
+function canvas(id, classType, style) {
+    return $("<canvas>", {class: classType, id: id, style: style});
+}
+
+function popOutButtonWidget(videoIndex, videoURL, popOutFunction) {
+    // videoIndex: Integer represnting the current video index
+    // videoURL: String reprsenting the source for the video, this is required to load the video in a new window
+
+    // popOutFunction: Used whenever the pop-out button is pressed
+    // popOutFunction: (event: jquery event object, videoURL: str same as above) { handles popping a video into a new
+    // tab and adding it to the current communicators }
+    let popOutButton = $("<button>", {class: "button", id: `popVideo-${videoIndex}`});
+    popOutButton.on("click", function(event) { popOutFunction(videoIndex, videoURL)});
+    return popOutButton
+}
+
+function clickerCanvasWidget(videoIndex, onClick, onRightClick) {
+    // videoIndex: integer value representing the index of the video
+
+    // onClick: Callback whenever the clickable canvas is pressed
+    // onClick(event) { handles adding a new point and updating popouts if necessary }
+
+    // onRightClick: Callback whenever the clickable canvas is pressed with a right click
+    // onRightClick(event) { handles removing a point and updating popouts if necessary }
+
+    // TODO: Video Canvas has class-type draggable, don't know for sure why this is
+    // I believe it is due to resizing which is a legacy feature.
+
+    let clickableCanvas = canvas(`canvas-${videoIndex}`, "clickable-canvas absolute", "z-index: 3;");
+    // clickableCanvas.on("click", onClick);
+    // clickableCanvas.on("contextmenu", onRightClick);
+    // clickableCanvas.on("mouseMove", setMousePos);
+
+    return genericDivWidget("container-for-canvas", `container-for-canvas-${videoIndex}`).append(
+        clickableCanvas.on("click", onClick).on("contextmenu", onRightClick).on("mousemove", setMousePos),
+        canvas(`epipolarCanvas-${videoIndex}`, "epipolar-canvas absolute", "z-index: 2;"),
+        canvas(`videoCanvas-${videoIndex}`, "video-canvas absolute draggable", "z-index: 1;"),
+    );
+}
+
+function clickerWidget(videoIndex, loadPreviewFrameFunction, onClick, onRightClick) {
+    // videoIndex: Integer representing the video that this widget is being rendered for. There should be one
+    // canvas widget per video.
+
+    // loadPreviewFrameFunction: callback used whenever a setting is updated
+    // loadPreviewFrameFunction(videoIndex: integer) { returns nothing, reloads the current frame with new settings }
+
+    // onClick: Callback whenever the clickable canvas is pressed
+    // onClick(event) { handles adding a new point and updating popouts if necessary }
+
+    // onRightClick: Callback whenever the clickable canvas is pressed with a right click
+    // onRightClick(event) { handles removing a point and updating popouts if necessary }
+    let updateVideoProperties = (propertyID) => {
+        let value = $(`#${propertyID}`).val();
+        switch (propertyID) {
+            case "preview-brightness": {
+                previewBrightness = `brightness(${value}%)`;
+                break;
+            }
+            case 'preview-contrast': {
+                previewContrast = `contrast(${value}%)`;
+                break;
+            }
+            case 'preview-saturation': {
+                previewSaturation = `saturate(${value}%)`;
+                break;
+            }
+        }
+        loadPreviewFrameFunction(videoIndex);
+    };
+    return genericDivWidget("section").append(
+        genericDivWidget("container").append(
+            genericDivWidget("columns has-text-centered is-multiline", `canvas-columns-${videoIndex}`).append(
+                genericDivWidget("column is-12 video-label-container").append(
+                    genericDivWidget("level").append(
+                        genericDivWidget("level-left").append(
+                            $('<p>', {class: "video-label render-unselectable", id: `videoLabel-${videoIndex}`})
+                        ),
+                        genericDivWidget("level-right", `pop-out-${videoIndex}-placeholder`)
+                    )
+                ),
+
+                genericDivWidget("column").append(
+                    clickerCanvasWidget(videoIndex, onClick, onRightClick)
+                ),
+
+                genericDivWidget("column").append(
+                    genericDivWidget("columns is-multiline", `misc-settings-${videoIndex}`).append(
+                        videoPropertySlidersWidget(
+                            `brightness-${videoIndex}`,
+                            `contrast-${videoIndex}`,
+                            `saturation-${videoIndex}`,
+                            updateVideoProperties
+                        ),
+                        genericDivWidget('column').append(
+                            canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas", "z-index: 2;")
+                        )
+                    )
+                )
+            )
+        )
+    );
+}
+
+function sliderWidget(id, min, max, initVal, onChange) {
+    return $(`<input id="${id}" class="slider is-fullwidth" step="1" min="${min}" max="${max}" value="${initVal}" type="range">`).on('change', onChange);
+}
+
+function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, updateVideoProperties) {
+    // brightnessID: String representing what the desired unique identifier is for the brightness slider
+    // contrastID: String representing what the desired unique identifier is for the contrast slider
+    // saturationID: String representing what the desired unique identifier is for the saturation slider
+
+    // updateVideoProperties: callback used whenever a specific slider is changed
+    // updateVideoProperties(propertyID: string, note: Does not include the #)
+    // { returns nothing, does whatever needs to be done to update the specific settings and redraw the current frame}
+
+
+    // LONG TOOLTIP TEXTS
+    let brightnessTooltipText = "Controls how much intensity every element in a video has. When you raise this, every pixel will " +
+        "get lighter.";
+    let contrastTooltipText = 'Controls the difference between the darker and lighter elements, when this is set to 0 there' +
+        ' is no difference and every element becomes the same!';
+    let saturationTooltipText = 'Saturation can be thought of as: how colorful do I want my video? Which is exactly' +
+        ' why this setting will have no effect in black & white settings';
+
+    return [genericDivWidget("column is-12").append(
+        tooltipLabelWidget("Brightness", `${brightnessTooltipText}`, "top"),
+        sliderWidget(`${brightnessID}`, "0", "200", "100", function () {
+            updateVideoProperties('preview-brightness');
+        })),
+        genericDivWidget("column is-12").append(
+            tooltipLabelWidget("Contrast", `${contrastTooltipText}`, "top"),
+            sliderWidget(`${contrastID}`, '0', '100', '100', function () {
+                updateVideoProperties('preview-contrast')
+            }),
+        ),
+        genericDivWidget("column is-12").append(
+            tooltipLabelWidget("Saturation", `${saturationTooltipText}`, "top"),
+            sliderWidget(`${saturationID}`, '0', '100', '100', function () {
+                updateVideoProperties('preview-saturation')
+            }),
+        )]
+}
+
 function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, saveCallback, context) {
+    // TODO : Clean Up
+
     let colorSpaceDropDown = colorSpaceDropDownWidget(1, loadPreviewFrameFunction);
 
     // This lets the form look a little nicer by expanding the colorspace dropdown and its options to full width
@@ -195,14 +342,14 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
 
         // Returns if settings are valid and if not which ones are invalid
         let parsed = {};
-        parsed["offset"] = validateFloatValue(settings.offset);
-        parsed["framerate"] = validateFloatValue(settings.framerate);
-        parsed["pointSize"] = validateFloatValue(settings.pointSize);
+        parsed["offset"] = validateFloatValue(context.offset);
+        parsed["frameRate"] = validateFloatValue(context.frameRate);
+        parsed["pointSize"] = validateFloatValue(context.pointSize);
         return parsed;
     };
 
 
-    let frameRateInput = genericDivWidget("column is-narrow").append(
+    let frameRateInput = genericDivWidget("column is-narrow", "framerate-column").append(
         tooltipLabelWidget("Global Framerate",
             "Argus-web doesn't support multiple " +
             "framerates across videos, this value should be the framerate of all of the videos selected",
@@ -210,9 +357,47 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
         frameRateDropDownWidget()
     );
 
+    // This is due to the fact that we only support global frame rates and thus we won't have frame rate input for
+    // later videos
     if (context.index !== 0) {
         frameRateInput = null;
     }
+
+    let updateVideoPropertiesGeneric = (inputID) => {
+        let value = $(`#${inputID}`).val();
+        switch (inputID) {
+            case "preview-brightness": {
+                previewBrightness = `brightness(${value}%)`;
+                break;
+            }
+            case 'preview-contrast': {
+                previewContrast = `contrast(${value}%)`;
+                break;
+            }
+            case 'preview-saturation': {
+                previewSaturation = `saturate(${value}%)`;
+                break;
+            }
+        }
+        loadPreviewFrameFunction();
+    };
+
+    let appendError = (id, errorText) => {
+        // Don't show error more than once
+        if ($(`#${id}-error`).get(0) !== undefined) {
+            return;
+        } else {
+            $(`#${id}`).append(
+                $("<p>", {id: `${id}-error`, class: "has-text-error"}).text(
+                    errorText
+                )
+            );
+        }
+    };
+
+    let removeError = (id) => {
+        $(`#${id}-error`).remove();
+    };
 
 
     return genericDivWidget("columns is-centered is-multiline").append(
@@ -228,14 +413,13 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                             genericDivWidget("field", "offset-field").append(
                                 tooltipLabelWidget("Offset",
                                     "Your videos may start at different places, " +
-                                    " the difference in starting points is the offset (in frames)",
+                                    " the difference in starting points is the offset (in frames).",
                                     "right"),
                                 genericDivWidget("controller", "offset-controller").append(
                                     $("<input>", {class: "input", id: "offset-input", placeholder: "In Frames"})
                                 )
                             ),
                         ),
-
                         frameRateInput
                     )
                 ),
@@ -281,26 +465,11 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                                 ),
                                 genericDivWidget("column").append(
                                     genericDivWidget("columns is-multiline").append(
-                                        genericDivWidget("column is-12").append(
-                                            tooltipLabelWidget("Brightness", "TODO", "top"),
-                                            $(`<input id="preview-brightness" class="slider is-fullwidth" step="1" min="0" max="200" value="100" type="range">`).on("change", function () {
-                                                previewBrightness = `brightness(${$("#preview-brightness").val()}%)`;
-                                                loadPreviewFrameFunction();
-                                            })),
-                                        genericDivWidget("column is-12").append(
-                                            tooltipLabelWidget("Contrast", "TODO", "top"),
-                                            $(`<input id="preview-contrast" class="slider is-fullwidth" step="1" min="0" max="100" value="100" type="range">`).on("change", function () {
-                                                previewContrast = `contrast(${$("#preview-contrast").val()}%)`;
-                                                loadPreviewFrameFunction();
-                                            }),
-                                        ),
-                                        genericDivWidget("column is-12").append(
-                                            tooltipLabelWidget("Saturation", "TODO", "top"),
-                                            $(`<input id="preview-saturation" class="slider is-fullwidth" step="1" min="0" max="100" value="100" type="range">`).on("change", function () {
-                                                previewSaturation = `saturate(${$("#preview-saturation").val()}%)`;
-                                                loadPreviewFrameFunction();
-                                            }),
-                                        ),
+                                        videoPropertySlidersWidget(
+                                            "preview-brightness",
+                                            "preview-contrast",
+                                            "preview-saturation",
+                                            updateVideoPropertiesGeneric)
                                     ),
                                 ),
                             )
@@ -318,15 +487,42 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                                         id: 'save-init-settings-button'
                                     }).on("click", function () {
                                         let parsed = parseSetings({
-                                            "frameRate": $("#frame-rate-"),
+                                            "frameRate": FRAME_RATE,
                                             "offset": $("#offset-input").val(),
-                                            "point-size": $("#preview-point-size-input").val()
+                                            "pointSize": $("#preview-point-size-input").val()
                                         });
 
                                         if (context.index !== 0) {
-                                            // TODO validate everything except framerate
+                                            let valid = true;
+                                            if (valid) {
+                                                parsed.index = context.index;
+                                                saveCallback(parsed);
+                                            }
                                         } else {
-                                            // TODO Validate everything
+                                            let valid = true;
+                                            if (!parsed["frameRate"]["valid"]) {
+                                                valid = false;
+                                                let frameRateErrorText = "Framerate must be a valid number!";
+                                                appendError("framerate-column", frameRateErrorText);
+                                            } else {
+                                                removeError("framerate-column");
+                                            }
+                                            if (!parsed['offset']['valid']) {
+                                                valid = false;
+                                                let offsetErrorText = "Offset must be a valid number!";
+                                                appendError("offset-controller", offsetErrorText);
+                                            } else {
+                                                removeError("offset-controller");
+                                            }
+                                            // if (!parsed['pointSize']['valid']) {
+                                            //     valid = false;
+                                            // } else {
+                                            // }
+
+                                            if (valid) {
+                                                parsed.index = context.index;
+                                                saveCallback(parsed);
+                                            }
                                         }
                                     }).text("Next"),
                                 )
