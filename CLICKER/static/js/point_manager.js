@@ -33,8 +33,7 @@ class ClickedPointsManager {
     }
 
     addPoint(point, pointContext) {
-        let currentTrackIndex = pointContext.currentTrack;
-        let localPoints = this.getClickedPoints(pointContext.clickedVideo, currentTrackIndex);
+        let localPoints = this.getClickedPoints(pointContext.clickedVideo, pointContext.currentTrack);
 
 
         // If there is already a point

@@ -73,6 +73,10 @@ class Video {
         this.zoomCanvasContext = this.zoomCanvas.getContext("2d");
         this.zoomOffset = 10;
 
+        this.currentBrightnessFilter = '';
+        this.currentContrastFilter = '';
+        this.currentSatruateFilter = '';
+
         this.videoLabelID = `videoLabel-${videosIndex}`;
 
         this.popVideoID = `popVideo-${videosIndex}`;
@@ -206,17 +210,17 @@ class Video {
 
 
     loadFrame() {
-        let videoWidth;
-        let videoHeight;
+        let canvasWidth;
+        let canvasHeight;
 
-        videoHeight = this.video.videoHeight;
-        videoWidth = this.video.videoWidth;
+        canvasHeight = this.canvas.height;
+        canvasWidth = this.canvas.width;
 
-        // this.videoCanvasContext.filter = "brightness(25%)";
-        this.videoCanvasContext.fillRect(0, 0, videoWidth, videoHeight);
-        this.videoCanvasContext.drawImage(this.video, 0, 0, videoWidth, videoHeight);
+        this.videoCanvasContext.filter = `${this.currentBrightnessFilter} ${this.currentContrastFilter} ${this.currentSatruateFilter}`;
+        this.videoCanvasContext.fillRect(0, 0, canvasWidth, canvasHeight);
+        this.videoCanvasContext.drawImage(this.video, 0, 0, canvasWidth, canvasHeight);
 
-        this.drawZoomWindow();
+        // this.drawZoomWindow();
         if (!locks["can_click"]) {
             locks["can_click"] = true;
         }
@@ -430,7 +434,7 @@ function setMousePos(e) {
             mouseTracker.x = (e.clientX - bounds.left) * scaleX;   // scale mouse coordinates after they have
             mouseTracker.y = (e.clientY - bounds.top) * scaleY;
 
-            videos[e.target.id.split("-")[1]].drawZoomWindow();
+            // videos[e.target.id.split("-")[1]].drawZoomWindow();
 
 
         } else {
@@ -475,6 +479,16 @@ function generateError(errorMessage, optionalComponent = null, optionalCustomClo
     let error = $(`<section class="section" id="error-container"><p id="error-message" class="notification is-danger has-text-weight-bold has-text-white has-text-centered">${errorMessage}</p></section>`);
     if (modal.hasClass("is-active")) {
         modalContentContainer.append(error);
+
+        if (optionalCustomClose !== null) {
+            modalContentContainer.append($(`
+                <div class="columns is-centered is-vcentered">
+                    <div class="column has-text-centered">
+                        <button id="generic-dismiss-button" onclick="" class="button">Dismiss</button>
+                    </div>
+                </div>
+            `).on("click", optionalCustomClose));
+        }
     } else {
         modalContentContainer.append(error);
         if (optionalComponent !== null) {
@@ -718,34 +732,28 @@ function loadHiddenVideo(objectURL, index, onCanPlay) {
     // Adds a video into the DOM that is hidden (0 width, 0 height, not able to mess up anything)
     // Returns a jquery object of that video
 
-    // Index - Provides the number that allows for a unique ID
-    // If this isn't a number in the sequence 0 - N videos, something is probably wrong!
-
     // Object URL - This is gotten from the file the user inputs, as far as I understand,
     // the browser loads part of the video into memory and this URL points to that point in
     // memory, wow!
-    let curVideo = $(`<video class="hidden-video" id="video-${index}" src="${objectURL}"></video>`);
-    $("#videos").append(curVideo);
-    curVideo.get(0).currentTime = .003;
-    let verifiedCanPlay = () => {
-        onCanPlay();
-        let currentImage = $("#current-init-settings-preview-canvas").get(0).getContext("2d").getImageData(0, 0, 400, 300);
-        let data = currentImage.data;
-        let isShowing = true;
-        for (let i = 0; i < data.length; i += 4) {
-            if (data[i + 3] < 255) {
-                isShowing = false;
-            }
-        }
-        if (!isShowing) {
-            setTimeout(function () {
-                onCanPlay();
-            }, 570);
-        }
-    };
 
-    onCanPlay();
-    curVideo.one("loadeddata", verifiedCanPlay);
+    // Index - Provides the number that allows for a unique ID
+    // If this isn't a number in the sequence 0 - N videos, something is probably wrong!
+
+    // onCanPlay: Function that is called whenever the video is ready in the DOM to be viewed (probably a draw function!)
+    // onCanPlay() { called twice if the initial call fails to draw the video }
+    let curVideo = $(`<video class="hidden-video" id="video-${index}" src="${objectURL}"></video>`);
+    curVideo.on("error", function () {
+        generateError(
+            "The video could not be loaded! See our troubleshooting page for details",
+            null,
+            function () {
+                location.reload(false);
+            });
+    });
+
+    $("#videos").append(curVideo);
+    curVideo.get(0).currentTime = .001;
+    curVideo.one("loadeddata", onCanPlay);
     return curVideo;
 }
 
@@ -931,11 +939,11 @@ function loadVideosIntoDOM(curURL, index, name, canvasOnClick, canvasOnRightClic
 
 }
 
-function toolTipBuilder(helpText, multiline, direction = "left") {
+function toolTipBuilder(helpText, multiline, tooltipType, direction = "left") {
     // direction defaults to left
     return $(`
       <button class="is-primary tooltip-button has-tooltip-${direction} ${multiline === true ? 'has-tooltip-multiline' : ''}" data-tooltip="${helpText}">
-        <i class="fas fa-question-circle is-primary" style="color: white"></i>
+        <i class="fas fa-question-circle is-primary ${tooltipType}"></i>
       </button>
     `);
 }

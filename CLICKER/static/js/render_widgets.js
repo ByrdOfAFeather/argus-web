@@ -1,4 +1,7 @@
 // TODO: Generate .min.js that contains both clicker.js, video_api.js, and this file.
+LABEL_STYLES = {DARK: "has-text-black", LIGHT: "has-text-white"};
+
+
 
 function genericDropDownWidget(id, defaultSelection, dropdownOptions, allItemCallBack = undefined) {
     let triggerButton = $("<button>", {
@@ -160,13 +163,13 @@ function frameRateDropDownWidget() {
     );
 }
 
-function tooltipLabelWidget(labelText, tooltipText, direction) {
+function tooltipLabelWidget(labelText, labelStyle, tooltipText, direction) {
     return genericDivWidget("columns is-gapless").append(
         genericDivWidget("column is-narrow").append(
-            $("<label>", {class: "label has-text-white"}).text(labelText),
+            $("<label>", {class: `label ${labelStyle}`}).text(labelText),
         ),
         genericDivWidget("column is-narrow").append(
-            toolTipBuilder(tooltipText, true, direction)
+            toolTipBuilder(tooltipText, true, labelStyle, direction)
         )
     );
 }
@@ -182,9 +185,15 @@ function popOutButtonWidget(videoIndex, videoURL, popOutFunction) {
     // popOutFunction: Used whenever the pop-out button is pressed
     // popOutFunction: (event: jquery event object, videoURL: str same as above) { handles popping a video into a new
     // tab and adding it to the current communicators }
-    let popOutButton = $("<button>", {class: "button", id: `popVideo-${videoIndex}`});
-    popOutButton.on("click", function(event) { popOutFunction(videoIndex, videoURL)});
+    let popOutButton = $("<button>", {class: "button", id: `popVideo-${videoIndex}`}).text("pop-out video");
+    popOutButton.on("click", function (_) {
+        popOutFunction(videoIndex, videoURL)
+    });
     return popOutButton
+}
+
+function _canvasWidthAndHeightManager(canvas, width, height) {
+    return canvas.attr("height", height).attr("width", width).css("height", height + "px").css("width", width + "px");
 }
 
 function clickerCanvasWidget(videoIndex, onClick, onRightClick) {
@@ -200,20 +209,27 @@ function clickerCanvasWidget(videoIndex, onClick, onRightClick) {
     // I believe it is due to resizing which is a legacy feature.
 
     let clickableCanvas = canvas(`canvas-${videoIndex}`, "clickable-canvas absolute", "z-index: 3;");
-    // clickableCanvas.on("click", onClick);
-    // clickableCanvas.on("contextmenu", onRightClick);
-    // clickableCanvas.on("mouseMove", setMousePos);
+    clickableCanvas = _canvasWidthAndHeightManager(clickableCanvas, 800, 600);
+
+    let epipolarCanvas = canvas(`epipolarCanvas-${videoIndex}`, "epipolar-canvas absolute", "z-index: 2;");
+    epipolarCanvas = _canvasWidthAndHeightManager(epipolarCanvas, 800, 600);
+
+    let videoCanvas = canvas(`videoCanvas-${videoIndex}`, "video-canvas absolute draggable", "z-index: 1;");
+    videoCanvas = _canvasWidthAndHeightManager(videoCanvas, 800, 600);
 
     return genericDivWidget("container-for-canvas", `container-for-canvas-${videoIndex}`).append(
         clickableCanvas.on("click", onClick).on("contextmenu", onRightClick).on("mousemove", setMousePos),
-        canvas(`epipolarCanvas-${videoIndex}`, "epipolar-canvas absolute", "z-index: 2;"),
-        canvas(`videoCanvas-${videoIndex}`, "video-canvas absolute draggable", "z-index: 1;"),
-    );
+        epipolarCanvas,
+        videoCanvas,
+    ).css("width", "800px").css("height", "600px");
 }
 
-function clickerWidget(videoIndex, loadPreviewFrameFunction, onClick, onRightClick) {
+function clickerWidget(videoIndex, videoManager, loadPreviewFrameFunction, onClick, onRightClick) {
     // videoIndex: Integer representing the video that this widget is being rendered for. There should be one
     // canvas widget per video.
+
+    // videoManager: Video object for the current video index, used to bind filter changes to changes in the
+    // actual drawing of the frame
 
     // loadPreviewFrameFunction: callback used whenever a setting is updated
     // loadPreviewFrameFunction(videoIndex: integer) { returns nothing, reloads the current frame with new settings }
@@ -226,16 +242,16 @@ function clickerWidget(videoIndex, loadPreviewFrameFunction, onClick, onRightCli
     let updateVideoProperties = (propertyID) => {
         let value = $(`#${propertyID}`).val();
         switch (propertyID) {
-            case "preview-brightness": {
-                previewBrightness = `brightness(${value}%)`;
+            case `brightness-${videoIndex}`: {
+                videoManager.currentBrightnessFilter = `brightness(${value}%)`;
                 break;
             }
             case 'preview-contrast': {
-                previewContrast = `contrast(${value}%)`;
+                videoManager.currentContrastFilter = `contrast(${value}%)`;
                 break;
             }
             case 'preview-saturation': {
-                previewSaturation = `saturate(${value}%)`;
+                videoManager.currentSatruateFilter = `saturate(${value}%)`;
                 break;
             }
         }
@@ -263,7 +279,8 @@ function clickerWidget(videoIndex, loadPreviewFrameFunction, onClick, onRightCli
                             `brightness-${videoIndex}`,
                             `contrast-${videoIndex}`,
                             `saturation-${videoIndex}`,
-                            updateVideoProperties
+                            updateVideoProperties,
+                            LABEL_STYLES.DARK
                         ),
                         genericDivWidget('column').append(
                             canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas", "z-index: 2;")
@@ -279,7 +296,7 @@ function sliderWidget(id, min, max, initVal, onChange) {
     return $(`<input id="${id}" class="slider is-fullwidth" step="1" min="${min}" max="${max}" value="${initVal}" type="range">`).on('change', onChange);
 }
 
-function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, updateVideoProperties) {
+function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, updateVideoProperties, labelStyle) {
     // brightnessID: String representing what the desired unique identifier is for the brightness slider
     // contrastID: String representing what the desired unique identifier is for the contrast slider
     // saturationID: String representing what the desired unique identifier is for the saturation slider
@@ -298,18 +315,18 @@ function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, upda
         ' why this setting will have no effect in black & white settings';
 
     return [genericDivWidget("column is-12").append(
-        tooltipLabelWidget("Brightness", `${brightnessTooltipText}`, "top"),
+        tooltipLabelWidget("Brightness", labelStyle, `${brightnessTooltipText}`, "top"),
         sliderWidget(`${brightnessID}`, "0", "200", "100", function () {
             updateVideoProperties('preview-brightness');
         })),
         genericDivWidget("column is-12").append(
-            tooltipLabelWidget("Contrast", `${contrastTooltipText}`, "top"),
+            tooltipLabelWidget("Contrast", labelStyle, `${contrastTooltipText}`, "top"),
             sliderWidget(`${contrastID}`, '0', '100', '100', function () {
                 updateVideoProperties('preview-contrast')
             }),
         ),
         genericDivWidget("column is-12").append(
-            tooltipLabelWidget("Saturation", `${saturationTooltipText}`, "top"),
+            tooltipLabelWidget("Saturation", labelStyle, `${saturationTooltipText}`, "top"),
             sliderWidget(`${saturationID}`, '0', '100', '100', function () {
                 updateVideoProperties('preview-saturation')
             }),
@@ -350,7 +367,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
 
 
     let frameRateInput = genericDivWidget("column is-narrow", "framerate-column").append(
-        tooltipLabelWidget("Global Framerate",
+        tooltipLabelWidget("Global Framerate", LABEL_STYLES.LIGHT,
             "Argus-web doesn't support multiple " +
             "framerates across videos, this value should be the framerate of all of the videos selected",
             "right"),
@@ -399,8 +416,13 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
         $(`#${id}-error`).remove();
     };
 
+    let previousButton = $("<button>", {class: "button", id: "preview-init-settings-button"}).text("Previous");
+    if (!context.previousButton) {
+        previousButton = null;
+    }
 
-    return genericDivWidget("columns is-centered is-multiline").append(
+    // The margin: 0 lets animation smoothly transition from one modal-state to the next ( if there are multiple ).
+    return genericDivWidget("columns is-centered is-multiline").css("margin", "0").append(
         genericDivWidget("column is-12 has-text-centered").append(
             $("<h1>", {class: "has-julius has-text-white title"}).text(`Video Properties for ${videoTitle}`)
         ),
@@ -411,7 +433,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                     genericDivWidget("columns is-multiline").append(
                         genericDivWidget("column is-12").append(
                             genericDivWidget("field", "offset-field").append(
-                                tooltipLabelWidget("Offset",
+                                tooltipLabelWidget("Offset", LABEL_STYLES.LIGHT,
                                     "Your videos may start at different places, " +
                                     " the difference in starting points is the offset (in frames).",
                                     "right"),
@@ -428,13 +450,13 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                 genericDivWidget("column").append(
                     genericDivWidget("columns is-multiline is-vcentered").append(
                         genericDivWidget("column is-12").append(
-                            tooltipLabelWidget("Colorspace",
+                            tooltipLabelWidget("Colorspace", LABEL_STYLES.LIGHT,
                                 "Your videos may be easier to see by swaping colorspace",
                                 "left"),
                             colorSpaceDropDown,
                         ),
                         genericDivWidget("column is-narrow").append(
-                            tooltipLabelWidget("Point Size",
+                            tooltipLabelWidget("Point Size", LABEL_STYLES.LIGHT,
                                 "This controls the radius of your points, the larger it is, the easier it" +
                                 " will be to see. However, this will cause overlap with other points",
                                 "left"),
@@ -469,7 +491,9 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                                             "preview-brightness",
                                             "preview-contrast",
                                             "preview-saturation",
-                                            updateVideoPropertiesGeneric)
+                                            updateVideoPropertiesGeneric,
+                                            LABEL_STYLES.LIGHT
+                                        )
                                     ),
                                 ),
                             )
@@ -479,7 +503,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                         genericDivWidget("column is-12").append(
                             genericDivWidget("level").append(
                                 genericDivWidget("level-left").append(
-
+                                    previousButton,
                                 ),
                                 genericDivWidget("level-right").append(
                                     $("<button>", {
@@ -524,7 +548,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                                                 saveCallback(parsed);
                                             }
                                         }
-                                    }).text("Next"),
+                                    }).text(`${context.nextButton}`),
                                 )
                             )
                         )

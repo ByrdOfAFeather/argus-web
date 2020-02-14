@@ -9,21 +9,26 @@ class WindowManager {
             "resizing_mov": false,
             "can_pop_out": true,
         };
+        this.settings = {
+            "auto-advance": true,
+            "sync": true
+        };
     }
 
     messageCreator(type, data) {
         return {"type": type, "data": data};
     }
+}
 
-    updateLocalOrCommunicator(index, localCallback, message) {
-        let currentCommunicator = this.popoutCommunicators.find((elem) => elem.index === index);
-        if (currentCommunicator === undefined) {
-            localCallback(index);
-        } else {
-            currentCommunicator.communicator.postMessage(message);
-        }
+class MainWindowManager extends WindowManager {
+    constructor(projectTitle, projectDescription, projectID, files) {
+        super();
+        this.clickedPoints = new ClickedPointsManager(files.length);
+        NUMBER_OF_CAMERAS = files.length;
+        this.videoFiles = files;
+        this.videoFilesMemLocations = {};
+        this.communicatorsManager = new CommunicatorsManager();
     }
-
 
     changeTrack(newTrack) {
         this.trackManager.changeCurrentTrack(newTrack);
@@ -32,17 +37,7 @@ class WindowManager {
         };
 
         let message = this.messageCreator("changeTrack", {track: newTrack});
-        this.updateAllLocalOrCommunicator(videoChangeTrack, message);
-    }
-}
-
-class MainWindowManager extends WindowManager {
-    constructor(projectTitle, projectDescription, projectID, files) {
-        super();
-        this.clickedPoints = new ClickedPointsManager(files.length);
-        this.NUMBER_OF_CAMERAS = files.length;
-        this.videoFiles = files;
-        this.videoFilesMemLocations = {};
+        this.communicatorsManager.updateAllLocalOrCommunicator(videoChangeTrack, message);
     }
 
     loadNewProject() {
@@ -51,43 +46,57 @@ class MainWindowManager extends WindowManager {
         this.getVideoSettings(0);
     }
 
-    handlePopoutChange() {
-
-    }
 
     popOutVideo(videoIndex, videoURL) {
-        let init_communicator = new BroadcastChannel("unknown-video");
-        init_communicator.onmessage(() => {
-            init_communicator.postMessage({
-                "dataURL": videoURL,
-                "index": videoIndex,
-                "videoTitle": "TODO", // TODO
-                "clickedPoints": this.clickedPoints,
-                "offset": this.videos[index].offset,
-                "currentTracks": this.trackManager,
-                "initFrame": null, // TODO
-                "currentColorSpace": COLORSPACE,
-                "frameRate": FRAME_RATE
-            });
-            init_communicator.close();
-        });
-        let master_communicator = new BroadcastChannel(`${videoIndex}`);
-        master_communicator.onmessage = this.handlePopoutChange;
-        this.popoutCommunicators.push({"communicator": master_communicator, "index": videoIndex});
-    }
+        // Pops a video into a new window for easier viewing.
+        // videoIndex: integer, index of the current video
+        // videoURL: a data url that is used as the src= attribute of the video tag in the popout.
 
-    canvasOnRightClick() {
+        let message = {
+            "dataURL": videoURL,
+            "index": videoIndex,
+            "videoTitle": "TODO", // TODO
+            "clickedPoints": this.clickedPoints,
+            "offset": this.videos[videoIndex].offset,
+            "currentTracks": this.trackManager,
+            "initFrame": null, // TODO
+            "currentColorSpace": COLORSPACE,
+            "frameRate": FRAME_RATE
+        };
+
+        // Open a communication channel that awaits a message from the pop out
+        this.communicatorsManager.registerCommunicator(videoIndex, videoURL, message);
+
+        // Hide Videos
+        let currentSection = $(`#canvas-columns-${videoIndex}`);
+        currentSection.hide();
+        $(this.videos[videoIndex].zoomCanvas).hide();
+
+        // Create the popout window
+        let URL = generatePopOutURL();
+        let poppedOut = window.open(URL, "detab",
+            `location=yes,height=${600},width=${800},scrollbars=yes,status=yes,detab=yes,toolbar=0`);
+
+        // Check for popout failure
+        if (!poppedOut || poppedOut.closed || typeof poppedOut.closed == 'undefined') {
+            this.communicatorsManager.closeCurrentInitialization();
+            currentSection.show();
+            generateError("Could not pop out video! Ensure that you have pop-ups enabled for this website!");
+        }
     }
 
     loadVideoIntoDOM(parsedInputs) {
         let currentIndex = parsedInputs.index;
+        frameTracker[currentIndex] = 2.001;
         let loadPreviewFrameFunction = (videoIndex) => {
             this.videos[videoIndex].loadFrame();
         };
         let currentClickerWidget = clickerWidget(
             parsedInputs.index,
+            this.videos[currentIndex],
             loadPreviewFrameFunction,
             (event) => this.addNewPoint(event),
+            (event) => this.deletePoint(event)
         );
         $("#canvases").append(currentClickerWidget);
         let popOutButton = popOutButtonWidget(
@@ -96,22 +105,29 @@ class MainWindowManager extends WindowManager {
             (videoIndex, videoURL) => this.popOutVideo(videoIndex, videoURL)
         );
         $(`#pop-out-${currentIndex}-placeholder`).append(popOutButton);
-        this.videos[currentIndex] = new Video(currentIndex, parsedInputs.offset);
+        this.videos[currentIndex] = new Video(currentIndex, parsedInputs.offset.value);
+
+        $("#video-0").on("canplay", () => {
+            this.videos[currentIndex].loadFrame();
+        });
     }
 
     saveSettings(parsedInputs) {
         let index = parsedInputs.index;
-        this.loadVideoIntoDOM(parsedInputs);
         // this.videos[index] = new Video(index, parsedInputs.offset);
 
         // TODO: seperate this out probably so it's easier to update
         // videos[index].filter = parsedInputs.filter;
 
-        if (index === this.NUMBER_OF_CAMERAS) {
+        index += 1;
+        if (index === NUMBER_OF_CAMERAS) {
             loadSettings();
-            // TODO Start main process;
+            this.emptyInputModal();
+            $("#generic-input-modal").removeClass("is-active");
+            $("#blurrable").css("filter", "");
+            this.loadVideoIntoDOM(parsedInputs);
         } else {
-            index += 1;
+            this.loadVideoIntoDOM(parsedInputs);
             this.slideInputModalOut(700, () => this.getVideoSettings(index));
         }
     }
@@ -172,6 +188,26 @@ class MainWindowManager extends WindowManager {
             drawPreviewPoint(canvas, 230, 150);
         };
 
+        let verifiedLoadPreviewFrame = function () {
+            // Firefox seems to not play nice with 'can play' and so a callback happens whenever
+            // there are transparent features in the canvas. Typically, transparent features on a canvas will mean
+            // that a video failed to draw.
+            loadPreviewFrame();
+            let currentImage = $("#current-init-settings-preview-canvas").get(0).getContext("2d").getImageData(0, 0, 400, 300);
+            let data = currentImage.data;
+            let isShowing = true;
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i + 3] < 255) {
+                    isShowing = false;
+                }
+            }
+            if (!isShowing) {
+                setTimeout(function () {
+                    loadPreviewFrame();
+                }, 570);
+            }
+        };
+
 
         // Builds a context for the input builder so that we don't have redundant inputs or inputs that
         // don't belong for a given video.
@@ -181,23 +217,26 @@ class MainWindowManager extends WindowManager {
             name += ". . .";
         }
 
-        let context = {"nextButton": true, "previousButton": true, "index": index};
+        let context = {"nextButton": "Next", "previousButton": true, "index": index};
 
-        if (index === this.NUMBER_OF_CAMERAS) {
-            context.nextButton = false;
+        if (index + 1 === NUMBER_OF_CAMERAS) {
+            context.nextButton = "Finish";
         }
 
         if (index === 0) {
             context.previousButton = false;
         }
 
+
+        // Smooths animations
+        $("#generic-input-modal-content").css("margin", "0");
         $("#modal-content-container").append(initialVideoPropertiesWidget(name, loadPreviewFrame,
             (parsedInputs) => this.saveSettings(parsedInputs), context));
 
         $("#generic-input-modal").addClass('is-active');
 
         if (index === 0) {
-            this.fadeInputModalIn(700);
+            this.fadeInputModalIn(700)
         } else {
             this.slideInputModalIn();
         }
@@ -205,19 +244,7 @@ class MainWindowManager extends WindowManager {
         // Gets the video into the page so that the canvas actually has something to draw from
         let memoryLocation = URL.createObjectURL(this.videoFiles[index]);
         this.videoFilesMemLocations[index] = memoryLocation;
-        loadHiddenVideo(memoryLocation, index, loadPreviewFrame);
-    }
-
-
-    updateAllLocalOrCommunicator(localCallback, message, ignoreParam = null) {
-        for (let i = 0; i < this.videos.length; i++) {
-            if (ignoreParam !== null) {
-                if (ignoreParam === i) {
-                    continue;
-                }
-            }
-            this.updateLocalOrCommunicator(i, localCallback, message);
-        }
+        loadHiddenVideo(memoryLocation, index, verifiedLoadPreviewFrame);
     }
 
     addNewPoint(event) {
@@ -226,14 +253,14 @@ class MainWindowManager extends WindowManager {
             let point = Video.createPointObject(index);
 
             let override = this.clickedPoints.addPoint(point,
-                {clickedVideo: index, track: this.trackManager.currentTrack}
+                {clickedVideo: index, currentTrack: this.trackManager.currentTrack.absoluteIndex}
             );
-            let localPoints = this.clickedPoints.getClickedPoints(index, this.trackManager.currentTrack);
+            let localPoints = this.clickedPoints.getClickedPoints(index, this.trackManager.currentTrack.absoluteIndex);
 
             if (override) {
                 this.videos[index].redrawPoints(localPoints);
             } else {
-                this.videos[index].drawNewPoint(point);
+                this.videos[index].drawNewPoint(point, localPoints);
             }
 
             locks["can_click"] = !settings["auto-advance"];
@@ -244,14 +271,14 @@ class MainWindowManager extends WindowManager {
                     }
 
                     let localCallback = (index) => {
-                        videos[index].moveToNextFrame();
+                        this.videos[index].moveToNextFrame();
                     };
 
                     let message = this.messageCreator("goToFrame", {frame: point.frame + 1});
 
-                    this.updateAllLocalOrCommunicator(localCallback, message);
+                    this.communicatorsManager.updateAllLocalOrCommunicator(localCallback, message);
                 } else {
-                    videos[index].moveToNextFrame();
+                    this.videos[index].moveToNextFrame();
                 }
             } else {
                 Video.clearEpipolarCanvases();
@@ -259,10 +286,12 @@ class MainWindowManager extends WindowManager {
             }
         }
     }
+
+
+    deletePoint(event) {
+    }
 }
 
 class PopOutWindowManager extends WindowManager {
-    updateAllLocalOrCommunicator(localCallback, message, ignoreParam = null) {
-        localCallback(this.videos[0]);
-    }
+
 }
