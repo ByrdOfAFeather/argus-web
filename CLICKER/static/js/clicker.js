@@ -1634,104 +1634,106 @@ function generateDOMSavedState(result, index) {
 
 function createNewProject(loggedIn) {
     let contentContainer = $("#modal-content-container");
-    let form = $(`
-        <div class="columns is-centered is-multiline">
-            <div class="column">
-                <form id="create-project-form" class="form" onsubmit="return false; ">
-                    <div class="columns is-centered is-vcentered is-multiline">
-                        <div class="column is-12">
-                            <div class="field">
-                                <div class="level is-fake-label">
-                                    <div class="level-left">
-                                        <label class="label has-text-white">Project Name</label>    
-                                    </div>
-                                    <div class="level-right">
-                                        ${toolTipBuilder("Give a name to your project!", false).html()}
-                                    </div>
-                                </div>
-                                <div class="control">
-                                    <input id="project-name-input" class="input">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="column is-12">
-                            <div class="field">
-                                <div class="level is-fake-label">
-                                    <div class="level-left">
-                                        <label class="label has-text-white">Project Description</label>
-                                    </div>
-                                    <div class="level-right">
-                                        ${toolTipBuilder("(Optional) Describe your project!", false).html()}    
-                                    </div>
-                                </div>
-                                <div class="control">
-                                    <input id="description-input" class="input">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        
-                        <!-- NOTE: THIS IS STRUCTURE FOR FUTURE IMPLEMENTATIONS NO FUNCTIONALITY TODO --> 
-                        <div class="column is-12">
-                            <div class="field">
-                                <div class="columns"> 
-                                    <div class="column is-narrow">
-                                        <label class="label has-text-white">Public</label>
-                                    </div>
-                                    <div class="column is-narrow">
-                                        <div class="control">
-                                            <input id="public-input" class="checkbox large-checkbox" type="checkbox">
-                                        </div>    
-                                    </div>
-                                    <div class="column is-narrow">
-                                        ${toolTipBuilder("Checking this will allow others to help contribute to your project!", false, "right").html()}    
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- NOTE: THIS IS STRUCTURE FOR FUTURE IMPLEMENTATIONS NO FUNCTIONALITY TODO --> 
-                        
-                        
-                        <div class="column">
-                            <div class="level">
-                                <div class="level-left">
-                                    <div class="field">
-                                        <div id="file-input-container" class="file centered-file-input fade-on-hover">
-                                            <label class="file-label">
-                                                <input
-                                                        id="video-file-input"
-                                                        class="file-input is-expanded"
-                                                        accept="video/*" type=file multiple
-                                                >
-                                                <span class="file-cta has-background-dark has-text-white is-size-5" style="border: none">
-                                            <span class="file-label">Select Videos</span>
-                                        </span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="columns is-multiline" id="files-selected-container">
-                                    </div>
-                                </div>
-        
-                                <div class="level-right">
-                                    <div class="columns">
-                                        <div class="column is-narrow is-pulled-right">
-                                            <button id="cancel-button" class="button has-background-dark has-text-white is-size-5 fade-on-hover" style="border: none">Cancel</button>
-                                        </div>
-                                        <div class="column is-narrow is-pulled-right">
-                                            <button id="create-button" class="button has-background-dark has-text-white is-size-5 fade-on-hover disabled" style="border: none">Create</button>
-                                        </div>                                    
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    `);
+    // let form = $(`
+    //     <div class="columns is-centered is-multiline">
+    //         <div class="column">
+    //             <form id="create-project-form" class="form" onsubmit="return false; ">
+    //                 <div class="columns is-centered is-vcentered is-multiline">
+    //                     <div class="column is-12">
+    //                         <div class="field">
+    //                             <div class="level is-fake-label">
+    //                                 <div class="level-left">
+    //                                     <label class="label has-text-white">Project Name</label>
+    //                                 </div>
+    //                                 <div class="level-right">
+    //                                     ${tooltipBuilder("Give a name to your project!", false).html()}
+    //                                 </div>
+    //                             </div>
+    //                             <div class="control">
+    //                                 <input id="project-name-input" class="input">
+    //                             </div>
+    //                         </div>
+    //                     </div>
+    //
+    //                     <div class="column is-12">
+    //                         <div class="field">
+    //                             <div class="level is-fake-label">
+    //                                 <div class="level-left">
+    //                                     <label class="label has-text-white">Project Description</label>
+    //                                 </div>
+    //                                 <div class="level-right">
+    //                                     ${tooltipBuilder("(Optional) Describe your project!", false).html()}
+    //                                 </div>
+    //                             </div>
+    //                             <div class="control">
+    //                                 <input id="description-input" class="input">
+    //                             </div>
+    //                         </div>
+    //                     </div>
+    //
+    //
+    //                     <!-- NOTE: THIS IS STRUCTURE FOR FUTURE IMPLEMENTATIONS NO FUNCTIONALITY TODO -->
+    //                     <div class="column is-12">
+    //                         <div class="field">
+    //                             <div class="columns">
+    //                                 <div class="column is-narrow">
+    //                                     <label class="label has-text-white">Public</label>
+    //                                 </div>
+    //                                 <div class="column is-narrow">
+    //                                     <div class="control">
+    //                                         <input id="public-input" class="checkbox large-checkbox" type="checkbox">
+    //                                     </div>
+    //                                 </div>
+    //                                 <div class="column is-narrow">
+    //                                     ${tooltipBuilder("Checking this will allow others to help contribute to your project!", false, "right").html()}
+    //                                 </div>
+    //                             </div>
+    //                         </div>
+    //                     </div>
+    //                     <!-- NOTE: THIS IS STRUCTURE FOR FUTURE IMPLEMENTATIONS NO FUNCTIONALITY TODO -->
+    //
+    //
+    //                     <div class="column">
+    //                         <div class="level">
+    //                             <div class="level-left">
+    //                                 <div class="field">
+    //                                     <div id="file-input-container" class="file centered-file-input fade-on-hover">
+    //                                         <label class="file-label">
+    //                                             <input
+    //                                                     id="video-file-input"
+    //                                                     class="file-input is-expanded"
+    //                                                     accept="video/*" type=file multiple
+    //                                             >
+    //                                             <span class="file-cta has-background-dark has-text-white is-size-5" style="border: none">
+    //                                         <span class="file-label">Select Videos</span>
+    //                                     </span>
+    //                                         </label>
+    //                                     </div>
+    //                                 </div>
+    //
+    //                                 <div class="columns is-multiline" id="files-selected-container">
+    //                                 </div>
+    //                             </div>
+    //
+    //                             <div class="level-right">
+    //                                 <div class="columns">
+    //                                     <div class="column is-narrow is-pulled-right">
+    //                                         <button id="cancel-button" class="button has-background-dark has-text-white is-size-5 fade-on-hover" style="border: none">Cancel</button>
+    //                                     </div>
+    //                                     <div class="column is-narrow is-pulled-right">
+    //                                         <button id="create-button" class="button has-background-dark has-text-white is-size-5 fade-on-hover disabled" style="border: none">Create</button>
+    //                                     </div>
+    //                                 </div>
+    //                             </div>
+    //                         </div>
+    //                     </div>
+    //                 </div>
+    //             </form>
+    //         </div>
+    //     </div>
+    // `);
+    let form = projectCreationWidget();
+
     $("#blurrable").css("filter", "blur(10px)");
     $("#footer").css("filter", "blur(10px)");
     contentContainer.append(form);

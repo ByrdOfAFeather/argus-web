@@ -2,7 +2,6 @@
 LABEL_STYLES = {DARK: "has-text-black", LIGHT: "has-text-white"};
 
 
-
 function genericDropDownWidget(id, defaultSelection, dropdownOptions, allItemCallBack = undefined) {
     let triggerButton = $("<button>", {
         id: `${id}-trigger`,
@@ -163,13 +162,25 @@ function frameRateDropDownWidget() {
     );
 }
 
+function tooltipBuilder(helpText, multiline, style, direction) {
+    return $("<button>", {
+        class:
+            `is-primary tooltip-button has-tooltip-${direction} ${multiline === true ? 'has-tooltip-multiline' : ''}`,
+    }).attr(
+        'data-tooltip',
+        `${helpText}`
+    ).append(
+        $(`<i class="fas fa-question-circle is-primary ${style}"></i>`)
+    )
+}
+
 function tooltipLabelWidget(labelText, labelStyle, tooltipText, direction) {
     return genericDivWidget("columns is-gapless").append(
         genericDivWidget("column is-narrow").append(
             $("<label>", {class: `label ${labelStyle}`}).text(labelText),
         ),
         genericDivWidget("column is-narrow").append(
-            toolTipBuilder(tooltipText, true, labelStyle, direction)
+            tooltipBuilder(tooltipText, true, labelStyle, direction)
         )
     );
 }
@@ -179,12 +190,14 @@ function canvas(id, classType, style) {
 }
 
 function popOutButtonWidget(videoIndex, videoURL, popOutFunction) {
-    // videoIndex: Integer represnting the current video index
-    // videoURL: String reprsenting the source for the video, this is required to load the video in a new window
+    /*
+    videoIndex: Integer represnting the current video index
+    videoURL: String reprsenting the source for the video, this is required to load the video in a new window
 
-    // popOutFunction: Used whenever the pop-out button is pressed
-    // popOutFunction: (event: jquery event object, videoURL: str same as above) { handles popping a video into a new
-    // tab and adding it to the current communicators }
+    popOutFunction: Used whenever the pop-out button is pressed
+    popOutFunction: (event: jquery event object, videoURL: str same as above) { handles popping a video into a new
+    tab and adding it to the current communicators }
+    */
     let popOutButton = $("<button>", {class: "button", id: `popVideo-${videoIndex}`}).text("pop-out video");
     popOutButton.on("click", function (_) {
         popOutFunction(videoIndex, videoURL)
@@ -197,16 +210,18 @@ function _canvasWidthAndHeightManager(canvas, width, height) {
 }
 
 function clickerCanvasWidget(videoIndex, onClick, onRightClick) {
-    // videoIndex: integer value representing the index of the video
+    /*
+    videoIndex: integer value representing the index of the video
 
-    // onClick: Callback whenever the clickable canvas is pressed
-    // onClick(event) { handles adding a new point and updating popouts if necessary }
+    onClick: Callback whenever the clickable canvas is pressed
+    onClick(event) { handles adding a new point and updating popouts if necessary }
 
-    // onRightClick: Callback whenever the clickable canvas is pressed with a right click
-    // onRightClick(event) { handles removing a point and updating popouts if necessary }
+    onRightClick: Callback whenever the clickable canvas is pressed with a right click
+    onRightClick(event) { handles removing a point and updating popouts if necessary }
 
-    // TODO: Video Canvas has class-type draggable, don't know for sure why this is
-    // I believe it is due to resizing which is a legacy feature.
+    TODO: Video Canvas has class-type draggable, don't know for sure why this is
+    I believe it is due to resizing which is a legacy feature.
+     */
 
     let clickableCanvas = canvas(`canvas-${videoIndex}`, "clickable-canvas absolute", "z-index: 3;");
     clickableCanvas = _canvasWidthAndHeightManager(clickableCanvas, 800, 600);
@@ -225,20 +240,23 @@ function clickerCanvasWidget(videoIndex, onClick, onRightClick) {
 }
 
 function clickerWidget(videoIndex, videoManager, loadPreviewFrameFunction, onClick, onRightClick) {
-    // videoIndex: Integer representing the video that this widget is being rendered for. There should be one
-    // canvas widget per video.
+    /*
+    videoIndex: Integer representing the video that this widget is being rendered for. There should be one
+    canvas widget per video.
 
-    // videoManager: Video object for the current video index, used to bind filter changes to changes in the
-    // actual drawing of the frame
+    videoManager: Video object for the current video index, used to bind filter changes to changes in the
+    actual drawing of the frame
 
-    // loadPreviewFrameFunction: callback used whenever a setting is updated
-    // loadPreviewFrameFunction(videoIndex: integer) { returns nothing, reloads the current frame with new settings }
+    loadPreviewFrameFunction: callback used whenever a setting is updated
+    loadPreviewFrameFunction(videoIndex: integer) { returns nothing, reloads the current frame with new settings }
 
-    // onClick: Callback whenever the clickable canvas is pressed
-    // onClick(event) { handles adding a new point and updating popouts if necessary }
+    onClick: Callback whenever the clickable canvas is pressed
+    onClick(event) { handles adding a new point and updating popouts if necessary }
 
-    // onRightClick: Callback whenever the clickable canvas is pressed with a right click
-    // onRightClick(event) { handles removing a point and updating popouts if necessary }
+    onRightClick: Callback whenever the clickable canvas is pressed with a right click
+    onRightClick(event) { handles removing a point and updating popouts if necessary }
+    */
+
     let updateVideoProperties = (propertyID) => {
         let value = $(`#${propertyID}`).val();
         switch (propertyID) {
@@ -297,14 +315,15 @@ function sliderWidget(id, min, max, initVal, onChange) {
 }
 
 function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, updateVideoProperties, labelStyle) {
-    // brightnessID: String representing what the desired unique identifier is for the brightness slider
-    // contrastID: String representing what the desired unique identifier is for the contrast slider
-    // saturationID: String representing what the desired unique identifier is for the saturation slider
+    /*
+    brightnessID: String representing what the desired unique identifier is for the brightness slider
+    contrastID: String representing what the desired unique identifier is for the contrast slider
+    saturationID: String representing what the desired unique identifier is for the saturation slider
 
-    // updateVideoProperties: callback used whenever a specific slider is changed
-    // updateVideoProperties(propertyID: string, note: Does not include the #)
-    // { returns nothing, does whatever needs to be done to update the specific settings and redraw the current frame}
-
+    updateVideoProperties: callback used whenever a specific slider is changed
+    updateVideoProperties(propertyID: string, note: Does not include the #)
+    { returns nothing, does whatever needs to be done to update the specific settings and redraw the current frame}
+    */
 
     // LONG TOOLTIP TEXTS
     let brightnessTooltipText = "Controls how much intensity every element in a video has. When you raise this, every pixel will " +
@@ -561,7 +580,12 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
 
 
 function genericDivWidget(classType, id = "") {
-    // Return an ID-less div
+    /*
+    Returns a div with the specified classes and id
+
+    classType: string, can contain one or multiple classes separated by spaces
+    id: string, the desired id
+     */
     if (id !== "") {
         return $(`<div>`, {class: classType, id: id});
     } else {
@@ -570,7 +594,19 @@ function genericDivWidget(classType, id = "") {
 
 }
 
-function fileInputWidget(inputText, inputID, acceptableFiles, onChangeCallback) {
+function fileInputWidget(labelText, inputID, acceptableFiles, onChangeCallback, extraLabelClasses='') {
+    /*
+    Creates a generic input menu for files of any type
+
+    labelText: string, used for the label to help the user understand what they are selecting
+    inputID: integer/string, used to allow multiple file inputs on the same page without having the same id
+    acceptableFiles: string, a valid html attribute of accept [https://www.w3schools.com/tags/att_input_accept.asp]
+
+    onChangeCallback: Called whenever a user chooses a new file
+    onChangeCallback(event: Jquery event ) { Returns nothing and handles saving/parsing file selection }
+
+    extraLabelClasses: string, a spot for extra classes besides the default to be provided
+     */
     return genericDivWidget("centered-file-input file").append(
         $("<label>", {class: "file-label"}).append(
             $("<input>", {
@@ -580,14 +616,111 @@ function fileInputWidget(inputText, inputID, acceptableFiles, onChangeCallback) 
                 type: "file"
             },).on("change", onChangeCallback),
             $("<span>", {class: "file-cta"}).append(
-                $("<span>", {class: "file-label"}).text(inputText)
+                $("<span>", {class: `file-label ${extraLabelClasses}`}).text(labelText)
             )
         )
     );
 }
 
+function genericTextInputWithTooltipWidget(labelText, labelStyle, tooltipText, inputID) {
+    return genericDivWidget('field').append(
+        genericDivWidget('level is-fake-label').append(
+            genericDivWidget('level-left').append(
+                $("<label>", {class: `label ${labelStyle}`}).text(labelText)
+            ),
+            genericDivWidget('level-right').append(
+                tooltipBuilder(
+                    tooltipText,
+                    false,
+                    labelStyle,
+                    'left')
+            )
+        ),
+        genericDivWidget('control').append(
+            $('<input>', {class: 'input', id: inputID})
+        )
+    );
+}
+
+
+function projectCreationWidget() {
+    let updateSelectedVideos = () => {
+    };
+
+    return genericDivWidget("columns is-centered is-multiline").append(
+        genericDivWidget('column').append(
+            $("<form>", {id: "create-project-form", class: "form"}).attr('onsubmit', 'return false;').append(
+                genericDivWidget('columns is-centered is-vcentered is-multiline').append(
+                    genericDivWidget('column is-12').append(
+                        genericTextInputWithTooltipWidget(
+                            'Project Name',
+                            LABEL_STYLES.LIGHT,
+                            'Give a name to your project!',
+                            'project-name-input'
+                        )
+                    ),
+
+                    genericDivWidget('column is-12').append(
+                        genericTextInputWithTooltipWidget(
+                            'Project Description',
+                            LABEL_STYLES.LIGHT,
+                            '(Optional) Describe your project!',
+                            'description-input'
+                        )
+                    ),
+
+                    genericDivWidget('column is-12').append(
+                        genericDivWidget('level').append(
+                            genericDivWidget('level-left').append(
+                                genericDivWidget('field').append(
+                                    fileInputWidget(
+                                        'Select Videos',
+                                        'video-file-input',
+                                        'video/*',
+                                        updateSelectedVideos,
+                                        'has-background-dark has-text-white is-size-5')
+                                ),
+                                genericDivWidget('columns is-multiline', 'files-selected-container')
+                            ),
+
+                            genericDivWidget('level-right').append(
+                                genericDivWidget('columns').append(
+                                    genericDivWidget('column is-narrow is-pulled-right').append(
+                                        $("<button>", {
+                                            id: 'cancel-button',
+                                            class: 'button has-background-dark has-text-white is-size-5 fade-on-hover',
+                                            style: 'border: none;'
+                                        }).text("Cancel")
+                                    ),
+                                    genericDivWidget('column is-narrow is-pulled-right').append(
+                                        $("<button>", {
+                                            id: 'submit-button',
+                                            class: 'button has-background-dark has-text-white is-size-5 fade-on-hover',
+                                            style: 'border: none;'
+                                        }).text("Submit")
+                                    ),
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+}
+
 
 function firstRowOfSettingsWidget() {
+    /*
+    Creates the first row of settings. This row will include:
+    Loading DLT coefficents
+    Loading Camera Profiles
+    Add tracks
+    track dropdown to select and delete tracks
+    colorspace dropdown to select colorspace globally TODO: This needs to be switched to per-video basis
+    Save points
+    Load points
+     */
     let widget = genericDivWidget("columns");
     widget.append(
         // Stacked DLT and Camera Profile Settings
@@ -693,6 +826,14 @@ function firstRowOfSettingsWidget() {
 
 
 function pointSizeSelectorWidget(index) {
+    /*
+    Creates a widget that allows a user to set the size of points being clicked.
+    TODO: Currently only works at a global scale while the project initialization menus imply it works at a local scale
+
+    index: string or integer that uniquly identifies the pointSizeSelectorWidget
+    used to allow this to create multiple widgets of this type on the same page
+    */
+
     let drawPreview = () => {
         let pointPreviewCanvas = document.getElementById(`point-preview-canvas-${index}`);
         let ctx = pointPreviewCanvas.getContext("2d");
