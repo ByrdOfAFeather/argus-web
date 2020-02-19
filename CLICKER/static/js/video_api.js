@@ -75,7 +75,7 @@ class Video {
 
         this.currentBrightnessFilter = '';
         this.currentContrastFilter = '';
-        this.currentSatruateFilter = '';
+        this.currentSaturateFilter = '';
 
         this.videoLabelID = `videoLabel-${videosIndex}`;
 
@@ -101,11 +101,11 @@ class Video {
         secondaryTracksTracker.drawTracks();
     }
 
-    drawZoomWindow() {
+    drawZoomWindow(color) {
         let startX = mouseTracker.x;
         let startY = mouseTracker.y;
 
-        this.zoomCanvasContext.strokeStyle = trackTracker.tracks[trackTracker.currentTrack].color;
+        this.zoomCanvasContext.strokeStyle = color;
 
         this.zoomCanvasContext.clearRect(0, 0, this.zoomCanvas.width, this.zoomCanvas.height);
         this.zoomCanvasContext.drawImage(
@@ -209,22 +209,22 @@ class Video {
     }
 
 
-    loadFrame() {
+    loadFrame(localPoints, color) {
         let canvasWidth;
         let canvasHeight;
 
         canvasHeight = this.canvas.height;
         canvasWidth = this.canvas.width;
 
-        this.videoCanvasContext.filter = `${this.currentBrightnessFilter} ${this.currentContrastFilter} ${this.currentSatruateFilter}`;
+        this.videoCanvasContext.filter = `${this.currentBrightnessFilter} ${this.currentContrastFilter} ${this.currentSaturateFilter}`;
         this.videoCanvasContext.fillRect(0, 0, canvasWidth, canvasHeight);
         this.videoCanvasContext.drawImage(this.video, 0, 0, canvasWidth, canvasHeight);
-
+        this.currentStrokeStyle = color;
         // this.drawZoomWindow();
         if (!locks["can_click"]) {
             locks["can_click"] = true;
         }
-        let localPoints = getClickedPoints(this.index, trackTracker.currentTrack);
+
         let pointIndex = Video.checkIfPointAlreadyExists(localPoints, frameTracker[this.index]);
         if (pointIndex !== null) {
             if (this.isDisplayingFocusedPoint) {
@@ -241,6 +241,8 @@ class Video {
             }
             this.isDisplayingFocusedPoint = false;
         }
+
+        this.drawZoomWindow(color);
     }
 
     drawFocusedPoint(x, y) {
@@ -390,77 +392,6 @@ function changeTracks(trackIndex, cameras) {
     secondaryTracksTracker.drawTracks();
 }
 
-
-function setMousePos(e) {
-    if (ZOOM_WINDOW_MOVING) {
-        let zoom = ZOOM_BEING_MOVED;
-        zoom.css("position", "absolute");
-        mouseTracker.x = e.pageX - (parseInt(zoom.css("width"), 10) / 2);
-        mouseTracker.y = e.pageY - (parseInt(zoom.css("height"), 10) / 2);
-
-
-        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-            let voidArea = $(`#${videos[i].canvas.id}`);
-            let leftBorder = voidArea.offset().left;
-            let rightBorder = leftBorder + voidArea.width();
-            let heightStart = voidArea.offset().top;
-            let heightEnd = heightStart + voidArea.height();
-
-            if ((mouseTracker.x + 400 >= leftBorder && mouseTracker.x <= rightBorder) &&
-                (mouseTracker.y + 400 >= heightStart && mouseTracker.y <= heightEnd)) {
-                return;
-            }
-        }
-
-        zoom.css("left", mouseTracker.x + "px");
-        zoom.css("top", mouseTracker.y + "px");
-
-
-    } else {
-        if (e.target.id.startsWith("canvas")) {
-            currentResizable = e.target;
-        } else {
-            e.target = currentResizable;
-        }
-
-        if (!locks["resizing_mov"]) {
-            $(e.target).focus();
-
-            // Source : https://stackoverflow.com/a/17130415
-            let bounds = e.target.getBoundingClientRect();
-            let scaleX = e.target.width / bounds.width;   // relationship bitmap vs. element for X
-            let scaleY = e.target.height / bounds.height;
-
-            mouseTracker.x = (e.clientX - bounds.left) * scaleX;   // scale mouse coordinates after they have
-            mouseTracker.y = (e.clientY - bounds.top) * scaleY;
-
-            // videos[e.target.id.split("-")[1]].drawZoomWindow();
-
-
-        } else {
-            let bounds = e.target.getBoundingClientRect();
-
-            mouseTracker.x = e.clientX - bounds.left;
-            mouseTracker.y = e.clientY - bounds.top;
-            let currentClickCanvas = $(e.target);
-
-            currentClickCanvas.css("height", mouseTracker.y);
-            currentClickCanvas.css("width", mouseTracker.x);
-
-            let currentVideoCanvas = $(`#videoCanvas-${e.target.id.split("-")[1]}`);
-
-            currentVideoCanvas.css("height", mouseTracker.y);
-            currentVideoCanvas.css("width", mouseTracker.x);
-
-            let currenEpipolarCanvas = $(`#epipolarCanvas-${e.target.id.split("-")[1]}`);
-            currenEpipolarCanvas.css("height", mouseTracker.y);
-            currenEpipolarCanvas.css("width", mouseTracker.x);
-
-        }
-    }
-
-
-}
 
 let closeModal = () => {
     let modal = $("#generic-input-modal");
@@ -752,7 +683,7 @@ function loadHiddenVideo(objectURL, index, onCanPlay) {
     });
 
     $("#videos").append(curVideo);
-    curVideo.get(0).currentTime = .001;
+    curVideo.get(0).currentTime = 1.001;
     curVideo.one("loadeddata", onCanPlay);
     return curVideo;
 }

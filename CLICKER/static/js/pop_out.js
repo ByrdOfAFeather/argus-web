@@ -1,6 +1,8 @@
 let FRAME_RATE = null;
 let COLORSPACE = "";
 let settings = {"auto-advance": false};
+const COLORS = ["rgb(228, 26, 28)", "rgb(55, 126, 184)", "rgb(77, 175, 74)", "rgb(152, 78, 163)",
+    "rgb(255, 127, 0)", "rgb(255, 255, 51)", "rgb(166, 86, 40)", "rgb(247, 129, 191)"];
 
 let mouseTracker = {
     x: 0,
@@ -27,6 +29,7 @@ let masterCommunicator = null;
 let index = null;
 let killSelf = false;
 let video = null;
+let windowManager = null;
 
 const initCommunicator = new BroadcastChannel("unknown-video");
 
@@ -151,14 +154,16 @@ function init_listener(message) {
 
     index = messageData["index"];
 
-    loadVideosIntoDOM(videoSource, index, document.title,
-        sendNewPoint, deletePoint, false, offset,
-        function () {
-            afterLoad(initFrame);
-        });
-
     clickedPoints = messageData["clickedPoints"];
+    windowManager = new PopOutWindowManager(3, index, clickedPoints.clickedPoints);
+    let parsed = {
+        index: 0,
+        offset: offset
+    };
 
+    loadHiddenVideo(videoSource, 0, () => {
+    });
+    windowManager.loadVideoIntoDOM(parsed);
     masterCommunicator = new BroadcastChannel(`${index}`);
     masterCommunicator.onmessage = handleChange;
 }
@@ -177,14 +182,14 @@ function sendNewFrame(newFrame) {
 
 function sendDeathNotification() {
     // This means this window is dying but the webpage is still running.
-    if (!killSelf) {
+    // if (!killSelf) {
         masterCommunicator.postMessage(messageCreator(
             "popoutDeath",
             {
                 "index": video.index,
             }
         ));
-    }
+    // }
 
     // Otherwise the user really wants to leave the page
 }

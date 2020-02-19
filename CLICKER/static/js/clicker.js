@@ -1632,107 +1632,18 @@ function generateDOMSavedState(result, index) {
 }
 
 
-function createNewProject(loggedIn) {
+function createNewProject() {
     let contentContainer = $("#modal-content-container");
-    // let form = $(`
-    //     <div class="columns is-centered is-multiline">
-    //         <div class="column">
-    //             <form id="create-project-form" class="form" onsubmit="return false; ">
-    //                 <div class="columns is-centered is-vcentered is-multiline">
-    //                     <div class="column is-12">
-    //                         <div class="field">
-    //                             <div class="level is-fake-label">
-    //                                 <div class="level-left">
-    //                                     <label class="label has-text-white">Project Name</label>
-    //                                 </div>
-    //                                 <div class="level-right">
-    //                                     ${tooltipBuilder("Give a name to your project!", false).html()}
-    //                                 </div>
-    //                             </div>
-    //                             <div class="control">
-    //                                 <input id="project-name-input" class="input">
-    //                             </div>
-    //                         </div>
-    //                     </div>
-    //
-    //                     <div class="column is-12">
-    //                         <div class="field">
-    //                             <div class="level is-fake-label">
-    //                                 <div class="level-left">
-    //                                     <label class="label has-text-white">Project Description</label>
-    //                                 </div>
-    //                                 <div class="level-right">
-    //                                     ${tooltipBuilder("(Optional) Describe your project!", false).html()}
-    //                                 </div>
-    //                             </div>
-    //                             <div class="control">
-    //                                 <input id="description-input" class="input">
-    //                             </div>
-    //                         </div>
-    //                     </div>
-    //
-    //
-    //                     <!-- NOTE: THIS IS STRUCTURE FOR FUTURE IMPLEMENTATIONS NO FUNCTIONALITY TODO -->
-    //                     <div class="column is-12">
-    //                         <div class="field">
-    //                             <div class="columns">
-    //                                 <div class="column is-narrow">
-    //                                     <label class="label has-text-white">Public</label>
-    //                                 </div>
-    //                                 <div class="column is-narrow">
-    //                                     <div class="control">
-    //                                         <input id="public-input" class="checkbox large-checkbox" type="checkbox">
-    //                                     </div>
-    //                                 </div>
-    //                                 <div class="column is-narrow">
-    //                                     ${tooltipBuilder("Checking this will allow others to help contribute to your project!", false, "right").html()}
-    //                                 </div>
-    //                             </div>
-    //                         </div>
-    //                     </div>
-    //                     <!-- NOTE: THIS IS STRUCTURE FOR FUTURE IMPLEMENTATIONS NO FUNCTIONALITY TODO -->
-    //
-    //
-    //                     <div class="column">
-    //                         <div class="level">
-    //                             <div class="level-left">
-    //                                 <div class="field">
-    //                                     <div id="file-input-container" class="file centered-file-input fade-on-hover">
-    //                                         <label class="file-label">
-    //                                             <input
-    //                                                     id="video-file-input"
-    //                                                     class="file-input is-expanded"
-    //                                                     accept="video/*" type=file multiple
-    //                                             >
-    //                                             <span class="file-cta has-background-dark has-text-white is-size-5" style="border: none">
-    //                                         <span class="file-label">Select Videos</span>
-    //                                     </span>
-    //                                         </label>
-    //                                     </div>
-    //                                 </div>
-    //
-    //                                 <div class="columns is-multiline" id="files-selected-container">
-    //                                 </div>
-    //                             </div>
-    //
-    //                             <div class="level-right">
-    //                                 <div class="columns">
-    //                                     <div class="column is-narrow is-pulled-right">
-    //                                         <button id="cancel-button" class="button has-background-dark has-text-white is-size-5 fade-on-hover" style="border: none">Cancel</button>
-    //                                     </div>
-    //                                     <div class="column is-narrow is-pulled-right">
-    //                                         <button id="create-button" class="button has-background-dark has-text-white is-size-5 fade-on-hover disabled" style="border: none">Create</button>
-    //                                     </div>
-    //                                 </div>
-    //                             </div>
-    //                         </div>
-    //                     </div>
-    //                 </div>
-    //             </form>
-    //         </div>
-    //     </div>
-    // `);
-    let form = projectCreationWidget();
+    let modal = $("#generic-input-modal");
+
+    let onSubmit = (selectedFiles) => {
+        postValidProject(selectedFiles);
+    };
+
+    let cleanFunction = () => {
+        genericInputCleanUp(contentContainer, modal);
+    };
+    let form = createProjectWidget(onSubmit, cleanFunction);
 
     $("#blurrable").css("filter", "blur(10px)");
     $("#footer").css("filter", "blur(10px)");
@@ -1740,96 +1651,20 @@ function createNewProject(loggedIn) {
     fadeInputModalIn(500, function () {
         $("#project-name-input").focus()
     });
-    let modal = $("#generic-input-modal");
-    let createButton = $("#create-button");
-    let titleInput = $("#project-name-input");
-    let descriptionInput = $("#description-input");
-    let fileInput = $("#video-file-input");
 
-    let removedFiles = new Set();
-
-    let validate = () => {
-        if (titleInput.val().length !== 0 || descriptionInput.val().length !== 0) {
-            let selectedFiles = Array.from(fileInput.prop("files"));
-            if (selectedFiles.length !== 0) {
-                return true;
-            }
-        } else {
-            return false;
-        }
-    };
-
-    let updateIfValid = () => {
-        let valid = validate();
-        if (valid) {
-            createButton.off();
-            createButton.removeClass("disabled");
-            // Stored in the template file to have relative url
-            createButton.on("click", function () {
-                createValidProject(loggedIn, removedFiles)
-            });
-        } else {
-            createButton.off();
-            createButton.addClass("disabled");
-        }
-    };
-
-    $("#cancel-button").on("click", function () {
-        genericInputCleanUp(contentContainer, modal)
-    });
-
-    titleInput.on('input', updateIfValid);
-    fileInput.on("change", function () {
-        console.log("I've been changed");
-        removedFiles = new Set();
-
-        let selectedFilesContainer = $("#files-selected-container");
-        selectedFilesContainer.empty();
-
-        let selectedFiles = Array.from(fileInput.prop("files"));
-        for (let i = 0; i < selectedFiles.length; i++) {
-            let name = selectedFiles[i].name.toString();
-            if (name.length > 20) {
-                name = name.slice(0, 20);
-                name += "...";
-            }
-
-            selectedFilesContainer.append(`
-                <div id="selectedFile-${i}-container" class="column is-12">
-                    <div class="level">
-                        <div class="level-left">
-                            <p class="has-text-white">${name}</p>
-                        </div>
-                        <div class="level-right">
-                            <button id="deleteSelectedFile-${i}" class="delete delete-selected-file"></button>
-                        </div>
-                    </div>
-                </div>
-            `);
-            selectedFilesContainer.find(`#deleteSelectedFile-${i}`).on("click", function (e) {
-                $(`#selectedFile-${e.target.id.split('-')[1]}-container`).remove();
-                removedFiles.add(i);
-                if (removedFiles.size === selectedFiles.length) {
-                    fileInput.val('');
-                }
-            })
-        }
-
-        updateIfValid();
-    });
     modal.addClass("is-active");
 
-    modal.on("keydown", function (e) {
-        let code = (e.keyCode ? e.keyCode : e.which);
-        if (code === 13) {
-            let valid = validate();
-            if (valid) {
-                createValidProject(loggedIn, removedFiles);
-            }
-        } else if (code === 27) {
-            genericInputCleanUp(contentContainer, modal);
-        }
-    });
+    // modal.on("keydown", function (e) {
+    //     let code = (e.keyCode ? e.keyCode : e.which);
+    //     if (code === 13) {
+    //         let valid = validate();
+    //         if (valid) {
+    //             postValidProject(loggedIn, removedFiles);
+    //         }
+    //     } else if (code === 27) {
+    //         genericInputCleanUp(contentContainer, modal);
+    //     }
+    // });
 }
 
 
@@ -1962,9 +1797,8 @@ function loadNewlyCreatedProject(title, description, projectID, files) {
 
 
 $(document).ready(async function () {
-    let loggedIn = await testLoggedIn();
     $("#new-project-button").on("click", function () {
-        createNewProject(loggedIn);
+        createNewProject();
     });
     $("#continue-working-button").on("click", function (_) {
         displaySavedStates(0);

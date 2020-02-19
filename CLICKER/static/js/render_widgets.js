@@ -209,7 +209,7 @@ function _canvasWidthAndHeightManager(canvas, width, height) {
     return canvas.attr("height", height).attr("width", width).css("height", height + "px").css("width", width + "px");
 }
 
-function clickerCanvasWidget(videoIndex, onClick, onRightClick) {
+function clickerCanvasWidget(videoIndex, onClick, onRightClick, setMousePos) {
     /*
     videoIndex: integer value representing the index of the video
 
@@ -218,6 +218,9 @@ function clickerCanvasWidget(videoIndex, onClick, onRightClick) {
 
     onRightClick: Callback whenever the clickable canvas is pressed with a right click
     onRightClick(event) { handles removing a point and updating popouts if necessary }
+
+    setMousePos: Callback used whenever the mouse is moved over the canvas
+    onMouseMove(event) { sets relative mouse coordinates & probably draws the zoom window }
 
     TODO: Video Canvas has class-type draggable, don't know for sure why this is
     I believe it is due to resizing which is a legacy feature.
@@ -239,7 +242,8 @@ function clickerCanvasWidget(videoIndex, onClick, onRightClick) {
     ).css("width", "800px").css("height", "600px");
 }
 
-function clickerWidget(videoIndex, videoManager, loadPreviewFrameFunction, onClick, onRightClick) {
+function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrameFunction, onClick, onRightClick,
+                       setMousePos) {
     /*
     videoIndex: Integer representing the video that this widget is being rendered for. There should be one
     canvas widget per video.
@@ -261,15 +265,15 @@ function clickerWidget(videoIndex, videoManager, loadPreviewFrameFunction, onCli
         let value = $(`#${propertyID}`).val();
         switch (propertyID) {
             case `brightness-${videoIndex}`: {
-                videoManager.currentBrightnessFilter = `brightness(${value}%)`;
+                updateVideoPropertyCallback('currentBrightnessFilter', `brightness(${value}%)`);
                 break;
             }
-            case 'preview-contrast': {
-                videoManager.currentContrastFilter = `contrast(${value}%)`;
+            case `contrast-${videoIndex}`: {
+                updateVideoPropertyCallback('currentContrastFilter', `contrast(${value}%)`);
                 break;
             }
-            case 'preview-saturation': {
-                videoManager.currentSatruateFilter = `saturate(${value}%)`;
+            case `saturation-${videoIndex}`: {
+                updateVideoPropertyCallback('currentSaturateFilter', `saturate(${value}%)`);
                 break;
             }
         }
@@ -288,7 +292,7 @@ function clickerWidget(videoIndex, videoManager, loadPreviewFrameFunction, onCli
                 ),
 
                 genericDivWidget("column").append(
-                    clickerCanvasWidget(videoIndex, onClick, onRightClick)
+                    clickerCanvasWidget(videoIndex, onClick, onRightClick, setMousePos)
                 ),
 
                 genericDivWidget("column").append(
@@ -301,7 +305,11 @@ function clickerWidget(videoIndex, videoManager, loadPreviewFrameFunction, onCli
                             LABEL_STYLES.DARK
                         ),
                         genericDivWidget('column').append(
-                            canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas", "z-index: 2;")
+                            canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas", "z-index: 2;").attr(
+                                'height', '400'
+                            ).attr(
+                                'width', '400'
+                            )
                         )
                     )
                 )
@@ -336,18 +344,18 @@ function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, upda
     return [genericDivWidget("column is-12").append(
         tooltipLabelWidget("Brightness", labelStyle, `${brightnessTooltipText}`, "top"),
         sliderWidget(`${brightnessID}`, "0", "200", "100", function () {
-            updateVideoProperties('preview-brightness');
+            updateVideoProperties(`${brightnessID}`);
         })),
         genericDivWidget("column is-12").append(
             tooltipLabelWidget("Contrast", labelStyle, `${contrastTooltipText}`, "top"),
             sliderWidget(`${contrastID}`, '0', '100', '100', function () {
-                updateVideoProperties('preview-contrast')
+                updateVideoProperties(`${contrastID}`)
             }),
         ),
         genericDivWidget("column is-12").append(
             tooltipLabelWidget("Saturation", labelStyle, `${saturationTooltipText}`, "top"),
             sliderWidget(`${saturationID}`, '0', '100', '100', function () {
-                updateVideoProperties('preview-saturation')
+                updateVideoProperties(`${saturationID}`)
             }),
         )]
 }
@@ -536,6 +544,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                                         });
 
                                         if (context.index !== 0) {
+                                            // TODO
                                             let valid = true;
                                             if (valid) {
                                                 parsed.index = context.index;
@@ -564,6 +573,8 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
 
                                             if (valid) {
                                                 parsed.index = context.index;
+                                                parsed.offset = parsed.offset.value;
+                                                parsed.frameRate = parsed.frameRate.value;
                                                 saveCallback(parsed);
                                             }
                                         }
@@ -594,7 +605,7 @@ function genericDivWidget(classType, id = "") {
 
 }
 
-function fileInputWidget(labelText, inputID, acceptableFiles, onChangeCallback, extraLabelClasses='') {
+function fileInputWidget(labelText, inputID, acceptableFiles, onChangeCallback, multiFile = false, extraLabelClasses = '') {
     /*
     Creates a generic input menu for files of any type
 
@@ -613,8 +624,8 @@ function fileInputWidget(labelText, inputID, acceptableFiles, onChangeCallback, 
                 id: inputID,
                 class: "file-input",
                 accept: acceptableFiles,
-                type: "file"
-            },).on("change", onChangeCallback),
+                type: 'file'
+            },).on("change", onChangeCallback).attr("multiple", multiFile),
             $("<span>", {class: "file-cta"}).append(
                 $("<span>", {class: `file-label ${extraLabelClasses}`}).text(labelText)
             )
@@ -622,7 +633,7 @@ function fileInputWidget(labelText, inputID, acceptableFiles, onChangeCallback, 
     );
 }
 
-function genericTextInputWithTooltipWidget(labelText, labelStyle, tooltipText, inputID) {
+function genericTextInputWithTooltipWidget(labelText, labelStyle, tooltipText, inputID, onInput) {
     return genericDivWidget('field').append(
         genericDivWidget('level is-fake-label').append(
             genericDivWidget('level-left').append(
@@ -637,15 +648,129 @@ function genericTextInputWithTooltipWidget(labelText, labelStyle, tooltipText, i
             )
         ),
         genericDivWidget('control').append(
-            $('<input>', {class: 'input', id: inputID})
+            $('<input>', {class: 'input', id: inputID}).on('input', onInput)
         )
     );
 }
 
 
-function projectCreationWidget() {
-    let updateSelectedVideos = () => {
+function createProjectWidget(onSubmit, cleanFunction) {
+    /*
+    Creates a form that contains all the inputs needed to create a project and binds their listeners
+
+    TODO: notice that everytime get inputs is called, it is then calling or called by another function that uses
+    get inputs, therefore, it needs reorganization. I don't like just returning the inputs with other information
+    such as valid or not since that isn't a very nice way of doing things.
+
+    onSubmit: Called whenever the "submit" button is clicked
+    onSubmit (  ) { Handles passing the data to the server or saving locally }
+
+    cleanFunction: Called when "cancel" is clicked, esc is pressed, or submit is successful
+    cleanFunction() { Handles removing the form and cleaning up the page }
+     */
+    let removedFiles = new Set();
+
+    let getInputs = () => {
+        return {
+            fileInput: $("#video-file-input"),
+            descriptionInput: $("#description-Input"),
+            titleInput: $("#project-name-input"),
+            createButton: $("#submit-button"),
+        }
     };
+
+    let validate = () => {
+        let inputs = getInputs();
+        if (inputs.titleInput.val().length !== 0 || inputs.descriptionInput.val().length !== 0) {
+            let selectedFiles = Array.from(inputs.fileInput.prop("files"));
+            if (selectedFiles.length !== 0) {
+                return true;
+            }
+        } else {
+            return false;
+        }
+    };
+
+    let parseFiles = (inputs) => {
+        let files = Array.from(inputs.fileInput.prop("files"));
+        removedFiles.forEach((removedIndex) => {
+            files[removedIndex] = null;
+        });
+        files = files.filter((value) => value != null);
+        return files;
+    };
+
+    let updateIfValid = () => {
+        let valid = validate();
+        let inputs = getInputs();
+        if (valid) {
+            inputs.createButton.off();
+            inputs.createButton.removeClass("disabled");
+            // Stored in the template file to have relative url
+            inputs.createButton.on("click", function () {
+                let parsedInputs = {
+                    title: inputs.titleInput.val(),
+                    description: inputs.descriptionInput.val(),
+                    selectedFiles: parseFiles(inputs)
+                };
+                onSubmit(parsedInputs);
+            });
+        } else {
+            inputs.createButton.off();
+            inputs.createButton.addClass("disabled");
+        }
+    };
+
+    let displaySelectedVideoTitles = () => {
+        removedFiles = new Set();
+        let inputs = getInputs();
+
+        let selectedFilesContainer = $("#files-selected-container");
+        selectedFilesContainer.empty();
+
+        let selectedFiles = Array.from(inputs.fileInput.prop("files"));
+        for (let i = 0; i < selectedFiles.length; i++) {
+            let name = selectedFiles[i].name.toString();
+            if (name.length > 20) {
+                name = name.slice(0, 20);
+                name += "...";
+            }
+
+            selectedFilesContainer.append(`
+                <div id="selectedFile-${i}-container" class="column is-12">
+                    <div class="level">
+                        <div class="level-left">
+                            <p class="has-text-white">${name}</p>
+                        </div>
+                        <div class="level-right">
+                            <button id="deleteSelectedFile-${i}" class="delete delete-selected-file"></button>
+                        </div>
+                    </div>
+                </div>
+            `);
+            selectedFilesContainer.find(`#deleteSelectedFile-${i}`).on("click", function (e) {
+                $(`#selectedFile-${e.target.id.split('-')[1]}-container`).remove();
+                removedFiles.add(i);
+                if (removedFiles.size === selectedFiles.length) {
+                    inputs.fileInput.val('');
+                }
+            })
+        }
+
+        updateIfValid();
+    };
+
+
+    let videoFileInput = fileInputWidget(
+        'Select Videos',
+        'video-file-input',
+        'video/*',
+        displaySelectedVideoTitles,
+        true,
+        'has-background-dark has-text-white is-size-5');
+
+    videoFileInput.addClass('is-medium');
+    $(videoFileInput.find('.file-cta')[0]).addClass('has-background-dark').css("border", "none");
 
     return genericDivWidget("columns is-centered is-multiline").append(
         genericDivWidget('column').append(
@@ -656,7 +781,8 @@ function projectCreationWidget() {
                             'Project Name',
                             LABEL_STYLES.LIGHT,
                             'Give a name to your project!',
-                            'project-name-input'
+                            'project-name-input',
+                            updateIfValid
                         )
                     ),
 
@@ -673,12 +799,8 @@ function projectCreationWidget() {
                         genericDivWidget('level').append(
                             genericDivWidget('level-left').append(
                                 genericDivWidget('field').append(
-                                    fileInputWidget(
-                                        'Select Videos',
-                                        'video-file-input',
-                                        'video/*',
-                                        updateSelectedVideos,
-                                        'has-background-dark has-text-white is-size-5')
+                                    videoFileInput,
+                                    // This is a placeholder so that text can display what files were just selected
                                 ),
                                 genericDivWidget('columns is-multiline', 'files-selected-container')
                             ),
@@ -690,12 +812,12 @@ function projectCreationWidget() {
                                             id: 'cancel-button',
                                             class: 'button has-background-dark has-text-white is-size-5 fade-on-hover',
                                             style: 'border: none;'
-                                        }).text("Cancel")
+                                        }).text("Cancel").on('click', cleanFunction)
                                     ),
                                     genericDivWidget('column is-narrow is-pulled-right').append(
                                         $("<button>", {
                                             id: 'submit-button',
-                                            class: 'button has-background-dark has-text-white is-size-5 fade-on-hover',
+                                            class: 'button disabled has-background-dark has-text-white is-size-5 fade-on-hover',
                                             style: 'border: none;'
                                         }).text("Submit")
                                     ),
@@ -706,7 +828,7 @@ function projectCreationWidget() {
                 )
             )
         )
-    )
+    );
 }
 
 

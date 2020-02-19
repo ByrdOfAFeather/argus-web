@@ -1,16 +1,20 @@
 class ClickedPointsManager {
-    constructor(numberOfCameras, initTracks = [0]) {
-        this.clickedPoints = [];
+    constructor(numberOfCameras, initTracks = [0], clickedPoints = null) {
         this.NO_CAMERAS = numberOfCameras;
-        for (let i = 0; i < numberOfCameras; i++) {
-            this.clickedPoints.push({});
-            for (let j = 0; j < initTracks.length; j++) {
-                this.clickedPoints[i][j] = [];
+        if (clickedPoints !== null) {
+            this.clickedPoints = clickedPoints;
+        } else {
+            this.clickedPoints = [];
+            for (let i = 0; i < numberOfCameras; i++) {
+                this.clickedPoints.push({});
+                for (let j = 0; j < initTracks.length; j++) {
+                    this.clickedPoints[i][j] = [];
+                }
             }
         }
     }
 
-    actionOnAllVideos(action) {
+    actionOnAllCameras(action) {
         for (let i = 0; i < this.NO_CAMERAS; i++) {
             action(i);
         }
@@ -19,13 +23,13 @@ class ClickedPointsManager {
     removeTrack(absoluteTrackIndex) {
         absoluteTrackIndex = absoluteTrackIndex.toString();
         let removeTrack = (cameraIndex) => delete this.clickedPoints[cameraIndex][absoluteTrackIndex];
-        this.actionOnAllVideos(removeTrack);
+        this.actionOnAllCameras(removeTrack);
     }
 
     addTrack(absoluteTrackIndex) {
         absoluteTrackIndex = absoluteTrackIndex.toString();
         let addTrack = (cameraIndex) => this.clickedPoints[cameraIndex][absoluteTrackIndex] = [];
-        this.actionOnAllVideos(addTrack);
+        this.actionOnAllCameras(addTrack);
     }
 
     getClickedPoints(index, currentAbsoluteTrackIndex) {

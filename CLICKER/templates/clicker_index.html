@@ -21,6 +21,7 @@
     <script src="{% static 'js/broadcast_channel.js' %}"></script>
     <script src="{% static 'js/bulma-slider.js' %}"></script>
     <script src="{% static 'js/render_widgets.js' %}"></script>
+    <script src="{% static 'js/communicators_manager.js' %}"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.2/dist/tf.min.js"></script>
@@ -103,50 +104,42 @@
                 });
             }
 
-            function createValidProject(loggedIn, removedFiles) {
-                let fileInput = $("#video-file-input");
-                let files = Array.from(fileInput.prop("files"));
-
-                removedFiles.forEach((removedIndex) => {
-                    files[removedIndex] = null;
-                });
-                files = files.filter((value) => value != null);
-                console.log(files);
-
+            function postValidProject(parsedInputs) {
                 let description = $("#description-input").val();
                 let title = $("#project-name-input").val();
-                if (loggedIn) {
-                    let csrftoken = $("[name=csrfmiddlewaretoken]").val();
-                    let formData = new FormData();
-                    let publicInput = $("#public-input").is(":checked");
-                    formData.append("title", title);
-                    formData.append("description", description);
-                    formData.append("public", publicInput);
+                let csrftoken = $("[name=csrfmiddlewaretoken]").val();
+                let formData = new FormData();
+                {#let publicInput = $("#public-input").is(":checked");#}
+                formData.append("title", parsedInputs.title);
+                formData.append("description", parsedInputs.description);
+                {#formData.append("public", publicInput);#}
 
-                    $.ajax({
-                        url: "{% url 'api:new-project' %}",
-                        method: "POST",
-                        async: true,
-                        data: formData,
-                        cache: false,
-                        contentType: false,
-                        processData: false,
-                        timeout: 60000,
-                        headers: {
-                            "X-CSRFToken": csrftoken
-                        },
-                        success: (results) => {
+                $.ajax({
+                    url: "{% url 'api:new-project' %}",
+                    method: "POST",
+                    async: true,
+                    data: formData,
+                    cache: false,
+                    contentType: false,
+                    processData: false,
+                    timeout: 60000,
+                    headers: {
+                        "X-CSRFToken": csrftoken
+                    },
+                    success: (results) => {
+                        genericInputCleanUp($("#modal-content-container"), $("#generic-input-modal"));
+                        loadNewlyCreatedProject(title, description, results.success.data.id, parsedInputs.selectedFiles);
+                    },
+                    error: (error) => {
+                        if (error.status === 403) {
+                            // This is the case where the user is not logged in!
                             genericInputCleanUp($("#modal-content-container"), $("#generic-input-modal"));
-                            loadNewlyCreatedProject(title, description, results.success.data.id, files);
-                        },
-                        error: (error) => {
+                            loadNewlyCreatedProject(title, description, 'none', parsedInputs.selectedFiles);
+                        } else {
                             console.log(error);
                         }
-                    });
-                } else {
-                    genericInputCleanUp($("#modal-content-container"), $("#generic-input-modal"));
-                    loadNewlyCreatedProject(title, description, files);
-                }
+                    }
+                });
             }
 
             function goToLogin() {
@@ -171,20 +164,6 @@
                 );
 
                 return {results: results.states, endOfPagination: results.end_of_pagination};
-            }
-
-            async function testLoggedIn() {
-                // TODO: Better method of testing for logged in
-                try {
-                    let result = await $.ajax({
-                            url: "{% url 'api:saved-states' %}",
-                            method: "GET",
-                        }
-                    );
-                    return true;
-                } catch (e) {
-                    return false;
-                }
             }
 
             function createNewSavedState(outputJson, autoSaved, projectID) {

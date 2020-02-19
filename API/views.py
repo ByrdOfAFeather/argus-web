@@ -121,14 +121,15 @@ def saved_states(request):
 
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def new_project(request):
     # files = request.FILES.getlist('files')
-
+    # TODO: The server will just have a 500 moment if something in the form is not there
     # TODO: Security concerns & Re-enable this feature
     # https://docs.djangoproject.com/en/2.2/topics/security/#user-uploaded-content-security
-    public = True if request.data["public"] == "true" else False
+    # public = True if request.data["public"] == "true" else False
     project = Project(name=request.data["title"], description=request.data["description"], owner=request.user,
-                      public=public)
+                      public=False)
     project.save()
     # for file in files:
     #     instance = Videos(video=file)
