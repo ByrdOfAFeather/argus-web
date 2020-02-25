@@ -45,7 +45,7 @@ function sendNewPoint(event) {
     let newPoint = Video.createPointObject(id);
     let index = video.addNewPoint(newPoint);
 
-    masterCommunicator.postMessage(
+    windowManager.communicatorsManager.communicators[0].communicator.postMessage(
         messageCreator("newPoint",
             {
                 "point": newPoint,
@@ -183,14 +183,15 @@ function sendNewFrame(newFrame) {
 function sendDeathNotification() {
     // This means this window is dying but the webpage is still running.
     // if (!killSelf) {
-        masterCommunicator.postMessage(messageCreator(
-            "popoutDeath",
-            {
-                "index": video.index,
-            }
-        ));
+    console.log("this is a test");
+    windowManager.communicatorsManager.communicators[0].communicator.postMessage(messageCreator(
+        "popoutDeath",
+        {
+            "index": index,
+        }
+    ));
     // }
-
+    return null;
     // Otherwise the user really wants to leave the page
 }
 

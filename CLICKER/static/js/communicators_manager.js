@@ -18,11 +18,21 @@ class CommunicatorsManager {
         this.state = state
     }
 
+    removeCommunicator(index) {
+        this.communicators.find(function (elm, iterIndex) {
+            if (elm.index === index) {
+                index = iterIndex;
+                return true;
+            }
+        });
+        this.communicators.splice(index, 1);
+    }
+
     handlePopoutChange(message) {
         let context = message.data;
         if (context.type === 'newFrame') {
         } else if (context.type === 'popoutDeath') {
-            this.callbacks['popoutDeath'](message.data);
+            this.callbacks['popoutDeath'](context.data);
         } else if (context.type === 'newPoint') {
         } else if (context.type === 'initLoadFinished') {
         }
@@ -88,10 +98,15 @@ class CommunicatorsManager {
 
     registerCommunicator(communicatorIndex) {
         let master_communicator = new BroadcastChannel(`${communicatorIndex}`);
+        console.log(this.state);
         if (this.state === STATES.POP_OUT) {
-            master_communicator.onmessage = this.handleMainWindowChange;
+            master_communicator.onmessage = (event) => {
+                this.handleMainWindowChange(event);
+            };
         } else if (this.state === STATES.MAIN_WINDOW) {
-            master_communicator.onmessage = this.handlePopoutChange;
+            master_communicator.onmessage = (event) => {
+                this.handlePopoutChange(event);
+            };
         }
         this.communicators.push({"communicator": master_communicator, "index": communicatorIndex});
     }

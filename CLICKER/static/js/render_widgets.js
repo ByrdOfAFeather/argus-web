@@ -209,9 +209,12 @@ function _canvasWidthAndHeightManager(canvas, width, height) {
     return canvas.attr("height", height).attr("width", width).css("height", height + "px").css("width", width + "px");
 }
 
-function clickerCanvasWidget(videoIndex, onClick, onRightClick, setMousePos) {
+function clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick, setMousePos) {
     /*
     videoIndex: integer value representing the index of the video
+
+    onKeyboardInput: Callback whenever a key is pressed and the current canvas is focused
+    onKeyboardInput (event) { finds a key bound to the input and performs the shortcut otherwise nothing happens }
 
     onClick: Callback whenever the clickable canvas is pressed
     onClick(event) { handles adding a new point and updating popouts if necessary }
@@ -228,6 +231,8 @@ function clickerCanvasWidget(videoIndex, onClick, onRightClick, setMousePos) {
 
     let clickableCanvas = canvas(`canvas-${videoIndex}`, "clickable-canvas absolute", "z-index: 3;");
     clickableCanvas = _canvasWidthAndHeightManager(clickableCanvas, 800, 600);
+    clickableCanvas.prop('tabindex', 1000);
+    clickableCanvas.on('keydown', onKeyboardInput);
 
     let epipolarCanvas = canvas(`epipolarCanvas-${videoIndex}`, "epipolar-canvas absolute", "z-index: 2;");
     epipolarCanvas = _canvasWidthAndHeightManager(epipolarCanvas, 800, 600);
@@ -242,8 +247,8 @@ function clickerCanvasWidget(videoIndex, onClick, onRightClick, setMousePos) {
     ).css("width", "800px").css("height", "600px");
 }
 
-function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrameFunction, onClick, onRightClick,
-                       setMousePos) {
+function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrameFunction,
+                       onKeyboardInput, onClick, onRightClick, setMousePos) {
     /*
     videoIndex: Integer representing the video that this widget is being rendered for. There should be one
     canvas widget per video.
@@ -292,7 +297,7 @@ function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrame
                 ),
 
                 genericDivWidget("column").append(
-                    clickerCanvasWidget(videoIndex, onClick, onRightClick, setMousePos)
+                    clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick, setMousePos)
                 ),
 
                 genericDivWidget("column").append(
@@ -548,6 +553,8 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                                             let valid = true;
                                             if (valid) {
                                                 parsed.index = context.index;
+                                                parsed.offset = parsed.offset.value;
+                                                parsed.videoName = videoTitle;
                                                 saveCallback(parsed);
                                             }
                                         } else {
@@ -575,6 +582,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                                                 parsed.index = context.index;
                                                 parsed.offset = parsed.offset.value;
                                                 parsed.frameRate = parsed.frameRate.value;
+                                                parsed.videoName = videoTitle;
                                                 saveCallback(parsed);
                                             }
                                         }

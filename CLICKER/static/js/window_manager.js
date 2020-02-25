@@ -1,4 +1,10 @@
 class WindowManager {
+    /*ABSTRACT CLASS representing a manager for a window
+    This will be the base class for a MainWindowManager and a PopoutWindowManager
+    It implements things that both windows need to be able to do, such as add points and communicate with
+    each other. The specifics are left up to the base classes (such as how it adds points or how it handles
+    keyboard inputs)
+     */
     constructor() {
         this.trackManager = new TrackManager();
         this.videos = [];
@@ -16,6 +22,15 @@ class WindowManager {
     }
 
     addNewPoint(event) {
+        // Adds a new point through the following:
+        // Checks if the user can even add a new point (if a frame is still being loaded they can't)
+        // Checks if a point already exists at this frame
+        // ------
+        // If it does then redraw all of the points to reflect the new location
+        // ------
+        // Otherwise draw the new point (no need to redraw all points in this case!)
+        // -----
+        // Synchronize and auto-advance if necessary
         if (this.locks["can_click"]) {
             let index = event.target.id.split("-")[1];
             let point = Video.createPointObject(index);
@@ -56,7 +71,6 @@ class WindowManager {
     }
 
     setMousePos(e) {
-        console.log("I'm getting called");
         if (ZOOM_WINDOW_MOVING) {
             let zoom = ZOOM_BEING_MOVED;
             zoom.css("position", "absolute");
@@ -123,10 +137,112 @@ class WindowManager {
         }
     }
 
+    goForwardAFrame(id) {
+        let frame = frameTracker[id] + 1;
+        if (settings["sync"] === true) {
+
+            let callback = (i) => {
+                this.videos[i].moveToNextFrame();
+            };
+            let message = messageCreator("goToFrame", {frame: frame});
+
+            updateAllLocalOrCommunicator(callback, message);
+            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                frameTracker[i] = frame;
+            }
+
+        } else {
+            this.videos[id].moveToNextFrame();
+        }
+        getEpipolarLinesOrUnifiedCoord(id, frame);
+    }
+
+    goBackwardsAFrame(id) {
+        if (frameTracker[id] < 2) {
+            return;
+        }
+
+        let frame = frameTracker[id] - 1;
+        if (settings["sync"] === true) {
+            let callback = (i) => {
+                this.videos[i].goToFrame(frame);
+            };
+            let message = messageCreator("goToFrame", {frame: frame});
+
+            updateAllLocalOrCommunicator(callback, message);
+            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                frameTracker[i] = frame;
+            }
+
+        } else {
+            this.videos[id].goToFrame(frameTracker[id] - 1);
+        }
+        getEpipolarLinesOrUnifiedCoord(id, frame);
+    }
+
+    goToInputFrame(index) {
+        let validate = (input) => {
+            let frameToGoTo = parseInt(input, 10);
+            if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
+                return {input: input, valid: false};
+            } else {
+                frameToGoTo -= 1;
+                frameToGoTo += .001;
+                return {input: frameToGoTo, valid: true};
+            }
+        };
+
+        let callback = (parsedInput) => {
+            if (settings["sync"]) {
+                for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                    frameTracker[i] = parsedInput;
+                }
+
+                let callBack = (i) => {
+                    this.videos[i].goToFrame(parsedInput);
+                };
+                let message = messageCreator("goToFrame", {"frame": parsedInput});
+                updateAllLocalOrCommunicator(callBack, message);
+            } else {
+                this.videos[index].goToFrame(parsedInput);
+            }
+            getEpipolarLinesOrUnifiedCoord(index, parsedInput);
+            $("#canvas-0").focus();
+        };
+
+        let label = "What frame would you like to go to?";
+        let errorText = "You have to input a valid integer!";
+        getGenericStringLikeInput(validate, callback, label, errorText);
+    }
+
+    handleKeyboardInput(e) {
+        let id;
+        try {
+            id = parseInt(e.target.id.split("-")[1], 10);
+        } catch (e) {
+            return;
+        }
+
+        if (String.fromCharCode(e.which) === "Q") {
+            triggerResizeMode();
+        } else if (String.fromCharCode(e.which) === "F") {
+            this.goForwardAFrame(id);
+        } else if (String.fromCharCode(e.which) === "B") {
+            this.goBackwardsAFrame(id);
+        } else if (String.fromCharCode(e.which) === "G") {
+            this.goToInputFrame(id);
+        } else if (String.fromCharCode(e.which) === "Z") {
+            this.videos[id].zoomInZoomWindow();
+        } else if (String.fromCharCode(e.which) === "X") {
+            this.videos[id].zoomOutZoomWindow();
+        }
+    }
+
     loadVideoIntoDOM(parsedInputs) {
         /* Based on provided video properties, loads a video in to DOM and creates video objects
         parsedInputs {
             index: integer representing the current video
+            videoName: Required so that the video label can display the name of the video
             offset: float representing this video in relation to the user's desired starting point
             frameRate: can be included, but normally set elsewhere and not used in this function
         }
@@ -134,7 +250,7 @@ class WindowManager {
         Note that subclasses have to implement the following:
         clickedPoints = ClickedPoints manager
         addNewPoint = callback used whenever a clickable-canvas is clicked
-        deletePoint = callback used whenver a clickable-canvas is rightClicked
+        deletePoint = callback used whenever a clickable-canvas is rightClicked
          */
         let currentIndex = parsedInputs.index;
         frameTracker[currentIndex] = 1.001;
@@ -153,12 +269,20 @@ class WindowManager {
             parsedInputs.index,
             updateVideoPropertyCallback,
             loadPreviewFrameFunction,
+            (event) => this.handleKeyboardInput(event),
             (event) => this.addNewPoint(event),
             (event) => this.deletePoint(event),
             (event) => this.setMousePos(event)
         );
+        currentClickerWidget.find(`#videoLabel-${currentIndex}`).text(
+            videoLabelDataToString({
+                'title': parsedInputs.videoName,
+                'frame': frameTracker[currentIndex],
+                'offset': parsedInputs.offset
+            })
+        );
         $("#canvases").append(currentClickerWidget);
-        this.videos[currentIndex] = new Video(currentIndex, parsedInputs.offset);
+        this.videos[currentIndex] = new Video(currentIndex, parsedInputs.videoName, parsedInputs.offset);
 
         // Forces an update so that the video will be guaranteed to draw at least once
         let currentVideo = document.getElementById(`video-${currentIndex}`);
@@ -197,17 +321,12 @@ class MainWindowManager extends WindowManager {
                 // rerender video
                 this.videos[data.index].clearPoints();
                 let index = null;
-                // communicators.find(function (elm, iterIndex) {
-                //     if (elm.index === data.index) {
-                //         index = iterIndex;
-                //         return true;
-                //     }
-                // });
-                // communicators.splice(index, 1);
+                this.communicatorsManager.removeCommunicator(index);
+
 
                 $(`#canvas-columns-${data.index}`).show();
                 $(this.videos[data.index].zoomCanvas).show();
-                let localClickedPoints = this.clickedPoints.getClickedPoints(data.index, trackTracker.currentTrack);
+                let localClickedPoints = this.clickedPoints.getClickedPoints(data.index, trackTracker.currentTrack.absoluteIndex);
                 this.videos[data.index].goToFrame(frameTracker[data.index]);
 
 
@@ -446,17 +565,17 @@ class PopOutWindowManager extends WindowManager {
     constructor(numberOfVideos, currentVideo, clickedPoints) {
         super();
         this.clickedPoints = new ClickedPointsManager(numberOfVideos, null, clickedPoints);
-        this.communicators = new CommunicatorsManager(STATES.POP_OUT);
-        this.communicators.registerCommunicator(currentVideo);
+        this.communicatorsManager  = new CommunicatorsManager(STATES.POP_OUT);
+        this.communicatorsManager.registerCommunicator(currentVideo);
     }
 
-    addNewPoint(event) {
-        if (this.locks['can_click']) {
-            let index = event.target.id.split('-')[1];
-            let point = Video.createPointObject(index);
-
-        }
-    }
+    // addNewPoint(event) {
+    //     if (this.locks['can_click']) {
+    //         let index = event.target.id.split('-')[1];
+    //         let point = Video.createPointObject(index);
+    //
+    //     }
+    // }
 
     deletePoint() {
     }

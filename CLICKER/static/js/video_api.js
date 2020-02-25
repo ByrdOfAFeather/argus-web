@@ -54,8 +54,9 @@ let secondaryTracksTracker = new SubTracksManager();
 
 
 class Video {
-    constructor(videosIndex, offset) {
+    constructor(videosIndex, videoName, offset) {
         this.index = videosIndex;
+        this.name = videoName;
         this.offset = offset;
         this.video = document.getElementById(`video-${videosIndex}`);
 
@@ -95,10 +96,9 @@ class Video {
     }
 
     redrawPoints(points) {
+        this.clearPoints();
         this.drawPoints(points);
         this.drawLines(points);
-        secondaryTracksTracker.drawn_tracker = {};
-        secondaryTracksTracker.drawTracks();
     }
 
     drawZoomWindow(color) {
@@ -159,6 +159,7 @@ class Video {
                 }
             }
         }
+        this.drawPoint(point.x, point.y, POINT_RADIUS);
     }
 
 
@@ -197,10 +198,10 @@ class Video {
         let estimatedTime = frameNumber / FRAME_RATE;
         this.video.currentTime = estimatedTime;
 
-        let parsedLabel = Video.parseVideoLabel(document.getElementById(this.videoLabelID).innerText);
-        parsedLabel["FRAME"] = Math.floor(orgFrame + 1);
-        document.getElementById(this.videoLabelID).innerText = Video.videoLabelDataToString(parsedLabel);
         frameTracker[this.index] = orgFrame;
+        let parsedLabel = Video.parseVideoLabel(document.getElementById(this.videoLabelID).innerText);
+        parsedLabel["FRAME"] = frameTracker[this.index];
+        document.getElementById(this.videoLabelID).innerText = Video.videoLabelDataToString(parsedLabel);
     }
 
     moveToNextFrame() {
@@ -228,7 +229,6 @@ class Video {
         let pointIndex = Video.checkIfPointAlreadyExists(localPoints, frameTracker[this.index]);
         if (pointIndex !== null) {
             if (this.isDisplayingFocusedPoint) {
-                this.clearPoints();
                 this.redrawPoints(localPoints);
             } else {
                 this.isDisplayingFocusedPoint = true;
@@ -236,7 +236,6 @@ class Video {
             this.drawFocusedPoint(localPoints[pointIndex].x, localPoints[pointIndex].y, 20);
         } else {
             if (this.isDisplayingFocusedPoint === true) {
-                this.clearPoints();
                 this.redrawPoints(localPoints);
             }
             this.isDisplayingFocusedPoint = false;
@@ -283,7 +282,7 @@ class Video {
 
     drawPoints(points) {
         for (let i = 0; i < points.length; i++) {
-            this.drawPoint(points[i].x, points[i].y, 2);
+            this.drawPoint(points[i].x, points[i].y, POINT_RADIUS);
         }
     }
 
@@ -370,6 +369,24 @@ class Video {
                 curVideo.epipolarCanvas.height);
         }
     }
+
+    zoomInZoomWindow() {
+        if (this.zoomOffset === 1) {
+            return;
+        } else if (this.zoomOffset === 10) {
+            this.zoomOffset = 1;
+        } else {
+            this.zoomOffset -= 10;
+            this.drawZoomWindow();
+        }
+
+    }
+
+    zoomOutZoomWindow() {
+        this.zoomOffset += 10;
+        this.drawZoomWindow();
+    }
+
 }
 
 
@@ -640,24 +657,6 @@ function stopMovingZoomWindow(zoomCanvas) {
     ZOOM_WINDOW_MOVING = false;
     $(document).off();
 }
-
-function zoomInZoomWindow(index) {
-    if (videos[index].zoomOffset === 1) {
-        return;
-    } else if (videos[index].zoomOffset === 10) {
-        videos[index].zoomOffset = 1;
-    } else {
-        videos[index].zoomOffset -= 10;
-        videos[index].drawZoomWindow();
-    }
-
-}
-
-function zoomOutZoomWindow(index) {
-    videos[index].zoomOffset += 10;
-    videos[index].drawZoomWindow();
-}
-
 
 function loadHiddenVideo(objectURL, index, onCanPlay) {
     // Adds a video into the DOM that is hidden (0 width, 0 height, not able to mess up anything)
