@@ -2,7 +2,10 @@ class TrackManager {
     constructor(initTracks = null) {
         this.colorIndex = 0;
         if (initTracks !== null) {
-            this.tracks = initTracks;
+            this.tracks = initTracks.tracks;
+            this.colorIndex = initTracks.colorIndex;
+            this.nextUnusedIndex = initTracks.nextUnusedIndex;
+            this.currentTrack = initTracks.currentTrack;
         } else {
             this.tracks = [
                 {
@@ -11,13 +14,13 @@ class TrackManager {
                     color: COLORS[this.colorIndex]
                 }
             ];
+            this.colorIndex += 1;
+            this.nextUnusedIndex = 1;
+            this.currentTrack = this.tracks[0];
         }
 
 
-        this.colorIndex += 1;
-
-        this.nextUnusedIndex = 1;
-        this.currentTrack = this.tracks[0];
+        // TODO, init a subtrack manager!
         this.subTracks = new SubTracksManager();
     }
 
@@ -45,14 +48,14 @@ class TrackManager {
             this.colorIndex += 1;
         }
 
-        updatePopouts({
-            "type": "addNewTrack",
-            "data": {
-                "track": {
-                    newTrack
-                }
-            }
-        });
+        // updatePopouts({
+        //     "type": "addNewTrack",
+        //     "data": {
+        //         "track": {
+        //             newTrack
+        //         }
+        //     }
+        // });
         return true;
     }
 
@@ -84,12 +87,16 @@ class TrackManager {
         this.subTracks.removeIndex(subTrackToRemove);
     }
 
-    changeCurrentTrack(newTrack) {
+    findTrack(absoluteIndex) {
+        return this.tracks.filter((value) => value.absoluteIndex === absoluteIndex);
+    }
+
+    changeCurrentTrack(absoluteIndex) {
         this.subTracks.unstash();
-        if (this.subTracks.hasIndex(newTrack)) {
-            this.subTracks.stash(newTrack);
-            this.subTracks.removeIndex(newTrack);
+        if (this.subTracks.hasIndex(absoluteIndex)) {
+            this.subTracks.stash(absoluteIndex);
+            this.subTracks.removeIndex(absoluteIndex);
         }
-        this.currentTrack = newTrack;
+        this.currentTrack = this.findTrack(absoluteIndex);
     }
 }

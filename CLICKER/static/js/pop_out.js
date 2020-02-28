@@ -140,40 +140,49 @@ function deletePoint() {
 
 }
 
-function init_listener(message) {
+function setup(message) {
+    console.log(message);
+    message = message.data;
     initCommunicator.close();
-    let messageData = message["data"];
-    let videoSource = messageData["dataURL"];
-    document.title = messageData["videoTitle"];
-    trackTracker = messageData["currentTracks"];
-    COLORSPACE = messageData["currentColorSpace"];
-    FRAME_RATE = messageData["frameRate"];
 
-    let offset = messageData["offset"];
-    let initFrame = messageData["initFrame"];
+    // Step 1: Create the window manager.
+    windowManager = new PopOutWindowManager(
+        message.noOfCameras,
+        message.index,
+        message.clickedPoints,
+        message.currentTracks
+    );
 
-    index = messageData["index"];
 
-    clickedPoints = messageData["clickedPoints"];
-    windowManager = new PopOutWindowManager(3, index, clickedPoints.clickedPoints);
+    let videoSource = message["dataURL"];
+    document.title = message["videoTitle"];
+    trackTracker = message["currentTracks"];
+    COLORSPACE = message["currentColorSpace"];
+    FRAME_RATE = message["frameRate"];
+
+    let offset = message["offset"];
+    let initFrame = message["initFrame"];
+
+    index = message["index"];
+
+    clickedPoints = message["clickedPoints"];
+    // windowManager = new PopOutWindowManager(3, index, clickedPoints.clickedPoints.clickedPoints);
     let parsed = {
-        index: 0,
+        index: message.index,
         offset: offset
     };
 
-    loadHiddenVideo(videoSource, 0, () => {
+    loadHiddenVideo(videoSource, message.index, () => {
     });
     windowManager.loadVideoIntoDOM(parsed);
-    masterCommunicator = new BroadcastChannel(`${index}`);
-    masterCommunicator.onmessage = handleChange;
 }
 
 function sendNewFrame(newFrame) {
-    masterCommunicator.postMessage(
+    this.communicationsManager.updateCommunicators(
         messageCreator("newFrame",
             {
-                "newFrame": newFrame,
-                "videoID": video.index
+                "frame": newFrame,
+                "index": video.index
             }
         )
     );
@@ -182,15 +191,14 @@ function sendNewFrame(newFrame) {
 
 function sendDeathNotification() {
     // This means this window is dying but the webpage is still running.
-    // if (!killSelf) {
-    console.log("this is a test");
-    windowManager.communicatorsManager.communicators[0].communicator.postMessage(messageCreator(
-        "popoutDeath",
-        {
-            "index": index,
-        }
-    ));
-    // }
+    if (!killSelf) {
+        windowManager.communicatorsManager.communicators[0].communicator.postMessage(messageCreator(
+            "popoutDeath",
+            {
+                "index": index,
+            }
+        ));
+    }
     return null;
     // Otherwise the user really wants to leave the page
 }
@@ -237,7 +245,7 @@ function handleKeyboardInput(e) {
 
 
 $(document).ready(function () {
-    initCommunicator.onmessage = init_listener;
+    initCommunicator.onmessage = setup;
     if (!initPost) {
         initCommunicator.postMessage({"state": "ready!"});
     } else {
