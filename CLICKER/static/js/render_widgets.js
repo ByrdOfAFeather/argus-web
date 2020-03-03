@@ -3,6 +3,26 @@ LABEL_STYLES = {DARK: "has-text-black", LIGHT: "has-text-white"};
 
 
 function genericDropDownWidget(id, defaultSelection, dropdownOptions, allItemCallBack = undefined) {
+    /*
+     * Generates a drop down containing items that are passed and if a callback is passed, applies it to all items
+     *
+     * id: string, unique ID that will be used as a prefix to tag important drop down pieces
+     *  In particular:
+     *  The dropdown container (div that contains everything in the dropdown) id-dropdown-container
+     *  The dropdown menu (div that contains all options for the dropdown) id-dropdown
+     *  The dropdown selection (Whatever the current selection is for the dropdown) id-current-selection
+     *
+     * defaultSelection: string, represents the text of whatever the default option should be
+     *
+     * dropDownOptions: Array[JqueryObjects], all pre-defined objects that should be in the drop-down.
+     *  see: generateDropDownItems
+     *
+     * allItemCallback: Optional function that is called whenever any item is clicked, this is helpful when you
+     *  have a function that parses out what the action should be instead of multiple functions bound to indiv. items.
+     *  If you want to use this but still have some individual callbacks, add .negate-all-callback class to the items
+     *  you don't want to be included.
+     * allItemCallback(event) { Parses the selection and decides what to do }
+     */
     let triggerButton = $("<button>", {
         id: `${id}-trigger`,
         class: "button"
@@ -45,6 +65,16 @@ function genericDropDownWidget(id, defaultSelection, dropdownOptions, allItemCal
 
 
 function dropDownItemWidget(id, itemText, perItemCallBack = undefined,) {
+    /*
+     * Generates a Jquery object representing a dropdown-item (see genericDropDownWidget)
+     *
+     * id: unique ID for this item, probably the name of the item!
+     *
+     * itemText: Text to be used that the user will see for an item. Definitely the name of the item!
+     *
+     * perItemCallback: Used whenever this particular item is clicked
+     * perItemCallBack(event) { Does whatever needs to be done whenever this item is clicked }
+     */
     if (perItemCallBack === undefined) {
         return genericDivWidget("dropdown-content").append(
             genericDivWidget("dropdown-item", id).append(
@@ -61,10 +91,21 @@ function dropDownItemWidget(id, itemText, perItemCallBack = undefined,) {
 }
 
 function generateDropDownItems(itemNames) {
+    /*
+     * Maps a list of stings to dropDownItems without callbacks. Helpful when using a callback applied to all itmems
+     *
+     * itemNames: Array[String] a list of names that will become the ID and text (lowercase for ID)
+     */
     return itemNames.map((value) => dropDownItemWidget(value.toLowerCase().replace(".", "-"), value));
 }
 
 function colorSpaceDropDownWidget(colorSpaceIndex, redrawVideosFunction) {
+    /*
+     * Generates a colorspace dropdown containing two items (RGB & GRAYSCALE)
+     *
+     * colorSpaceIndex: A unique ID, the colorspace is used in setup and settings, thus it needs to be able to have
+     *  multiple IDs so they aren't canceling each other out.
+     */
     let items = generateDropDownItems(["RGB", "Grayscale"]);
     return genericDropDownWidget(`colorspace-${colorSpaceIndex}`, "RGB", items, function (e) {
         let container = $(`#colorspace-${colorSpaceIndex}-dropdown-container`);
