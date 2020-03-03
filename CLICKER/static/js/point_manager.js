@@ -44,11 +44,11 @@ class ClickedPointsManager {
         let indexOfAlreadyExistingPoints = Video.checkIfPointAlreadyExists(localPoints, point.frame);
         if (indexOfAlreadyExistingPoints !== null) {
             localPoints[indexOfAlreadyExistingPoints] = point;
-            return true;
+            return {index: indexOfAlreadyExistingPoints, override: true};
         } else {
             localPoints.push(point);
             localPoints.sort(sortByFrame);
-            return false;
+            return {index: localPoints.length - 1, override: false};
         }
 
         // // return the Index

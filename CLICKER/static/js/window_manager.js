@@ -36,9 +36,13 @@ class WindowManager {
             let index = event.target.id.split("-")[1];
             let point = Video.createPointObject(index);
 
-            let override = this.clickedPointsManager.addPoint(point,
-                {clickedVideo: index, currentTrack: this.trackManager.currentTrack.absoluteIndex}
-            );
+            let override = this.clickedPointsManager.addPoint(
+                point,
+                {
+                    clickedVideo: index,
+                    currentTrack: this.trackManager.currentTrack.absoluteIndex
+                }
+            ).override;
             let localPoints = this.clickedPointsManager.getClickedPoints(index, this.trackManager.currentTrack.absoluteIndex);
 
             if (override) {
@@ -48,27 +52,9 @@ class WindowManager {
             }
 
             this.locks["can_click"] = !this.settings["auto-advance"];
-            if (this.settings["auto-advance"]) {
-                if (this.settings["sync"]) {
-                    for (let i = 0; i < this.videos.length; i++) {
-                        frameTracker[i] = point.frame;
-                    }
-
-                    let localCallback = (index) => {
-                        this.videos[index].moveToNextFrame();
-                    };
-
-                    let message = this.messageCreator("goToFrame", {frame: point.frame + 1});
-
-                    this.communicatorsManager.updateAllLocalOrCommunicator(localCallback, message);
-                } else {
-                    this.videos[index].moveToNextFrame();
-                }
-            } else {
-                Video.clearEpipolarCanvases();
-                getEpipolarLinesOrUnifiedCoord(index, frameTracker[index]);
-            }
+            return point;
         }
+        return null;
     }
 
     setMousePos(e) {
@@ -144,7 +130,43 @@ class WindowManager {
     goBackwardsAFrame() {
     }
 
-    goToInputFrame() {
+    goToInputFrame(index) {
+        let validate = (input) => {
+            let frameToGoTo = parseInt(input, 10);
+            if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
+                return {input: input, valid: false};
+            } else {
+                frameToGoTo -= 1;
+                frameToGoTo += .001;
+                return {input: frameToGoTo, valid: true};
+            }
+        };
+
+        let callback = (parsedInput) => {
+            if (settings["sync"]) {
+                for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                    frameTracker[i] = parsedInput;
+                }
+
+                let callBack = (i) => {
+                    this.videos[i].goToFrame(parsedInput);
+                };
+                let message = messageCreator("goToFrame", {"frame": parsedInput});
+                this.communicatorsManager.updateAllLocalOrCommunicator(callBack, message);
+            } else {
+                this.videos[index].goToFrame(parsedInput);
+            }
+            getEpipolarLinesOrUnifiedCoord(index, parsedInput);
+            $("#canvas-0").focus();
+        };
+
+        let label = "What frame would you like to go to?";
+        let errorText = "You have to input a valid integer!";
+        getGenericStringLikeInput(validate, callback, label, errorText);
+    }
+
+    deletePoint() {
+
     }
 
     handleKeyboardInput(e) {
@@ -238,6 +260,7 @@ class WindowManager {
 }
 
 class MainWindowManager extends WindowManager {
+
     constructor(projectTitle, projectDescription, projectID, files) {
         super();
         this.clickedPointsManager = new ClickedPointsManager(files.length);
@@ -248,53 +271,182 @@ class MainWindowManager extends WindowManager {
         let communicationsCallbacks = {
             'newFrame': (context) => {
                 frameTracker[context.index] = context.frame;
-
                 if (this.settings['sync']) {
-                    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                        // Yes technically we would update this twice
-                        // but it isn't that big of a deal and writing a
-                        // statement to check against this would just make
-                        // the code super confusing.
-                        frameTracker[i] = context.frame;
-                    }
-                    let callback = (index) => {
-                        this.videos[index].goToFrame(context.frame);
-                    };
-                    let message = messageCreator("goToFrame", {"frame": context.frame});
-                    this.communicatorsManager.updateAllLocalOrCommunicator(callback, message, context.index);
+                    this.syncVideos(context, true);
                 }
             },
-            'popoutDeath': (data) => {
+            'popoutDeath': (context) => {
                 // rerender video
-                this.videos[data.index].clearPoints();
+                this.videos[context.index].clearPoints();
                 let index = null;
                 this.communicatorsManager.removeCommunicator(index);
 
 
-                $(`#canvas-columns-${data.index}`).show();
-                $(this.videos[data.index].zoomCanvas).show();
-                let localClickedPoints = this.clickedPointsManager.getClickedPoints(data.index, trackTracker.currentTrack.absoluteIndex);
-                this.videos[data.index].goToFrame(frameTracker[data.index]);
+                $(`#canvas-columns-${context.index}`).show();
+                $(this.videos[context.index].zoomCanvas).show();
+                let localClickedPoints = this.clickedPointsManager.getClickedPoints(context.index, trackTracker.currentTrack.absoluteIndex);
+                this.videos[context.index].goToFrame(frameTracker[context.index]);
 
 
                 // Load Points afterwards to remove jank
                 let drawPoints = () => {
-                    this.videos[data.index].drawPoints(localClickedPoints);
-                    this.videos[data.index].drawLines(localClickedPoints);
-                    $(this.videos[data.index].video).unbind("canplay", drawPoints);
+                    this.videos[context.index].drawPoints(localClickedPoints);
+                    this.videos[context.index].drawLines(localClickedPoints);
+                    $(this.videos[context.index].video).unbind("canplay", drawPoints);
                 };
-                $(this.videos[data.index].video).on("canplay", drawPoints);
+                $(this.videos[context.index].video).on("canplay", drawPoints);
 
-                // getEpipolarLinesOrUnifiedCoord(data.index, frameTracker[data.index]);
+                // getEpipolarLinesOrUnifiedCoord(context.index, frameTracker[context.index]);
             },
-            'newPoint': () => {
+            'newPoint': (context) => {
+                let point = context.point;
+                // TODO: Shouldn't this information already be known?
+                let track = context.absoluteTrackIndex;
+                // END TODO
+                let pointIndex = context.pointIndex;
+                let videoIndex = context.index;
+                let localPoints = this.clickedPointsManager.getClickedPoints(videoIndex, track);
+                localPoints[pointIndex] = point;
+                frameTracker[videoIndex] = point.frame;
 
+                if (this.settings['auto-advance']) {
+                    context['frame'] = point.frame; // required for autoAdvance & sync functions
+                    this.autoAdvance(context, false);
+                }
             },
             'initLoadFinished': () => {
 
             }
         };
         this.communicatorsManager = new CommunicatorsManager(STATES.MAIN_WINDOW, communicationsCallbacks);
+    }
+
+    autoAdvance(context, ignoreIndex) {
+        frameTracker[context.index] += 1;
+        if (this.settings['sync']) {
+            this.syncVideos({frame: context.frame + 1, index: context.index}, ignoreIndex);
+        } else {
+            let message = messageCreator("goToFrame", {"frame": context.frame + 1});
+            this.communicatorsManager.updateLocalOrCommunicator(context.index, message);
+        }
+    }
+
+
+    syncVideos(context, ignoreindex) {
+        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+            // Yes technically we would update this twice
+            // but it isn't that big of a deal and writing a
+            // statement to check against this would just make
+            // the code super confusing.
+            frameTracker[i] = context.frame;
+        }
+        let callback = (index) => {
+            this.videos[index].goToFrame(context.frame);
+        };
+        let message = messageCreator("goToFrame", {"frame": context.frame, "identification": "BRUH."});
+        let doNotUpdate = ignoreindex === true ? context.index : null;
+        this.communicatorsManager.updateAllLocalOrCommunicator(callback, message, doNotUpdate);
+    }
+
+
+    getVideosWithTheSameFrame(video) {
+        return Object.keys(frameTracker).filter(
+            (videoIndex) => Math.floor(frameTracker[videoIndex]) === Math.floor(frameTracker[video]));
+    }
+
+
+    getPointsInFrame(videosWithTheSameFrame, frameNumber) {
+        let points = [];
+        let lines = [];
+        for (let videoIndex = 0; videoIndex < videosWithTheSameFrame.length; videoIndex++) {
+            let curVideoIndex = videosWithTheSameFrame[videoIndex];
+            let localPoints = clickedPoints[curVideoIndex][trackTracker["currentTrack"]];
+            let indexOfPoints = 0;
+            if (localPoints.filter(function (point, index) {
+                if (Math.floor(point.frame) === Math.floor(frameNumber)) {
+                    indexOfPoints = index;
+                    return true;
+                } else {
+                    return false;
+                }
+            }).length !== 0) {
+                points.push({
+                    videoIndex: videosWithTheSameFrame[videoIndex],
+                    pointIndex: indexOfPoints
+                });
+                lines.push(getEpipolarLines(curVideoIndex, DLT_COEFFICIENTS, indexOfPoints));
+            }
+        }
+        return [points, lines];
+    }
+
+
+    drawDiamonds(videoIndex, result) {
+        // Video.clearEpipolarCanvases();
+        let currentPoint = reconstructUV(DLT_COEFFICIENTS[videoIndex], result[result.length - 1]);
+
+        if (!checkCoordintes(currentPoint[0][0], currentPoint[0][1],
+            videos[videoIndex].epipolarCanvas.height, videos[videoIndex].epipolarCanvas.width)) {
+            generateError("Points that did not exist were calculated when locating the " +
+                "point in 2D space, please check your DLT coefficients and camera profiles");
+        }
+
+
+        let callback = function (i) {
+            videos[i].drawDiamond(
+                currentPoint[0][0],
+                currentPoint[1][0], 10, 10,
+            );
+        };
+        let message = messageCreator("drawDiamond", {
+            point1: currentPoint[0][0],
+            point2: currentPoint[1][0],
+        });
+        updateLocalOrCommunicator(parseInt(videoIndex, 10), callback, message);
+    }
+
+    getEpipolarLinesOrUnifiedCoord(videoCalledFrom, frameNumber) {
+        let videosWithTheSameFrame = getVideosWithTheSameFrame(videoCalledFrom);
+        if (videosWithTheSameFrame.length > 1 && DLT_COEFFICIENTS !== null) {
+            let pointsAndLines = getPointsInFrame(videosWithTheSameFrame, frameNumber);
+            let points = pointsAndLines[0];
+            let lines = pointsAndLines[1];
+
+            if (points.length >= 2) {
+                let pointsToReconstruct = [];
+                for (let i = 0; i < points.length; i++) {
+                    let currentVideoIndex = points[i].videoIndex;
+                    let currentPointIndex = points[i].pointIndex;
+                    let currentTrack = trackTracker.currentTrack;
+                    pointsToReconstruct.push([clickedPoints[currentVideoIndex][currentTrack][currentPointIndex]]);
+                }
+                uvToXyz(pointsToReconstruct,
+                    null, DLT_COEFFICIENTS).then(
+                    (result) => {
+                        for (let i = 0; i < 1; i++) {
+                            for (let j = 0; j < points.length; j++) {
+                                let videoIndex = points[j].videoIndex;
+                                drawDiamonds(videoIndex, result);
+                            }
+                        }
+                    }
+                );
+            } else {
+                for (let i = 0; i < lines.length; i++) {
+                    let lineInformation = lines[i][0][0];
+                    let videoIndex = lines[i][0][1];
+
+                    let callback = (i) => {
+                        videos[i].drawEpipolarLine(lineInformation);
+                    };
+                    let message = messageCreator("drawEpipolarLine", {
+                        "tmp": lineInformation
+                    });
+
+                    updateLocalOrCommunicator(videoIndex, callback, message);
+                }
+            }
+        }
     }
 
 
@@ -342,41 +494,6 @@ class MainWindowManager extends WindowManager {
         // getEpipolarLinesOrUnifiedCoord(id, frame);
     }
 
-    goToInputFrame(index) {
-        let validate = (input) => {
-            let frameToGoTo = parseInt(input, 10);
-            if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
-                return {input: input, valid: false};
-            } else {
-                frameToGoTo -= 1;
-                frameToGoTo += .001;
-                return {input: frameToGoTo, valid: true};
-            }
-        };
-
-        let callback = (parsedInput) => {
-            if (settings["sync"]) {
-                for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                    frameTracker[i] = parsedInput;
-                }
-
-                let callBack = (i) => {
-                    this.videos[i].goToFrame(parsedInput);
-                };
-                let message = messageCreator("goToFrame", {"frame": parsedInput});
-                this.communicatorsManager.updateAllLocalOrCommunicator(callBack, message);
-            } else {
-                this.videos[index].goToFrame(parsedInput);
-            }
-            getEpipolarLinesOrUnifiedCoord(index, parsedInput);
-            $("#canvas-0").focus();
-        };
-
-        let label = "What frame would you like to go to?";
-        let errorText = "You have to input a valid integer!";
-        getGenericStringLikeInput(validate, callback, label, errorText);
-    }
-
     // Keyboard Inputs End \\
 
     changeTrack(newTrack) {
@@ -422,7 +539,8 @@ class MainWindowManager extends WindowManager {
             "currentTracks": this.trackManager,
             "initFrame": frameTracker[videoIndex],
             "currentColorSpace": COLORSPACE,
-            "frameRate": FRAME_RATE
+            "frameRate": FRAME_RATE,
+            "pointRadius": POINT_RADIUS,
         };
 
         console.log(message);
@@ -584,7 +702,30 @@ class MainWindowManager extends WindowManager {
     }
 
     addNewPoint(event) {
-        super.addNewPoint(event);
+        let point = super.addNewPoint(event);
+        if (point == null) {
+            return;
+        } // This is the case where the video has not loaded/reloaded
+        if (this.settings["auto-advance"]) {
+            if (this.settings["sync"]) {
+                for (let i = 0; i < this.videos.length; i++) {
+                    frameTracker[i] = point.frame;
+                }
+
+                let localCallback = (index) => {
+                    this.videos[index].moveToNextFrame();
+                };
+
+                let message = this.messageCreator("goToFrame", {frame: point.frame + 1});
+
+                this.communicatorsManager.updateAllLocalOrCommunicator(localCallback, message);
+            } else {
+                this.videos[index].moveToNextFrame();
+            }
+        } else {
+            Video.clearEpipolarCanvases();
+            getEpipolarLinesOrUnifiedCoord(index, frameTracker[index]);
+        }
     }
 
     deletePoint(event) {
@@ -599,6 +740,7 @@ class PopOutWindowManager extends WindowManager {
 
         let callbacks = {
             "goToFrame": (frame) => {
+                console.log("I was told to go to a new frame, here I go!");
                 this.videos[currentVideo].goToFrame(frame);
             },
             "changeTrack": (newTrackAbsoluteIndex) => {
@@ -642,12 +784,11 @@ class PopOutWindowManager extends WindowManager {
 
         // TODO: not sure if frameTracker exists in the pop out or if it does
         // if there is a reason for it to.
+        // (seems like there is)
         let frame = frameTracker[id];
 
-        if (settings["sync"] === true) {
-            let message = messageCreator("goToFrame", {frame: frame, index: id});
-            this.communicatorsManager.updateCommunicators(message);
-        }
+        let message = messageCreator("goToFrame", {frame: frame, index: id});
+        this.communicatorsManager.updateCommunicators(message);
     }
 
     goBackwardsAFrame(id) {
@@ -656,65 +797,49 @@ class PopOutWindowManager extends WindowManager {
         }
 
         let frame = frameTracker[id] - 1;
-        if (settings["sync"] === true) {
-            let callback = (i) => {
-                this.videos[i].goToFrame(frame);
-            };
-            let message = messageCreator("goToFrame", {frame: frame});
-
-            this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
-            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                frameTracker[i] = frame;
-            }
-
-        } else {
-            this.videos[id].goToFrame(frameTracker[id] - 1);
-        }
-        // getEpipolarLinesOrUnifiedCoord(id, frame);
+        frameTracker[id] = frame;
+        let message = messageCreator("goToFrame", {frame: frame});
+        this.communicatorsManager.updateCommunicators(message);
     }
 
-    goToInputFrame(index) {
-        let validate = (input) => {
-            let frameToGoTo = parseInt(input, 10);
-            if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
-                return {input: input, valid: false};
-            } else {
-                frameToGoTo -= 1;
-                frameToGoTo += .001;
-                return {input: frameToGoTo, valid: true};
-            }
-        };
+    loadVideoIntoDOM(parsedInputs) {
+        /*
+         * For main documentation see: WindowManager -> loadVideoIntoDOM
+         * Changes:
+         *   parsedInputs now requires "frame" attribute. This represents
+         *   the frame the video should load to. (see: pop_out.js -> setup())
+         */
+        super.loadVideoIntoDOM(parsedInputs);
+        this.videos[parsedInputs.index].goToFrame(parsedInputs.frame);
 
-        let callback = (parsedInput) => {
-            if (settings["sync"]) {
-                for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                    frameTracker[i] = parsedInput;
-                }
-
-                let callBack = (i) => {
-                    this.videos[i].goToFrame(parsedInput);
-                };
-                let message = messageCreator("goToFrame", {"frame": parsedInput});
-                this.communicatorsManager.updateAllLocalOrCommunicator(callBack, message);
-            } else {
-                this.videos[index].goToFrame(parsedInput);
-            }
-            getEpipolarLinesOrUnifiedCoord(index, parsedInput);
-            $("#canvas-0").focus();
-        };
-
-        let label = "What frame would you like to go to?";
-        let errorText = "You have to input a valid integer!";
-        getGenericStringLikeInput(validate, callback, label, errorText);
+        // $(`#video-${parsedInputs.index}`).one("canplay", () => {
+        //     let track = this.trackManager.currentTrack.absoluteIndex;
+        //     let localClickedPoints = this.clickedPointsManager.getClickedPoints(parsedInputs.index, track);
+        //
+        //     this.videos[parsedInputs.index].drawPoints(localClickedPoints);
+        //     this.videos[parsedInputs.index].drawLines(localClickedPoints);
+        // });
     }
 
-    // addNewPoint(event) {
-    //     if (this.locks['can_click']) {
-    //         let index = event.target.id.split('-')[1];
-    //         let point = Video.createPointObject(index);
-    //
-    //     }
-    // }
+    addNewPoint(event) {
+        console.log("hi I'm adding a new point");
+        super.addNewPoint(event);
+        console.log("Made and drew new point - sending to end now");
+        let index = event.target.id.split('-')[1];
+        // todo : track
+        let point = Video.createPointObject(index);
+        let pointIndex = this.clickedPointsManager.addPoint(point, {clickedVideo: index, currentTrack: 0}).index;
+
+        let message = messageCreator("newPoint", {
+            "point": point,
+            "absoluteTrackIndex": 0, // todo
+            "index": index,
+            "pointIndex": pointIndex
+        });
+
+        this.communicatorsManager.updateCommunicators(message);
+        console.log("SENT!")
+    }
 
     deletePoint() {
     }

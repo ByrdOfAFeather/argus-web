@@ -159,7 +159,7 @@ function setup(message) {
     trackTracker = message["currentTracks"];
     COLORSPACE = message["currentColorSpace"];
     FRAME_RATE = message["frameRate"];
-
+    POINT_RADIUS = message["pointRadius"];
     let offset = message["offset"];
     let initFrame = message["initFrame"];
 
@@ -169,7 +169,8 @@ function setup(message) {
     // windowManager = new PopOutWindowManager(3, index, clickedPoints.clickedPoints.clickedPoints);
     let parsed = {
         index: message.index,
-        offset: offset
+        offset: offset,
+        frame: initFrame
     };
 
     loadHiddenVideo(videoSource, message.index, () => {

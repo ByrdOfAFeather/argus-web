@@ -39,7 +39,13 @@ class CommunicatorsManager {
         this.state = state
     }
 
+    updateCommunicator(index, message) {
+        let communicator = this.communicators.find((elem) => elem.index === index);
+        communicator.postMessage(message);
+    }
+
     updateCommunicators(message) {
+        console.log('update communicators');
         /*
         * This is used by the PopOutWindowManager to go ahead and tell the main window about any changes
         * It's a bit misleading in that there's a forEach, this is mostly for debugging purposes and should
@@ -77,7 +83,18 @@ class CommunicatorsManager {
             // context.data: {index: the index of the video sending the message}
             this.callbacks['popoutDeath'](context.data);
         } else if (context.type === 'newPoint') {
+            /*
+             * context.data: {
+             *  index: index of video sending message
+             *  point: point object created by the popout window
+             *         Note that this will also include the frame information so a seperate field is not needed
+             *  pointIndex: index where the point is supposed to go in the current track
+             *  absoluteTrackIndex: the absolute index of the track when the point was made TODO
+             *  }
+             */
+            this.callbacks['newPoint'](context.data);
         } else if (context.type === 'initLoadFinished') {
+            this.callbacks['initLoadFinished'](context.data);
         }
     }
 
@@ -94,6 +111,7 @@ class CommunicatorsManager {
         } else if (messageContent.type === "loadPoints") {
         } else if (messageContent.type === "changeColorSpace") {
         } else if (messageContent.type === "mainWindowDeath") {
+            this.callbacks['mainWindowDeath']();
         }
     }
 
@@ -112,7 +130,7 @@ class CommunicatorsManager {
         } else {
             for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
                 if (ignoreParam !== null) {
-                    if (ignoreParam === i) {
+                    if (ignoreParam == i) {
                         continue;
                     }
                 }
