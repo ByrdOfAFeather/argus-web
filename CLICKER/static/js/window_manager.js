@@ -9,7 +9,7 @@ class WindowManager {
         this.trackManager = new TrackManager();
         this.videos = [];
         this.clickedPointsManager = null; // Implement in subclasses
-        this.communicationsManager = null; // Implement in subclasses
+        this.communicators = null; // Implement in subclasses
         this.locks = {
             "can_click": true,
             "init_frame_loaded": false,
@@ -36,15 +36,15 @@ class WindowManager {
             let index = event.target.id.split("-")[1];
             let point = Video.createPointObject(index);
 
-            let override = this.clickedPointsManager.addPoint(
+            let pointIndexInfo = this.clickedPointsManager.addPoint(
                 point,
                 {
                     clickedVideo: index,
                     currentTrack: this.trackManager.currentTrack.absoluteIndex
                 }
-            ).override;
+            );
             let localPoints = this.clickedPointsManager.getClickedPoints(index, this.trackManager.currentTrack.absoluteIndex);
-
+            let override = pointIndexInfo.override;
             if (override) {
                 this.videos[index].redrawPoints(localPoints);
             } else {
@@ -52,9 +52,9 @@ class WindowManager {
             }
 
             this.locks["can_click"] = !this.settings["auto-advance"];
-            return point;
+            return {'point': point, 'pointIndexInfo': pointIndexInfo};
         }
-        return null;
+        return {'point': null, 'pointIndexInfo': null};
     }
 
     setMousePos(e) {
@@ -160,7 +160,7 @@ class WindowManager {
             $("#canvas-0").focus();
         };
 
-        let label = "What frame would you like to go to?";
+        let label = `What frame would you like to go to for ${this.videos[index].name}?`;
         let errorText = "You have to input a valid integer!";
         getGenericStringLikeInput(validate, callback, label, errorText);
     }
@@ -192,6 +192,21 @@ class WindowManager {
         }
     }
 
+    redrawWindow(videoIndex, redrawMainTrack = false,) {
+        // this.videos[videoIndex].clearPoints();
+        let currentTrack = this.trackManager.currentTrack;
+        let currentPoints = this.clickedPointsManager.getClickedPoints(videoIndex, currentTrack.absoluteIndex);
+        let mainTrackInfo = {"points": currentPoints, "color": currentTrack.color};
+        let subTrackInfo = {"trackInfos": []};
+        for (let i = 0; i < this.trackManager.subTracks.length(); i++) {
+            let subTrackIndex = this.trackManager.subTracks.track_indicies[i];
+            let track = this.trackManager.findTrack(subTrackIndex);
+            let points = this.clickedPointsManager.getClickedPoints(videoIndex, subTrackIndex);
+            subTrackInfo.trackInfos.push({"points": points, "color": track.color});
+        }
+        this.videos[videoIndex].loadFrame(mainTrackInfo, subTrackInfo, redrawMainTrack);
+    }
+
     loadVideoIntoDOM(parsedInputs) {
         /* Based on provided video properties, loads a video in to DOM and creates video objects
         parsedInputs {
@@ -209,10 +224,7 @@ class WindowManager {
         let currentIndex = parsedInputs.index;
         frameTracker[currentIndex] = 1.001;
         let loadPreviewFrameFunction = (videoIndex) => {
-            let pointsToDraw = this.clickedPointsManager.getClickedPoints(
-                currentIndex,
-                this.trackManager.currentTrack.absoluteIndex);
-            this.videos[videoIndex].loadFrame(pointsToDraw, this.trackManager.currentTrack.color);
+            this.redrawWindow(videoIndex)
         };
 
         let updateVideoPropertyCallback = (property, propertyValue) => {
@@ -278,8 +290,7 @@ class MainWindowManager extends WindowManager {
             'popoutDeath': (context) => {
                 // rerender video
                 this.videos[context.index].clearPoints();
-                let index = null;
-                this.communicatorsManager.removeCommunicator(index);
+                this.communicatorsManager.removeCommunicator(context.index);
 
 
                 $(`#canvas-columns-${context.index}`).show();
@@ -320,6 +331,119 @@ class MainWindowManager extends WindowManager {
         };
         this.communicatorsManager = new CommunicatorsManager(STATES.MAIN_WINDOW, communicationsCallbacks);
     }
+
+
+    // Settings Module
+    onTrackClick(event) {
+        let trackID = event.target.id.split('-')[1];
+        this.trackManager.changeCurrentTrack(trackID);
+        let callback = (i) => {
+            let localPoints = this.clickedPointsManager.getClickedPoints(i, trackID);
+            this.videos[i].changeTracks(localPoints, this.trackManager.currentTrack.color);
+        };
+        let message = messageCreator("changeTrack", {track: trackID});
+        this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
+    };
+
+    onTrackDisplay(event) {
+        event.stopPropagation();
+        let trackID = event.target.id.split('-')[1];
+        let isActive = $(`#${event.target.id}`).is(":checked");
+        if (isActive) {
+            this.trackManager.subTracks.addIndex(trackID);
+            let callback = (videoIndex) => {
+                let track = this.trackManager.findTrack(trackID);
+                let points = this.clickedPointsManager.getClickedPoints(videoIndex, trackID);
+                this.videos[videoIndex].addSubTrack({"points": points, "color": track.color});
+            };
+            let message = messageCreator("addSubTrack", {track: trackID});
+            this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
+        } else {
+            this.trackManager.subTracks.removeIndex(trackID);
+            let callback = (videoIndex) => {
+                let infos = [];
+                for (let j = 0; j<this.trackManager.subTracks.length(); j++) {
+                    let currentIndex = this.trackManager.subTracks.track_indicies[j];
+                    let currentTrack = this.trackManager.findTrack(currentIndex).color;
+                    let currentPoints = this.clickedPointsManager.getClickedPoints(videoIndex, currentIndex);
+                    infos.push({"points": currentPoints, "color": currentTrack.color});
+                }
+                this.videos[videoIndex].removeSubTrack(infos);
+            };
+            let message = messageCreator("removeSubTrack", {track: trackID});
+            this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
+        }
+    }
+
+    onTrackDelete(event) {
+        event.stopPropagation();
+        let trackID = event.target.id.split('-')[1];
+        this.trackManager.removeTrack(trackID);
+        this.clickedPointsManager.removeTrack(trackID);
+        let callback = (i) => {
+            // Gets the default track
+            let points = this.clickedPointsManager.getClickedPoints(i, 0);
+            let track = this.trackManager.findTrack(0);
+            this.videos[i].changeTracks(points, track.color);
+        };
+        let message = messageCreator("removeTrack", {track: trackID});
+        this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
+    }
+
+
+    loadSettings() {
+        let settingsBindings = {
+            onDLTCoeffChange: this.loadDLTCoefficents,
+            onCameraProfileChange: this.loadCameraProfile,
+            savePoints: this.exportPointsInArgusFormat,
+            onLoadPointsChange: this.loadPoints,
+            inverseSetting: (setting) => {
+                this.settings[setting] = !this.settings[setting];
+            },
+            onTrackClick: this.onTrackClick,
+            onTrackDisplay: this.onTrackDisplay,
+            onTrackDelete: this.onTrackDelete,
+        };
+
+        let settingsWidget = settingsInputWidget(settingsBindings);
+        let setupSettingsInput = settingsInputWidget();
+        $("#settingsInput").append(setupSettingsInput);
+    }
+
+
+    loadPoints() {
+        // TODO
+    };
+
+    exportPointsInArgusFormat() {
+        // TODO
+    };
+
+    onAddTrack() {
+        // TODO
+    };
+
+    loadCameraProfile(event) {
+        let selectedFiles = Array.from($(`#${event.target.id}`).prop("files"));
+        let reader = new FileReader();
+        reader.onload = function () {
+            CAMERA_PROFILE = parseCameraProfile(reader.result, " ");
+        };
+        reader.readAsText(selectedFiles[0]);
+        // TODO
+    }
+
+    loadDLTCoefficents(event) {
+        let selectedFiles = Array.from($(`#${event.target.id}`).prop("files"));
+        let reader = new FileReader();
+        reader.onload = function () {
+            // TODO: Not sure why there is a separator here, was I supposed to ask the user what separator they use?
+            DLT_COEFFICIENTS = parseDLTCoefficents(reader.result, " ");
+        };
+        reader.readAsText(selectedFiles[0]);
+    }
+
+    // End Settings Module
 
     autoAdvance(context, ignoreIndex) {
         frameTracker[context.index] += 1;
@@ -702,7 +826,7 @@ class MainWindowManager extends WindowManager {
     }
 
     addNewPoint(event) {
-        let point = super.addNewPoint(event);
+        let point = super.addNewPoint(event).point;
         if (point == null) {
             return;
         } // This is the case where the video has not loaded/reloaded
@@ -724,7 +848,7 @@ class MainWindowManager extends WindowManager {
             }
         } else {
             Video.clearEpipolarCanvases();
-            getEpipolarLinesOrUnifiedCoord(index, frameTracker[index]);
+            this.getEpipolarLinesOrUnifiedCoord(index, frameTracker[index]);
         }
     }
 
@@ -810,31 +934,31 @@ class PopOutWindowManager extends WindowManager {
          *   the frame the video should load to. (see: pop_out.js -> setup())
          */
         super.loadVideoIntoDOM(parsedInputs);
-        this.videos[parsedInputs.index].goToFrame(parsedInputs.frame);
 
-        // $(`#video-${parsedInputs.index}`).one("canplay", () => {
-        //     let track = this.trackManager.currentTrack.absoluteIndex;
-        //     let localClickedPoints = this.clickedPointsManager.getClickedPoints(parsedInputs.index, track);
-        //
-        //     this.videos[parsedInputs.index].drawPoints(localClickedPoints);
-        //     this.videos[parsedInputs.index].drawLines(localClickedPoints);
-        // });
+        $(`#video-${parsedInputs.index}`).one("canplay", () => {
+            let track = this.trackManager.currentTrack.absoluteIndex;
+            let localClickedPoints = this.clickedPointsManager.getClickedPoints(parsedInputs.index, track);
+
+            this.videos[parsedInputs.index].drawPoints(localClickedPoints);
+            this.videos[parsedInputs.index].drawLines(localClickedPoints);
+            this.videos[parsedInputs.index].goToFrame(parsedInputs.frame);
+        });
     }
 
     addNewPoint(event) {
         console.log("hi I'm adding a new point");
-        super.addNewPoint(event);
+        let point = super.addNewPoint(event);
+        if (point.point === null) {
+            return;
+        }
         console.log("Made and drew new point - sending to end now");
         let index = event.target.id.split('-')[1];
         // todo : track
-        let point = Video.createPointObject(index);
-        let pointIndex = this.clickedPointsManager.addPoint(point, {clickedVideo: index, currentTrack: 0}).index;
-
         let message = messageCreator("newPoint", {
-            "point": point,
+            "point": point.point,
             "absoluteTrackIndex": 0, // todo
             "index": index,
-            "pointIndex": pointIndex
+            "pointIndex": point.pointIndexInfo.index
         });
 
         this.communicatorsManager.updateCommunicators(message);

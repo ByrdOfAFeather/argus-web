@@ -121,9 +121,47 @@ function colorSpaceDropDownWidget(colorSpaceIndex, redrawVideosFunction) {
     });
 }
 
-function trackDropDownWidget() {
-    let items = generateDropDownItems(["Track 0"]);
-    return genericDropDownWidget("track", "Select Track", items,)
+
+function generateTrackDropDownItem(parsedTrackName, trackIndex, includeDeleteButton) {
+    let deleteButton = null;
+    if (includeDeleteButton) {
+        deleteButton = genericDivWidget('column is-narrow').append(
+            $("<button>", {class: "dropdown-item-delete delete", id: `track-${trackIndex}-delete`}).text("Delete")
+        );
+    }
+    return genericDivWidget('dropdown-content').append(
+        genericDivWidget('container').append(
+            genericDivWidget('level').append(
+                genericDivWidget('level-left').append(
+                    genericDivWidget('column is-narrow').append($("<label>", {class: 'label is-small'}).text("Disp.")),
+                    // TODO: Curindex
+                    genericDivWidget('column is-narrow').append($("<input>", {
+                            id: `track-${trackIndex}-disp`,
+                            type: "checkbox",
+                            class: "checkbox track-display-box",
+                            checked: "checked"
+                        })
+                    ),
+                    genericDivWidget('dropdown-item has-text-centered', `track-${trackIndex}`).text(parsedTrackName)
+                ),
+
+                genericDivWidget('level-right').append(
+                    deleteButton
+                )
+            )
+        )
+    );
+}
+
+function trackDropDownWidget(onTrackClick, onTrackDisplay, onTrackDelete) {
+    /*
+     * TODO: When writing this documentation make sure to include the fact that display and delete need stop propigation lines
+     */
+    let items = generateTrackDropDownItem("Track 0", 0, false);
+    let dropDown = genericDropDownWidget('track', 'Select Track', items, onTrackClick);
+
+    dropDown.on('click', '.track-display-box', onTrackDisplay);
+    dropDown.on('click', '.dropdown-item-delete', onTrackDelete)
 }
 
 
@@ -270,7 +308,7 @@ function clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick,
     I believe it is due to resizing which is a legacy feature.
      */
 
-    let clickableCanvas = canvas(`canvas-${videoIndex}`, "clickable-canvas absolute", "z-index: 3;");
+    let clickableCanvas = canvas(`canvas-${videoIndex}`, "clickable-canvas absolute", "z-index: 4;");
     clickableCanvas = _canvasWidthAndHeightManager(clickableCanvas, 800, 600);
     clickableCanvas.prop('tabindex', 1000);
     clickableCanvas.on('keydown', onKeyboardInput);
@@ -281,10 +319,14 @@ function clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick,
     let videoCanvas = canvas(`videoCanvas-${videoIndex}`, "video-canvas absolute draggable", "z-index: 1;");
     videoCanvas = _canvasWidthAndHeightManager(videoCanvas, 800, 600);
 
+    let subTrackCanvas = canvas(`subtrackCanvas-${videoIndex}`, 'sub-track absolute', 'z-index: 3;');
+    subTrackCanvas = _canvasWidthAndHeightManager(subTrackCanvas, 800, 800);
+
     return genericDivWidget("container-for-canvas", `container-for-canvas-${videoIndex}`).append(
         clickableCanvas.on("click", onClick).on("contextmenu", onRightClick).on("mousemove", setMousePos),
         epipolarCanvas,
         videoCanvas,
+        subTrackCanvas
     ).css("width", "800px").css("height", "600px");
 }
 
@@ -325,7 +367,7 @@ function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrame
         }
         loadPreviewFrameFunction(videoIndex);
     };
-    return genericDivWidget("section").append(
+    return genericDivWidget("column").append(
         genericDivWidget("container").append(
             genericDivWidget("columns has-text-centered is-multiline", `canvas-columns-${videoIndex}`).append(
                 genericDivWidget("column is-12 video-label-container").append(
@@ -881,16 +923,28 @@ function createProjectWidget(onSubmit, cleanFunction) {
 }
 
 
-function firstRowOfSettingsWidget() {
-    /*
-    Creates the first row of settings. This row will include:
-    Loading DLT coefficents
-    Loading Camera Profiles
-    Add tracks
-    track dropdown to select and delete tracks
-    colorspace dropdown to select colorspace globally TODO: This needs to be switched to per-video basis
-    Save points
-    Load points
+function firstRowOfSettingsWidget(settingsBindings) {
+    /* Documentation updated March 4th 10:52 AM
+     * Creates the first row of settings. This row will include:
+     * Loading DLT coefficents
+     * Loading Camera Profiles
+     * Add tracks
+     * track dropdown to select and delete tracks
+     * colorspace dropdown to select colorspace globally TODO: This needs to be switched to per-video basis
+     * Save points
+     * Load points
+     *
+     * settingsBindings: A object containing functions that map to updating settings
+     *  REQUIRED:
+     *  onDLTCoeffChange (event) { Loads the DLT coefficients into the DLT_COEFF global variable }
+     *  onCameraProfileChange (event) { Loads the camera profile into the global CAMERA_PROFILE variable }
+     *  savePoints (event) { Generates a .csv file with options specified by the user }
+     *  onLoadPointsChange (event) { Loads points into the Clicked Points manager }
+     *  inverseSetting (setting) { settings[setting] = !settings[setting] }
+     *  TODO: these last three pieces of docummentation could stand to be cleaned up
+     *  onTrackClick (event) { handles what happens when the user is changing to a new track }
+     *  onTrackDelete (event) { handles what happens when the user is deleteing a track }
+     *  onTrackDisplay (event) { handles what happens when the user whants to display at track }
      */
     let widget = genericDivWidget("columns");
     widget.append(
@@ -899,18 +953,12 @@ function firstRowOfSettingsWidget() {
             genericDivWidget("columns is-centered is-vcentered is-multiline").append(
                 // DLT Coeff Input
                 genericDivWidget("column is-12").append(
-                    fileInputWidget("Load DLT Coefficients", "dlt-coeff-input", "text/csv", function () {
-                        let selectedFiles = Array.from($("#dlt-coeff-input").prop("files"));
-                        loadDLTCoefficients(selectedFiles);
-                    })
+                    fileInputWidget("Load DLT Coefficients", "dlt-coeff-input", "text/csv", settingsBindings.onDLTCoeffChange)
                 ),
 
                 // Camera Profile Input
                 genericDivWidget("column is-12").append(
-                    fileInputWidget("Load Camera Profile", "camera-profile-input", "*.txt", function () {
-                        let selectedFiles = Array.from($("#camera-profile-input").prop("files"));
-                        loadCameraProfile(selectedFiles);
-                    },)
+                    fileInputWidget("Load Camera Profile", "camera-profile-input", "*.txt", settingsBindings.onCameraProfileChange)
                 )
             ),
         ),
@@ -936,7 +984,13 @@ function firstRowOfSettingsWidget() {
         ),
 
         // Track Drop Down
-        genericDivWidget("column", "track-dropdown-container-column"),
+        genericDivWidget("column", "track-dropdown-container-column").append(
+        //     trackDropDownWidget(
+        //         settingsBindings.onTrackClick,
+        //         settingsBindings.onTrackDisplay,
+        //         settingsBindings.onTrackDelete
+        //     )
+        ),
 
         // Colorspace drop down
         genericDivWidget("column").append(
@@ -955,15 +1009,12 @@ function firstRowOfSettingsWidget() {
                         $("<button>", {
                             id: "save-points-button",
                             class: "button"
-                        }).text("Save Points").on("click", exportPoints),
+                        }).text("Save Points").on("click", settingsBindings.savePoints),
                     )
                 ),
 
                 genericDivWidget("column is-12").append(
-                    fileInputWidget("Load Points", "load-points-button", "text/csv", function () {
-                        let selectedFiles = Array.from($("#load-points-button").prop("files"));
-                        loadPoints(selectedFiles);
-                    },)
+                    fileInputWidget("Load Points", "load-points-button", "text/csv", settingsBindings.onLoadPointsChange)
                 ),
             )
         ),
@@ -977,7 +1028,7 @@ function firstRowOfSettingsWidget() {
                 class: "checkbox",
                 checked: settings["auto-advance"] ? "checked" : ""
             }).on("click", function () {
-                settings['auto-advance'] = !settings['auto-advance'];
+                settingsBindings.inverseSetting('auto-advance')
             }),
 
             // Sync Check box
@@ -988,7 +1039,7 @@ function firstRowOfSettingsWidget() {
                 class: "checkbox",
                 checked: settings["sync"] ? "checked" : ""
             }).on("click", function () {
-                settings['sync'] = !settings['sync'];
+                settingsBindings.inverseSetting('sync');
             }),
         )
     );
@@ -1055,7 +1106,7 @@ function pointSizeSelectorWidget(index) {
 }
 
 
-function settingsInputWidget() {
+function settingsInputWidget(settingsBindings) {
     return $("<section>", {class: "section"}).append(
         $("<hr>"),
         genericDivWidget("columns is-multiline is-vcentered").append(
@@ -1064,7 +1115,7 @@ function settingsInputWidget() {
             ),
 
             genericDivWidget("column is-12").append(
-                firstRowOfSettingsWidget()
+                firstRowOfSettingsWidget(settingsBindings)
             ),
 
             genericDivWidget("column is-12").append(

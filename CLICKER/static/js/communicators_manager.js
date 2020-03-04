@@ -67,6 +67,7 @@ class CommunicatorsManager {
                 return true;
             }
         });
+        this.communicators[index].communicator.close();
         this.communicators.splice(index, 1);
     }
 

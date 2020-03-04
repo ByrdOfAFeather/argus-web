@@ -511,9 +511,7 @@ function parseDLTCoefficents(text, separator) {
 }
 
 function parseCameraProfile(text, separator) {
-    // NOTE: Only works with pinhole for now
-
-
+    // TODO: Only works with pinhole for now
     const profiles = text.split("\n").filter((value) => value !== "");
     const numberOfProfiles = profiles.length;
 
@@ -561,11 +559,6 @@ function loadDLTCoefficients(file) {
 }
 
 function loadCameraProfile(file) {
-    let reader = new FileReader();
-    reader.onload = function () {
-        CAMERA_PROFILE = parseCameraProfile(reader.result, " ");
-    };
-    reader.readAsText(file[0]);
 }
 
 
@@ -685,7 +678,17 @@ function generateColorspaceDropdown(uniqueID) {
 
 
 function loadSettings() {
-    let setupSettingsInput = settingsInputWidget();
+    let settingsBindings = {
+        onDLTCoeffChange: null,
+        onCameraProfileChange: null,
+        savePoints: null,
+        onLoadPointsChange: null,
+        inverseSetting: null,
+        onTrackClick: null,
+        onTrackDisplay: null,
+        onTrackDelete: null
+    };
+    let setupSettingsInput = settingsInputWidget(settingsBindings);
     $("#settingsInput").append(setupSettingsInput);
     $("#track-dropdown-container-column").append(TrackDropDown.dropDown);
     let track_trigger = $("#track-dropdown-trigger");

@@ -10,49 +10,6 @@ let videos = [];
 let RGB = 0;
 let GREYSCALE = 1;
 
-
-class SubTracksManager {
-    // Stores IDs of tracks to draw alongside the current track
-    constructor() {
-        this.track_indicies = [];
-        this.currentTrackStash = null;
-    }
-
-    removeIndex(indexToRemove) {
-        let index = this.track_indicies.indexOf(indexToRemove);
-        if (index >= 0) {
-            this.track_indicies.splice(index, 1);
-        }
-    }
-
-    addIndex(indexToAdd) {
-        let index = this.track_indicies.indexOf(indexToAdd);
-        if (index < 0) {
-            this.track_indicies.push(indexToAdd);
-        }
-    }
-
-    hasIndex(indexToCheckFor) {
-        let test = this.track_indicies.indexOf(indexToCheckFor);
-        return test >= 0;
-    }
-
-    stash(indexToStash) {
-        this.currentTrackStash = indexToStash;
-    }
-
-    unstash() {
-        if (this.currentTrackStash == null) {
-            return;
-        }
-        this.track_indicies.push(this.currentTrackStash);
-        this.currentTrackStash = null;
-    }
-}
-
-let secondaryTracksTracker = new SubTracksManager();
-
-
 class Video {
     constructor(videosIndex, videoName, offset) {
         this.index = videosIndex;
@@ -69,6 +26,11 @@ class Video {
 
         this.epipolarCanvas = document.getElementById(`epipolarCanvas-${videosIndex}`);
         this.epipolarCanvasContext = this.epipolarCanvas.getContext("2d");
+
+        this.subTrackCanvas = document.getElementById(`subtrackCanvas-${videosIndex}`);
+        this.subTrackCanvasContext = this.subTrackCanvas.getContext('2d');
+
+        this.subTrackState = 0; // Tracks the number of tracks that it drew last time
 
         this.zoomCanvas = document.getElementById(`zoomCanvas-${videosIndex}`);
         this.zoomCanvasContext = this.zoomCanvas.getContext("2d");
@@ -159,7 +121,7 @@ class Video {
                 }
             }
         }
-        this.drawPoint(point.x, point.y, POINT_RADIUS);
+        this.drawPoint(point.x, point.y, this.canvasContext, this.currentStrokeStyle);
     }
 
 
@@ -210,7 +172,7 @@ class Video {
     }
 
 
-    loadFrame(localPoints, color) {
+    loadFrame(mainTrackInfo) {
         let canvasWidth;
         let canvasHeight;
 
@@ -220,28 +182,44 @@ class Video {
         this.videoCanvasContext.filter = `${this.currentBrightnessFilter} ${this.currentContrastFilter} ${this.currentSaturateFilter}`;
         this.videoCanvasContext.fillRect(0, 0, canvasWidth, canvasHeight);
         this.videoCanvasContext.drawImage(this.video, 0, 0, canvasWidth, canvasHeight);
-        this.currentStrokeStyle = color;
+        this.currentStrokeStyle = mainTrackInfo.color;
         // this.drawZoomWindow();
         if (!locks["can_click"]) {
             locks["can_click"] = true;
         }
 
-        let pointIndex = Video.checkIfPointAlreadyExists(localPoints, frameTracker[this.index]);
+        let points = mainTrackInfo.points;
+        let pointIndex = Video.checkIfPointAlreadyExists(points, frameTracker[this.index]);
         if (pointIndex !== null) {
-            if (this.isDisplayingFocusedPoint) {
-                this.redrawPoints(localPoints);
-            } else {
-                this.isDisplayingFocusedPoint = true;
+            if (!this.isDisplayingFocusedPoint) {
+                this.redrawPoints(points);
             }
-            this.drawFocusedPoint(localPoints[pointIndex].x, localPoints[pointIndex].y, 20);
+            this.isDisplayingFocusedPoint = true;
+            this.drawFocusedPoint(points[pointIndex].x, points[pointIndex].y, 20);
         } else {
             if (this.isDisplayingFocusedPoint === true) {
-                this.redrawPoints(localPoints);
+                this.redrawPoints(points);
             }
             this.isDisplayingFocusedPoint = false;
         }
 
-        this.drawZoomWindow(color);
+        this.drawZoomWindow(mainTrackInfo.color);
+    }
+
+    addSubTrack(subTrackInfo) {
+        let currentPoints = subTrackInfo.points;
+        let currentColor = subTrackInfo.color;
+        this.drawSubTrack(currentPoints, currentColor);
+        this.subTrackState = subTrackInfo.trackInfos.length;
+    }
+
+    removeSubTrack(allSubTrackInfos) {
+        this.subTrackCanvasContext.clearRect(0,0, this.subTrackCanvas.width, this.subTrackCanvas.height);
+        for (let i = 0; i < allSubTrackInfos.length; i++) {
+            let currentPoints = allSubTrackInfos[i].points;
+            let currentColor = allSubTrackInfos[i].color;
+            this.drawSubTrack(currentPoints, currentColor);
+        }
     }
 
     drawFocusedPoint(x, y) {
@@ -257,41 +235,40 @@ class Video {
 
     }
 
-    drawLine(point1, point2, lineType = LINETYPE_POINT_TO_POINT) {
-        let ctx = lineType === LINETYPE_EPIPOLAR ? this.epipolarCanvasContext : this.canvasContext;
-        this.canvasContext.strokeStyle = this.currentStrokeStyle;
+    drawLine(point1, point2, canvas = this.canvasContext, color = this.currentStrokeStyle) {
+        canvas.strokeStyle = color;
 
-        ctx.beginPath();
-        ctx.moveTo(point1.x, point1.y);
-        ctx.lineTo(point2.x, point2.y);
-        ctx.stroke();
+        canvas.beginPath();
+        canvas.moveTo(point1.x, point1.y);
+        canvas.lineTo(point2.x, point2.y);
+        canvas.stroke();
     }
 
-    drawLines(points) {
+    drawLines(points, canvas = this.canvasContext, color = this.currentStrokeStyle) {
         for (let i = 0; i < points.length - 1; i++) {
             let currentPoint = points[i];
             // Check if there is a point after this one
             if (points[i + 1] !== undefined) {
                 // Check if consecutive
                 if (Math.floor(currentPoint.frame) === Math.floor(points[i + 1].frame) - 1) {
-                    this.drawLine(points[i], points[i + 1]);
+                    this.drawLine(points[i], points[i + 1], canvas, color);
                 }
             }
         }
     }
 
-    drawPoints(points) {
+    drawPoints(points, canvas = this.canvasContext, color = this.currentStrokeStyle) {
         for (let i = 0; i < points.length; i++) {
-            this.drawPoint(points[i].x, points[i].y, POINT_RADIUS);
+            this.drawPoint(points[i].x, points[i].y, canvas, color);
         }
     }
 
-    drawPoint(x, y, r) {
-        this.canvasContext.strokeStyle = this.currentStrokeStyle;
+    drawPoint(x, y, canvasContext, color) {
+        canvasContext.strokeStyle = color;
 
-        this.canvasContext.beginPath();
-        this.canvasContext.arc(x, y, POINT_RADIUS, 0, 2 * Math.PI);
-        this.canvasContext.stroke();
+        canvasContext.beginPath();
+        canvasContext.arc(x, y, POINT_RADIUS, 0, 2 * Math.PI);
+        canvasContext.stroke();
     }
 
     drawDiamond(x, y, width, height) {
@@ -330,24 +307,33 @@ class Video {
                 {
                     "x": points[i + 1][0],
                     "y": points[i + 1][1]
-                }, LINETYPE_EPIPOLAR);
+                }, this.epipolarCanvasContext);
         }
     }
 
-    changeTracks(trackIndex) {
-        this.clearPoints();
-        let localClickedPoints = clickedPoints[this.index][trackIndex];
-        this.currentStrokeStyle = trackTracker["tracks"][trackIndex].color;
+    drawSubTrack(points, color) {
+        if (points.length === 0) {
+            return;
+        }
+        this.canvasContext.strokeStyle = color;
 
-        if (localClickedPoints.length === 0) {
+        this.drawPoints(points, this.subTrackCanvasContext, color);
+        this.drawLines(points, this.subTrackCanvasContext, color);
+    }
+
+    changeTracks(newPoints, color) {
+        this.clearPoints();
+        this.currentStrokeStyle = color;
+
+        if (newPoints.length === 0) {
             return;
         }
 
         this.canvasContext.strokeStyle = this.currentStrokeStyle;
 
         // Redraws points
-        this.drawPoints(localClickedPoints);
-        this.drawLines(localClickedPoints);
+        this.drawPoints(newPoints);
+        this.drawLines(newPoints);
     }
 
     clearPoints() {
