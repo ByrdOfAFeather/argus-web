@@ -30,8 +30,6 @@ class Video {
         this.subTrackCanvas = document.getElementById(`subtrackCanvas-${videosIndex}`);
         this.subTrackCanvasContext = this.subTrackCanvas.getContext('2d');
 
-        this.subTrackState = 0; // Tracks the number of tracks that it drew last time
-
         this.zoomCanvas = document.getElementById(`zoomCanvas-${videosIndex}`);
         this.zoomCanvasContext = this.zoomCanvas.getContext("2d");
         this.zoomOffset = 10;
@@ -191,7 +189,7 @@ class Video {
         let points = mainTrackInfo.points;
         let pointIndex = Video.checkIfPointAlreadyExists(points, frameTracker[this.index]);
         if (pointIndex !== null) {
-            if (!this.isDisplayingFocusedPoint) {
+            if (this.isDisplayingFocusedPoint) {
                 this.redrawPoints(points);
             }
             this.isDisplayingFocusedPoint = true;
@@ -210,11 +208,14 @@ class Video {
         let currentPoints = subTrackInfo.points;
         let currentColor = subTrackInfo.color;
         this.drawSubTrack(currentPoints, currentColor);
-        this.subTrackState = subTrackInfo.trackInfos.length;
+    }
+
+    resetSubtracks() {
+        this.subTrackCanvasContext.clearRect(0, 0, this.subTrackCanvas.width, this.subTrackCanvas.height);
     }
 
     removeSubTrack(allSubTrackInfos) {
-        this.subTrackCanvasContext.clearRect(0,0, this.subTrackCanvas.width, this.subTrackCanvas.height);
+        this.subTrackCanvasContext.clearRect(0, 0, this.subTrackCanvas.width, this.subTrackCanvas.height);
         for (let i = 0; i < allSubTrackInfos.length; i++) {
             let currentPoints = allSubTrackInfos[i].points;
             let currentColor = allSubTrackInfos[i].color;
@@ -320,6 +321,8 @@ class Video {
         this.drawPoints(points, this.subTrackCanvasContext, color);
         this.drawLines(points, this.subTrackCanvasContext, color);
     }
+
+    f
 
     changeTracks(newPoints, color) {
         this.clearPoints();

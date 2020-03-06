@@ -100,7 +100,7 @@ class WindowManager {
                 mouseTracker.x = (e.clientX - bounds.left) * scaleX;   // scale mouse coordinates after they have
                 mouseTracker.y = (e.clientY - bounds.top) * scaleY;
 
-                let currentColor = trackTracker.currentTrack.color;
+                let currentColor = this.trackManager.currentTrack.color;
                 this.videos[e.target.id.split("-")[1]].drawZoomWindow(currentColor);
             } else {
                 let bounds = e.target.getBoundingClientRect();
@@ -293,8 +293,7 @@ class MainWindowManager extends WindowManager {
                 this.communicatorsManager.removeCommunicator(context.index);
 
 
-                $(`#canvas-columns-${context.index}`).show();
-                $(this.videos[context.index].zoomCanvas).show();
+                $(`#masterColumn-${context.index}`).css('display', '');
                 let localClickedPoints = this.clickedPointsManager.getClickedPoints(context.index, trackTracker.currentTrack.absoluteIndex);
                 this.videos[context.index].goToFrame(frameTracker[context.index]);
 
@@ -334,12 +333,68 @@ class MainWindowManager extends WindowManager {
 
 
     // Settings Module
+
+
+    updateCheckboxesOnChangeTrack(oldIndex, newIndex) {
+        // TODO Check the stash to see if the checked value needs to be disabled
+        let oldTrackCheckbox = $(`#track-${oldIndex}-disp`);
+        // if (oldIndex !== this.trackManager.subTracks.currentTrackStash) {
+        //     oldTrackCheckbox.prop("checked", false);
+        // }
+        oldTrackCheckbox.removeClass('disabled');
+
+
+        let newTrackCheckbox = $(`#track-${newIndex}-disp`);
+        newTrackCheckbox.prop("checked", true);
+        newTrackCheckbox.addClass('disabled');
+    }
+
+
+    generateSubTrackInfos(videoIndex) {
+        let infos = [];
+        for (let j = 0; j < this.trackManager.subTracks.length(); j++) {
+            let currentIndex = this.trackManager.subTracks.track_indicies[j];
+            let currentTrack = this.trackManager.findTrack(currentIndex);
+            let currentPoints = this.clickedPointsManager.getClickedPoints(videoIndex, currentIndex);
+            infos.push({"points": currentPoints, "color": currentTrack.color});
+        }
+        return infos;
+    }
+
+
+    /*
+     * TODO: I actually had wrappers in track manager to handle the sub track manager,
+     *  Right now however, I use the sub track manager directly, this needs to change! :/
+     */
     onTrackClick(event) {
         let trackID = event.target.id.split('-')[1];
+        let oldTrack = this.trackManager.currentTrack.absoluteIndex;
+        if (trackID == oldTrack) {
+            return;
+        }
+
+        this.trackManager.subTracks.addIndex(oldTrack);
+        // If there is a track that was previously selected as a subtrack, later transitioned to the
+        // main track, it will now be put back into the subtrack.
+        let redrawSubTracks = this.trackManager.subTracks.unstash();
+
+        // If the track we are changing to is currently a subtrack, save it so that it can return
+        // to being a subtrack later.
+        if (this.trackManager.subTracks.hasIndex(trackID)) {
+            this.trackManager.subTracks.stash(trackID);
+        }
+
         this.trackManager.changeCurrentTrack(trackID);
-        let callback = (i) => {
-            let localPoints = this.clickedPointsManager.getClickedPoints(i, trackID);
-            this.videos[i].changeTracks(localPoints, this.trackManager.currentTrack.color);
+        this.updateCheckboxesOnChangeTrack(oldTrack, trackID);
+
+
+        let callback = (videoIndex) => {
+            let localPoints = this.clickedPointsManager.getClickedPoints(videoIndex, trackID);
+            this.videos[videoIndex].changeTracks(localPoints, this.trackManager.currentTrack.color);
+            if (redrawSubTracks) {
+                let infos = this.generateSubTrackInfos(videoIndex);
+                this.videos[videoIndex].removeSubTrack(infos);
+            }
         };
         let message = messageCreator("changeTrack", {track: trackID});
         this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
@@ -361,13 +416,7 @@ class MainWindowManager extends WindowManager {
         } else {
             this.trackManager.subTracks.removeIndex(trackID);
             let callback = (videoIndex) => {
-                let infos = [];
-                for (let j = 0; j<this.trackManager.subTracks.length(); j++) {
-                    let currentIndex = this.trackManager.subTracks.track_indicies[j];
-                    let currentTrack = this.trackManager.findTrack(currentIndex).color;
-                    let currentPoints = this.clickedPointsManager.getClickedPoints(videoIndex, currentIndex);
-                    infos.push({"points": currentPoints, "color": currentTrack.color});
-                }
+                let infos = this.generateSubTrackInfos(videoIndex);
                 this.videos[videoIndex].removeSubTrack(infos);
             };
             let message = messageCreator("removeSubTrack", {track: trackID});
@@ -388,26 +437,55 @@ class MainWindowManager extends WindowManager {
         };
         let message = messageCreator("removeTrack", {track: trackID});
         this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
+        // TODO Remove from dropdown
+    }
+
+    onTrackAdd(_) {
+        /*
+         * The expected behavior is for all subtracks to be reset and have a blank canvas
+         */
+        let currentInput = $(`#new-track-input`).val();
+        let added = this.trackManager.addTrack(currentInput);
+        if (added) {
+            let indexOfLastAdded = this.trackManager.nextUnusedIndex - 1;
+            this.clickedPointsManager.addTrack(indexOfLastAdded);
+            this.trackManager.changeCurrentTrack(indexOfLastAdded);
+            this.trackManager.resetSubtracks();
+
+            resetTrackDropDownDispSelections();
+            addTrackToDropDown(currentInput, indexOfLastAdded, true);
+
+
+            let callback = (i) => {
+                let points = this.clickedPointsManager.getClickedPoints(i, indexOfLastAdded);
+                let track = this.trackManager.currentTrack;
+                this.videos[i].changeTracks(points, track.color);
+                this.videos[i].resetSubtracks();
+            };
+            let message = messageCreator("addNewTrack", {name: currentInput});
+            this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
+        }
+        // TODO Add to dropdown
     }
 
 
     loadSettings() {
         let settingsBindings = {
-            onDLTCoeffChange: this.loadDLTCoefficents,
-            onCameraProfileChange: this.loadCameraProfile,
-            savePoints: this.exportPointsInArgusFormat,
-            onLoadPointsChange: this.loadPoints,
+            onDLTCoeffChange: (event) => this.loadDLTCoefficents(event),
+            onCameraProfileChange: (event) => this.loadCameraProfile(event),
+            savePoints: (event) => this.exportPointsInArgusFormat(event),
+            onLoadPointsChange: (event) => this.loadPoints(event),
             inverseSetting: (setting) => {
                 this.settings[setting] = !this.settings[setting];
             },
-            onTrackClick: this.onTrackClick,
-            onTrackDisplay: this.onTrackDisplay,
-            onTrackDelete: this.onTrackDelete,
+            onTrackClick: (event) => this.onTrackClick(event),
+            onTrackDisplay: (event) => this.onTrackDisplay(event),
+            onTrackDelete: (event) => this.onTrackDelete(event),
+            onTrackAdd: (event) => this.onTrackAdd(event),
         };
 
         let settingsWidget = settingsInputWidget(settingsBindings);
-        let setupSettingsInput = settingsInputWidget();
-        $("#settingsInput").append(setupSettingsInput);
+        $("#settingsInput").append(settingsWidget);
     }
 
 
@@ -667,15 +745,17 @@ class MainWindowManager extends WindowManager {
             "pointRadius": POINT_RADIUS,
         };
 
-        console.log(message);
-
-        // Open a communication channel that awaits a message from the pop out
-        this.communicatorsManager.initializePopoutWindow(videoIndex, message);
-
         // Hide Videos
-        let currentSection = $(`#canvas-columns-${videoIndex}`);
-        currentSection.hide();
-        $(this.videos[videoIndex].zoomCanvas).hide();
+        let currentSection = $(`#masterColumn-${videoIndex}`);
+        currentSection.css('display', 'none');
+        // Open a communication channel that awaits a message from the pop out
+        let openedChannel = this.communicatorsManager.initializePopoutWindow(videoIndex, message);
+
+        if (!openedChannel) {
+            currentSection.css('display', '');
+            generateError("Can't pop out window while already popping out another window!");
+            return;
+        }
 
         // Create the popout window
         let URL = generatePopOutURL();
@@ -685,7 +765,7 @@ class MainWindowManager extends WindowManager {
         // Check for popout failure
         if (!poppedOut || poppedOut.closed || typeof poppedOut.closed == 'undefined') {
             this.communicatorsManager.closeCurrentInitialization();
-            currentSection.show();
+            currentSection.css('display', '');
             generateError("Could not pop out video! Ensure that you have pop-ups enabled for this website!");
         }
     }
@@ -699,7 +779,7 @@ class MainWindowManager extends WindowManager {
 
         index += 1;
         if (index === NUMBER_OF_CAMERAS) {
-            loadSettings();
+            this.loadSettings();
             this.emptyInputModal();
             $("#generic-input-modal").removeClass("is-active");
             $("#blurrable").css("filter", "");

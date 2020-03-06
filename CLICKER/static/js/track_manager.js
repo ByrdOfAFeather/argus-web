@@ -31,13 +31,14 @@ class SubTracksManager {
 
     unstash() {
         if (this.currentTrackStash == null) {
-            return;
+            return false;
         }
         this.track_indicies.push(this.currentTrackStash);
         this.currentTrackStash = null;
+        return true;
     }
 
-    length = () => this.track_indicies.length;
+    length() { return this.track_indicies.length };
 }
 
 
@@ -91,14 +92,6 @@ class TrackManager {
             this.colorIndex += 1;
         }
 
-        // updatePopouts({
-        //     "type": "addNewTrack",
-        //     "data": {
-        //         "track": {
-        //             newTrack
-        //         }
-        //     }
-        // });
         return true;
     }
 
@@ -110,14 +103,6 @@ class TrackManager {
             this.tracks.splice(indexToRemove, 1);
             this.subTracks.remove(index);
 
-            updatePopouts({
-                "type": "removeTrack",
-                "data": {
-                    "track": {
-                        indexToRemove
-                    }
-                }
-            });
             return true;
         }
     }
@@ -130,8 +115,12 @@ class TrackManager {
         this.subTracks.removeIndex(subTrackToRemove);
     }
 
+    resetSubtracks() {
+        this.subTracks = new SubTracksManager();
+    }
+
     findTrack(absoluteIndex) {
-        return this.tracks.filter((value) => value.absoluteIndex == absoluteIndex);
+        return this.tracks.filter((value) => value.absoluteIndex == absoluteIndex)[0];
     }
 
     changeCurrentTrack(absoluteIndex) {
@@ -143,6 +132,6 @@ class TrackManager {
             this.subTracks.stash(absoluteIndex);
             this.subTracks.removeIndex(absoluteIndex);
         }
-        this.currentTrack = this.findTrack(absoluteIndex)[0];
+        this.currentTrack = this.findTrack(absoluteIndex);
     }
 }

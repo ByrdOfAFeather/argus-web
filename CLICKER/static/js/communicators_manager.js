@@ -191,7 +191,7 @@ class CommunicatorsManager {
          *  uses this function.
          */
         if (this.curInitCommunicator !== null) {
-            generateError("Can't pop out window while already popping out another window!");
+            return false;
         }
         this.curInitCommunicator = new BroadcastChannel("unknown-video");
         this.curInitCommunicator.onmessage = () => {
@@ -200,6 +200,7 @@ class CommunicatorsManager {
             this.curInitCommunicator = null;
         };
         this.registerCommunicator(videoIndex);
+        return true;
     }
 
     registerCommunicator(communicatorIndex) {

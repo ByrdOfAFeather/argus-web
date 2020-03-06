@@ -153,15 +153,30 @@ function generateTrackDropDownItem(parsedTrackName, trackIndex, includeDeleteBut
     );
 }
 
+
+function resetTrackDropDownDispSelections() {
+    let dropdown = $("#track-dropdown");
+    dropdown.find(".track-display-box").each(function() { $(this).prop('checked', false) });
+}
+
+
+function addTrackToDropDown(parsedTrackName, index, deleteButton) {
+    // TODO: Undisable any previously disabled boxes
+    let widget = generateTrackDropDownItem(parsedTrackName, index, deleteButton);
+    widget.find(`#track-${index}-disp`).addClass('disabled');
+    $("#track-dropdown").append(widget);
+}
+
 function trackDropDownWidget(onTrackClick, onTrackDisplay, onTrackDelete) {
     /*
-     * TODO: When writing this documentation make sure to include the fact that display and delete need stop propigation lines
+     * TODO: When writing this documentation make sure to include the fact that display and delete need stop propagation lines
      */
     let items = generateTrackDropDownItem("Track 0", 0, false);
     let dropDown = genericDropDownWidget('track', 'Select Track', items, onTrackClick);
 
     dropDown.on('click', '.track-display-box', onTrackDisplay);
-    dropDown.on('click', '.dropdown-item-delete', onTrackDelete)
+    dropDown.on('click', '.dropdown-item-delete', onTrackDelete);
+    return dropDown;
 }
 
 
@@ -320,7 +335,7 @@ function clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick,
     videoCanvas = _canvasWidthAndHeightManager(videoCanvas, 800, 600);
 
     let subTrackCanvas = canvas(`subtrackCanvas-${videoIndex}`, 'sub-track absolute', 'z-index: 3;');
-    subTrackCanvas = _canvasWidthAndHeightManager(subTrackCanvas, 800, 800);
+    subTrackCanvas = _canvasWidthAndHeightManager(subTrackCanvas, 800, 600);
 
     return genericDivWidget("container-for-canvas", `container-for-canvas-${videoIndex}`).append(
         clickableCanvas.on("click", onClick).on("contextmenu", onRightClick).on("mousemove", setMousePos),
@@ -367,7 +382,7 @@ function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrame
         }
         loadPreviewFrameFunction(videoIndex);
     };
-    return genericDivWidget("column").append(
+    return genericDivWidget("column", `masterColumn-${videoIndex}`).append(
         genericDivWidget("container").append(
             genericDivWidget("columns has-text-centered is-multiline", `canvas-columns-${videoIndex}`).append(
                 genericDivWidget("column is-12 video-label-container").append(
@@ -941,10 +956,11 @@ function firstRowOfSettingsWidget(settingsBindings) {
      *  savePoints (event) { Generates a .csv file with options specified by the user }
      *  onLoadPointsChange (event) { Loads points into the Clicked Points manager }
      *  inverseSetting (setting) { settings[setting] = !settings[setting] }
-     *  TODO: these last three pieces of docummentation could stand to be cleaned up
+     *  TODO: these last three pieces of documentation could stand to be cleaned up
      *  onTrackClick (event) { handles what happens when the user is changing to a new track }
      *  onTrackDelete (event) { handles what happens when the user is deleteing a track }
      *  onTrackDisplay (event) { handles what happens when the user whants to display at track }
+     *  onAddTrack (event) { handles what happens when the user adds a new track }
      */
     let widget = genericDivWidget("columns");
     widget.append(
@@ -974,22 +990,18 @@ function firstRowOfSettingsWidget(settingsBindings) {
                         type: "button",
                         class: "button",
                         value: "=>"
-                    }).on("click", function () {
-                        let newTrack = $("#new-track-input").val();
-                        trackManager.addTrack(newTrack);
-                        TrackDropDown.addTrack(newTrack);
-                    }),
+                    }).on("click", settingsBindings.onTrackAdd),
                 )
             )
         ),
 
         // Track Drop Down
         genericDivWidget("column", "track-dropdown-container-column").append(
-        //     trackDropDownWidget(
-        //         settingsBindings.onTrackClick,
-        //         settingsBindings.onTrackDisplay,
-        //         settingsBindings.onTrackDelete
-        //     )
+            trackDropDownWidget(
+                settingsBindings.onTrackClick,
+                settingsBindings.onTrackDisplay,
+                settingsBindings.onTrackDelete
+            )
         ),
 
         // Colorspace drop down
