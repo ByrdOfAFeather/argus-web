@@ -63,8 +63,6 @@ class TrackManager {
             this.currentTrack = this.tracks[0];
         }
 
-
-        // TODO, init a subtrack manager!
         this.subTracks = new SubTracksManager();
     }
 
@@ -113,6 +111,18 @@ class TrackManager {
 
     removeSubTrack(subTrackToRemove) {
         this.subTracks.removeIndex(subTrackToRemove);
+    }
+
+    hasSubTrack(index) {
+        return this.subTracks.hasIndex(index);
+    }
+
+    stashSubtrack(index) {
+        this.subTracks.stash(index);
+    }
+
+    unstashSubtrack() {
+        this.subTracks.unstash();
     }
 
     resetSubtracks() {

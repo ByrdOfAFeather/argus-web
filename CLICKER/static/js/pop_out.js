@@ -155,7 +155,7 @@ function setup(message) {
 
 
     let videoSource = message["dataURL"];
-    document.title = message["videoTitle"];
+    document.title = message["videoName"];
     trackTracker = message["currentTracks"];
     COLORSPACE = message["currentColorSpace"];
     FRAME_RATE = message["frameRate"];

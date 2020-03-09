@@ -182,8 +182,9 @@
                     },
 
                     success: function () {
-                        // TODO CHANGE
-                        alert("Results Saved!");
+                        let successText = $("#auto-save-placeholder");
+                        let now = new Date();
+                        successText.text(`Last saved : ${now.toString()}`);
                     },
                     error: function (error) {
                         if (error.statusCode === 403) {

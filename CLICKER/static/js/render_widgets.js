@@ -156,7 +156,9 @@ function generateTrackDropDownItem(parsedTrackName, trackIndex, includeDeleteBut
 
 function resetTrackDropDownDispSelections() {
     let dropdown = $("#track-dropdown");
-    dropdown.find(".track-display-box").each(function() { $(this).prop('checked', false) });
+    dropdown.find(".track-display-box").each(function () {
+        $(this).prop('checked', false)
+    });
 }
 
 
@@ -650,6 +652,11 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                                             // TODO
                                             let valid = true;
                                             if (valid) {
+                                                parsed.filter = {
+                                                    "brightness": previewBrightness,
+                                                    "contrast": previewContrast,
+                                                    "saturate": previewSaturation,
+                                                };
                                                 parsed.index = context.index;
                                                 parsed.offset = parsed.offset.value;
                                                 parsed.videoName = videoTitle;
@@ -677,6 +684,11 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                                             // }
 
                                             if (valid) {
+                                                parsed.filter = {
+                                                    "brightness": previewBrightness,
+                                                    "contrast": previewContrast,
+                                                    "saturate": previewSaturation,
+                                                };
                                                 parsed.index = context.index;
                                                 parsed.offset = parsed.offset.value;
                                                 parsed.frameRate = parsed.frameRate.value;
@@ -1119,6 +1131,7 @@ function pointSizeSelectorWidget(index) {
 
 
 function settingsInputWidget(settingsBindings) {
+    // TODO: Settings needs a beautification
     return $("<section>", {class: "section"}).append(
         $("<hr>"),
         genericDivWidget("columns is-multiline is-vcentered").append(
@@ -1131,7 +1144,14 @@ function settingsInputWidget(settingsBindings) {
             ),
 
             genericDivWidget("column is-12").append(
-                pointSizeSelectorWidget(0)
+                genericDivWidget("columns is-centered is-vcentered").append(
+                    genericDivWidget("column has-text-centered").append(
+                        $("<p id='auto-save-placeholder'>Last Saved: Never!</p>")
+                    ),
+                    genericDivWidget("column").append(
+                        pointSizeSelectorWidget(0)
+                    )
+                )
             )
         ),
         $("<hr>"),

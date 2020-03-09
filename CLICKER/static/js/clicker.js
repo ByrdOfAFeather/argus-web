@@ -323,7 +323,7 @@ function exportConfig(autoSaved = false) {
     let videoObjects = [];
     for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
         let newVideo = {
-            offset: videos[i].offset
+            offset: windowManager.videos[i].offset
         };
 
         if (communicators.find((elem) => elem.index === i) !== undefined) {
@@ -334,7 +334,7 @@ function exportConfig(autoSaved = false) {
 
         newVideo.name = Video.parseVideoLabel(
             document.getElementById(
-                videos[i].videoLabelID
+                windowManager.videos[i].videoLabelID
             ).innerText
         ).TITLE;
 
@@ -347,12 +347,12 @@ function exportConfig(autoSaved = false) {
         title: PROJECT_NAME,
         description: PROJECT_DESCRIPTION,
         dateSaved: date,
-        points: clickedPoints,
+        points: windowManager.clickedPoints,
         frameTracker: frameTracker,
-        trackTracker: trackTracker,
+        trackTracker: windowManager.trackTracker,
         cameraProfile: CAMERA_PROFILE,
         dltCoefficents: DLT_COEFFICIENTS,
-        settings: settings,
+        settings: windowManager.settings,
         frameRate: FRAME_RATE,
         colorSpace: COLORSPACE
     };

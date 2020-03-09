@@ -192,19 +192,12 @@ class WindowManager {
         }
     }
 
-    redrawWindow(videoIndex, redrawMainTrack = false,) {
+    redrawWindow(videoIndex) {
         // this.videos[videoIndex].clearPoints();
         let currentTrack = this.trackManager.currentTrack;
         let currentPoints = this.clickedPointsManager.getClickedPoints(videoIndex, currentTrack.absoluteIndex);
         let mainTrackInfo = {"points": currentPoints, "color": currentTrack.color};
-        let subTrackInfo = {"trackInfos": []};
-        for (let i = 0; i < this.trackManager.subTracks.length(); i++) {
-            let subTrackIndex = this.trackManager.subTracks.track_indicies[i];
-            let track = this.trackManager.findTrack(subTrackIndex);
-            let points = this.clickedPointsManager.getClickedPoints(videoIndex, subTrackIndex);
-            subTrackInfo.trackInfos.push({"points": points, "color": track.color});
-        }
-        this.videos[videoIndex].loadFrame(mainTrackInfo, subTrackInfo, redrawMainTrack);
+        this.videos[videoIndex].loadFrame(mainTrackInfo);
     }
 
     loadVideoIntoDOM(parsedInputs) {
@@ -222,7 +215,7 @@ class WindowManager {
         deletePoint = callback used whenever a clickable-canvas is rightClicked
          */
         let currentIndex = parsedInputs.index;
-        frameTracker[currentIndex] = 1.001;
+        frameTracker[currentIndex] = 2.001;
         let loadPreviewFrameFunction = (videoIndex) => {
             this.redrawWindow(videoIndex)
         };
@@ -250,9 +243,12 @@ class WindowManager {
         $("#canvases").append(currentClickerWidget);
         this.videos[currentIndex] = new Video(currentIndex, parsedInputs.videoName, parsedInputs.offset);
 
+        this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.brightness;
+        this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.contrast;
+        this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.saturate;
+
         // Forces an update so that the video will be guaranteed to draw at least once
-        let currentVideo = document.getElementById(`video-${currentIndex}`);
-        currentVideo.currentTime = currentVideo.currentTime;
+        this.videos[currentIndex].goToFrame(2.001);
 
         // TODO: Note that at this point there is wasted time in calling a function that
         // draws the preview frame in the modal which is deleted at this point
@@ -362,10 +358,6 @@ class MainWindowManager extends WindowManager {
     }
 
 
-    /*
-     * TODO: I actually had wrappers in track manager to handle the sub track manager,
-     *  Right now however, I use the sub track manager directly, this needs to change! :/
-     */
     onTrackClick(event) {
         let trackID = event.target.id.split('-')[1];
         let oldTrack = this.trackManager.currentTrack.absoluteIndex;
@@ -373,15 +365,15 @@ class MainWindowManager extends WindowManager {
             return;
         }
 
-        this.trackManager.subTracks.addIndex(oldTrack);
+        this.trackManager.addSubTrack(oldTrack);
         // If there is a track that was previously selected as a subtrack, later transitioned to the
         // main track, it will now be put back into the subtrack.
-        let redrawSubTracks = this.trackManager.subTracks.unstash();
+        let redrawSubTracks = this.trackManager.unstashSubtrack();
 
         // If the track we are changing to is currently a subtrack, save it so that it can return
         // to being a subtrack later.
-        if (this.trackManager.subTracks.hasIndex(trackID)) {
-            this.trackManager.subTracks.stash(trackID);
+        if (this.trackManager.hasSubTrack(trackID)) {
+            this.trackManager.stashSubtrack(trackID);
         }
 
         this.trackManager.changeCurrentTrack(trackID);
@@ -405,7 +397,7 @@ class MainWindowManager extends WindowManager {
         let trackID = event.target.id.split('-')[1];
         let isActive = $(`#${event.target.id}`).is(":checked");
         if (isActive) {
-            this.trackManager.subTracks.addIndex(trackID);
+            this.trackManager.addSubTrack(trackID);
             let callback = (videoIndex) => {
                 let track = this.trackManager.findTrack(trackID);
                 let points = this.clickedPointsManager.getClickedPoints(videoIndex, trackID);
@@ -414,7 +406,7 @@ class MainWindowManager extends WindowManager {
             let message = messageCreator("addSubTrack", {track: trackID});
             this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
         } else {
-            this.trackManager.subTracks.removeIndex(trackID);
+            this.trackManager.removeSubTrack(trackID);
             let callback = (videoIndex) => {
                 let infos = this.generateSubTrackInfos(videoIndex);
                 this.videos[videoIndex].removeSubTrack(infos);
@@ -465,7 +457,6 @@ class MainWindowManager extends WindowManager {
             let message = messageCreator("addNewTrack", {name: currentInput});
             this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
         }
-        // TODO Add to dropdown
     }
 
 
@@ -497,10 +488,6 @@ class MainWindowManager extends WindowManager {
         // TODO
     };
 
-    onAddTrack() {
-        // TODO
-    };
-
     loadCameraProfile(event) {
         let selectedFiles = Array.from($(`#${event.target.id}`).prop("files"));
         let reader = new FileReader();
@@ -508,7 +495,6 @@ class MainWindowManager extends WindowManager {
             CAMERA_PROFILE = parseCameraProfile(reader.result, " ");
         };
         reader.readAsText(selectedFiles[0]);
-        // TODO
     }
 
     loadDLTCoefficents(event) {
@@ -674,7 +660,7 @@ class MainWindowManager extends WindowManager {
     }
 
     goBackwardsAFrame(id) {
-        if (frameTracker[id] < 2) {
+        if (frameTracker[id] - 1 < 2) {
             return;
         }
 
@@ -735,7 +721,7 @@ class MainWindowManager extends WindowManager {
             "dataURL": videoURL,
             "index": videoIndex,
             'noOfCameras': NUMBER_OF_CAMERAS,
-            "videoTitle": "TODO", // TODO
+            "videoName": this.videos[videoIndex].name,
             "clickedPoints": this.clickedPointsManager.clickedPoints,
             "offset": this.videos[videoIndex].offset,
             "currentTracks": this.trackManager,
@@ -1033,10 +1019,9 @@ class PopOutWindowManager extends WindowManager {
         }
         console.log("Made and drew new point - sending to end now");
         let index = event.target.id.split('-')[1];
-        // todo : track
         let message = messageCreator("newPoint", {
             "point": point.point,
-            "absoluteTrackIndex": 0, // todo
+            "absoluteTrackIndex": this.trackManager.currentTrack.absoluteIndex,
             "index": index,
             "pointIndex": point.pointIndexInfo.index
         });

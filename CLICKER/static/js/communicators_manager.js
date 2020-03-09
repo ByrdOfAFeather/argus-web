@@ -90,7 +90,7 @@ class CommunicatorsManager {
              *  point: point object created by the popout window
              *         Note that this will also include the frame information so a seperate field is not needed
              *  pointIndex: index where the point is supposed to go in the current track
-             *  absoluteTrackIndex: the absolute index of the track when the point was made TODO
+             *  absoluteTrackIndex: the absolute index of the track when the point was made
              *  }
              */
             this.callbacks['newPoint'](context.data);

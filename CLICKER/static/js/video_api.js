@@ -145,6 +145,15 @@ class Video {
 
     goToFrame(frameNumber) {
         //TODO: NOTE THAT WHEN A USER INPUTS A FRAME NUMBER IT WILL EXTEND ITSELF WITH A .01
+        /*
+         * TODO: This function is broken in Vivaldi on Windows devices up to a point. For some reason using the base
+         *  (converted new1.mp4) video, we end up having a situation where it won't start moving until it is pushed
+         *  along to frame 4, at which points it moves normally. I'm certain this is a bug with the browser, as it does
+         *  this with no other browser on no other platforms. This doesn't seem to be present on all videos. I can't
+         *  figure out what is causing it for this specific video. It's possible this is a problem with my setup, however
+         *  I have tried uninstalling and reinstalling the browser, clearing the cache and it still has the same outcome.
+         *  I have also tried using a virtual machine on the same machine to see if it will break in linux - it won't.
+         */
         let orgFrame = frameNumber;
         frameNumber -= this.offset;
         if (frameNumber >= this.lastFrame - 1) {
