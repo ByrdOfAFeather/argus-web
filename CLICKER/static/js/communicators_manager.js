@@ -45,7 +45,6 @@ class CommunicatorsManager {
     }
 
     updateCommunicators(message) {
-        console.log('update communicators');
         /*
         * This is used by the PopOutWindowManager to go ahead and tell the main window about any changes
         * It's a bit misleading in that there's a forEach, this is mostly for debugging purposes and should
@@ -105,10 +104,17 @@ class CommunicatorsManager {
             // As can be seen below, the message should have a frame value in it's data.
             this.callbacks['goToFrame'](messageContent.data.frame);
         } else if (messageContent.type === "changeTrack") {
+            this.callbacks['changeTrack'](messageContent.data.track);
         } else if (messageContent.type === "addNewTrack") {
+            this.callbacks['addNewTrack'](messageContent.data.name)
+        } else if (messageContent.type === "addSubTrack") {
+            this.callbacks["addSubTrack"](messageContent.data.track);
+        } else if (messageContent.type === "removeSubTrack") {
+            this.callbacks["removeSubTrack"](messageContent.data.track);
         } else if (messageContent.type === "drawEpipolarLine") {
+            this.callbacks['drawEpipolarLine'](messageContent.data.lineInfo);
         } else if (messageContent.type === "drawDiamond") {
-        } else if (messageContent.type === "updateSecondaryTracks") {
+            this.callbacks['drawDiamond'](messageContent.data.x, messageContent.data.y);
         } else if (messageContent.type === "loadPoints") {
         } else if (messageContent.type === "changeColorSpace") {
         } else if (messageContent.type === "mainWindowDeath") {

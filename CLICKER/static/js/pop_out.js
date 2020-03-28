@@ -170,7 +170,12 @@ function setup(message) {
     let parsed = {
         index: message.index,
         offset: offset,
-        frame: initFrame
+        frame: initFrame,
+        filter: {
+            "brightness": "",
+            "saturate": "",
+            "contrast": ""
+        }
     };
 
     loadHiddenVideo(videoSource, message.index, () => {

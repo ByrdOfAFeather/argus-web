@@ -129,7 +129,7 @@ function generateTrackDropDownItem(parsedTrackName, trackIndex, includeDeleteBut
             $("<button>", {class: "dropdown-item-delete delete", id: `track-${trackIndex}-delete`}).text("Delete")
         );
     }
-    return genericDivWidget('dropdown-content').append(
+    return genericDivWidget('dropdown-content', `track-${trackIndex}-container`).append(
         genericDivWidget('container').append(
             genericDivWidget('level').append(
                 genericDivWidget('level-left').append(
@@ -157,17 +157,22 @@ function generateTrackDropDownItem(parsedTrackName, trackIndex, includeDeleteBut
 function resetTrackDropDownDispSelections() {
     let dropdown = $("#track-dropdown");
     dropdown.find(".track-display-box").each(function () {
+        $(this).removeClass("disabled");
         $(this).prop('checked', false)
     });
 }
 
 
 function addTrackToDropDown(parsedTrackName, index, deleteButton) {
-    // TODO: Undisable any previously disabled boxes
     let widget = generateTrackDropDownItem(parsedTrackName, index, deleteButton);
     widget.find(`#track-${index}-disp`).addClass('disabled');
     $("#track-dropdown").append(widget);
 }
+
+function removeTrackFromDropDown(trackID) {
+    $(`#track-${trackID}-container`).remove();
+}
+
 
 function trackDropDownWidget(onTrackClick, onTrackDisplay, onTrackDelete) {
     /*

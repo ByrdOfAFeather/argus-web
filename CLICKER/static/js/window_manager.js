@@ -8,8 +8,8 @@ class WindowManager {
     constructor() {
         this.trackManager = new TrackManager();
         this.videos = [];
+        this.videosToSizes = {};
         this.clickedPointsManager = null; // Implement in subclasses
-        this.communicators = null; // Implement in subclasses
         this.locks = {
             "can_click": true,
             "init_frame_loaded": false,
@@ -156,13 +156,25 @@ class WindowManager {
             } else {
                 this.videos[index].goToFrame(parsedInput);
             }
-            getEpipolarLinesOrUnifiedCoord(index, parsedInput);
+            // TODO this will eventually prevent this from being used twice and that would be sad :[
+            this.getEpipolarInfo(index, parsedInput);
             $("#canvas-0").focus();
         };
 
         let label = `What frame would you like to go to for ${this.videos[index].name}?`;
         let errorText = "You have to input a valid integer!";
         getGenericStringLikeInput(validate, callback, label, errorText);
+    }
+
+    generateSubTrackInfos(videoIndex) {
+        let infos = [];
+        for (let j = 0; j < this.trackManager.subTracks.length(); j++) {
+            let currentIndex = this.trackManager.subTracks.track_indicies[j];
+            let currentTrack = this.trackManager.findTrack(currentIndex);
+            let currentPoints = this.clickedPointsManager.getClickedPoints(videoIndex, currentIndex);
+            infos.push({"points": currentPoints, "color": currentTrack.color});
+        }
+        return infos;
     }
 
     deletePoint() {
@@ -242,7 +254,10 @@ class WindowManager {
         );
         $("#canvases").append(currentClickerWidget);
         this.videos[currentIndex] = new Video(currentIndex, parsedInputs.videoName, parsedInputs.offset);
-
+        this.videosToSizes[currentIndex] = {
+            'height': this.videos[currentIndex].video.videoHeight,
+            'width': this.videos[currentIndex].video.videoWidth
+        };
         this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.brightness;
         this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.contrast;
         this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.saturate;
@@ -260,6 +275,21 @@ class WindowManager {
             loadPreviewFrameFunction(currentIndex);
             this.locks.can_click = true;
         });
+    }
+
+    clearEpipolarCanvases() {
+        for (let cameraIndex = 0; cameraIndex < NUMBER_OF_CAMERAS; cameraIndex++) {
+            let curVideo = this.videos[cameraIndex];
+            if (curVideo === undefined) {
+                continue;
+            }
+
+            this.videos[cameraIndex].epipolarCanvasContext.clearRect(
+                0,
+                0,
+                curVideo.epipolarCanvas.width,
+                curVideo.epipolarCanvas.height);
+        }
     }
 
     messageCreator(type, data) {
@@ -281,6 +311,10 @@ class MainWindowManager extends WindowManager {
                 frameTracker[context.index] = context.frame;
                 if (this.settings['sync']) {
                     this.syncVideos(context, true);
+                } else {
+                    this.videos[context.index].goToFrame(context.frame);
+                    this.clearEpipolarCanvases();
+                    this.getEpipolarInfo(context.index, frameTracker[context.index ]);
                 }
             },
             'popoutDeath': (context) => {
@@ -301,8 +335,8 @@ class MainWindowManager extends WindowManager {
                     $(this.videos[context.index].video).unbind("canplay", drawPoints);
                 };
                 $(this.videos[context.index].video).on("canplay", drawPoints);
-
-                // getEpipolarLinesOrUnifiedCoord(context.index, frameTracker[context.index]);
+                this.clearEpipolarCanvases();
+                this.getEpipolarInfo(context.index, frameTracker[context.index]);
             },
             'newPoint': (context) => {
                 let point = context.point;
@@ -318,6 +352,9 @@ class MainWindowManager extends WindowManager {
                 if (this.settings['auto-advance']) {
                     context['frame'] = point.frame; // required for autoAdvance & sync functions
                     this.autoAdvance(context, false);
+                } else {
+                    this.clearEpipolarCanvases();
+                    this.getEpipolarInfo(index, frameTracker[index]);
                 }
             },
             'initLoadFinished': () => {
@@ -331,30 +368,17 @@ class MainWindowManager extends WindowManager {
     // Settings Module
 
 
-    updateCheckboxesOnChangeTrack(oldIndex, newIndex) {
+    updateCheckboxesOnChangeTrack(oldIndex, newIndex, trackUnstashed) {
         // TODO Check the stash to see if the checked value needs to be disabled
         let oldTrackCheckbox = $(`#track-${oldIndex}-disp`);
-        // if (oldIndex !== this.trackManager.subTracks.currentTrackStash) {
-        //     oldTrackCheckbox.prop("checked", false);
-        // }
+        if (!trackUnstashed) {
+            oldTrackCheckbox.prop("checked", false);
+        }
         oldTrackCheckbox.removeClass('disabled');
-
 
         let newTrackCheckbox = $(`#track-${newIndex}-disp`);
         newTrackCheckbox.prop("checked", true);
         newTrackCheckbox.addClass('disabled');
-    }
-
-
-    generateSubTrackInfos(videoIndex) {
-        let infos = [];
-        for (let j = 0; j < this.trackManager.subTracks.length(); j++) {
-            let currentIndex = this.trackManager.subTracks.track_indicies[j];
-            let currentTrack = this.trackManager.findTrack(currentIndex);
-            let currentPoints = this.clickedPointsManager.getClickedPoints(videoIndex, currentIndex);
-            infos.push({"points": currentPoints, "color": currentTrack.color});
-        }
-        return infos;
     }
 
 
@@ -364,8 +388,7 @@ class MainWindowManager extends WindowManager {
         if (trackID == oldTrack) {
             return;
         }
-
-        this.trackManager.addSubTrack(oldTrack);
+        this.clearEpipolarCanvases();
         // If there is a track that was previously selected as a subtrack, later transitioned to the
         // main track, it will now be put back into the subtrack.
         let redrawSubTracks = this.trackManager.unstashSubtrack();
@@ -377,7 +400,7 @@ class MainWindowManager extends WindowManager {
         }
 
         this.trackManager.changeCurrentTrack(trackID);
-        this.updateCheckboxesOnChangeTrack(oldTrack, trackID);
+        this.updateCheckboxesOnChangeTrack(oldTrack, trackID, redrawSubTracks);
 
 
         let callback = (videoIndex) => {
@@ -419,12 +442,15 @@ class MainWindowManager extends WindowManager {
     onTrackDelete(event) {
         event.stopPropagation();
         let trackID = event.target.id.split('-')[1];
+        // change to default track (can't be deleted)
+        this.trackManager.changeCurrentTrack(0);
         this.trackManager.removeTrack(trackID);
         this.clickedPointsManager.removeTrack(trackID);
+        removeTrackFromDropDown(trackID);
         let callback = (i) => {
             // Gets the default track
             let points = this.clickedPointsManager.getClickedPoints(i, 0);
-            let track = this.trackManager.findTrack(0);
+            let track = this.trackManager.currentTrack;
             this.videos[i].changeTracks(points, track.color);
         };
         let message = messageCreator("removeTrack", {track: trackID});
@@ -451,6 +477,7 @@ class MainWindowManager extends WindowManager {
             let callback = (i) => {
                 let points = this.clickedPointsManager.getClickedPoints(i, indexOfLastAdded);
                 let track = this.trackManager.currentTrack;
+                this.clearEpipolarCanvases();
                 this.videos[i].changeTracks(points, track.color);
                 this.videos[i].resetSubtracks();
             };
@@ -502,7 +529,7 @@ class MainWindowManager extends WindowManager {
         let reader = new FileReader();
         reader.onload = function () {
             // TODO: Not sure why there is a separator here, was I supposed to ask the user what separator they use?
-            DLT_COEFFICIENTS = parseDLTCoefficents(reader.result, " ");
+            DLT_COEFFICIENTS = parseDLTCoefficents(reader.result, ",");
         };
         reader.readAsText(selectedFiles[0]);
     }
@@ -531,41 +558,11 @@ class MainWindowManager extends WindowManager {
         let callback = (index) => {
             this.videos[index].goToFrame(context.frame);
         };
-        let message = messageCreator("goToFrame", {"frame": context.frame, "identification": "BRUH."});
+        let message = messageCreator("goToFrame", {"frame": context.frame});
         let doNotUpdate = ignoreindex === true ? context.index : null;
         this.communicatorsManager.updateAllLocalOrCommunicator(callback, message, doNotUpdate);
-    }
-
-
-    getVideosWithTheSameFrame(video) {
-        return Object.keys(frameTracker).filter(
-            (videoIndex) => Math.floor(frameTracker[videoIndex]) === Math.floor(frameTracker[video]));
-    }
-
-
-    getPointsInFrame(videosWithTheSameFrame, frameNumber) {
-        let points = [];
-        let lines = [];
-        for (let videoIndex = 0; videoIndex < videosWithTheSameFrame.length; videoIndex++) {
-            let curVideoIndex = videosWithTheSameFrame[videoIndex];
-            let localPoints = clickedPoints[curVideoIndex][trackTracker["currentTrack"]];
-            let indexOfPoints = 0;
-            if (localPoints.filter(function (point, index) {
-                if (Math.floor(point.frame) === Math.floor(frameNumber)) {
-                    indexOfPoints = index;
-                    return true;
-                } else {
-                    return false;
-                }
-            }).length !== 0) {
-                points.push({
-                    videoIndex: videosWithTheSameFrame[videoIndex],
-                    pointIndex: indexOfPoints
-                });
-                lines.push(getEpipolarLines(curVideoIndex, DLT_COEFFICIENTS, indexOfPoints));
-            }
-        }
-        return [points, lines];
+        this.clearEpipolarCanvases();
+        this.getEpipolarInfo(index, frameTracker[index]);
     }
 
 
@@ -574,69 +571,60 @@ class MainWindowManager extends WindowManager {
         let currentPoint = reconstructUV(DLT_COEFFICIENTS[videoIndex], result[result.length - 1]);
 
         if (!checkCoordintes(currentPoint[0][0], currentPoint[0][1],
-            videos[videoIndex].epipolarCanvas.height, videos[videoIndex].epipolarCanvas.width)) {
+            this.videos[videoIndex].epipolarCanvas.height, this.videos[videoIndex].epipolarCanvas.width)) {
             generateError("Points that did not exist were calculated when locating the " +
                 "point in 2D space, please check your DLT coefficients and camera profiles");
         }
 
 
-        let callback = function (i) {
-            videos[i].drawDiamond(
+        let callback = (i) => {
+            this.videos[i].drawDiamond(
                 currentPoint[0][0],
                 currentPoint[1][0], 10, 10,
             );
         };
         let message = messageCreator("drawDiamond", {
-            point1: currentPoint[0][0],
-            point2: currentPoint[1][0],
+            x: currentPoint[0][0],
+            y: currentPoint[1][0],
         });
-        updateLocalOrCommunicator(parseInt(videoIndex, 10), callback, message);
+        this.communicatorsManager.updateLocalOrCommunicator(parseInt(videoIndex, 10), callback, message);
     }
 
-    getEpipolarLinesOrUnifiedCoord(videoCalledFrom, frameNumber) {
-        let videosWithTheSameFrame = getVideosWithTheSameFrame(videoCalledFrom);
-        if (videosWithTheSameFrame.length > 1 && DLT_COEFFICIENTS !== null) {
-            let pointsAndLines = getPointsInFrame(videosWithTheSameFrame, frameNumber);
-            let points = pointsAndLines[0];
-            let lines = pointsAndLines[1];
 
-            if (points.length >= 2) {
-                let pointsToReconstruct = [];
-                for (let i = 0; i < points.length; i++) {
-                    let currentVideoIndex = points[i].videoIndex;
-                    let currentPointIndex = points[i].pointIndex;
-                    let currentTrack = trackTracker.currentTrack;
-                    pointsToReconstruct.push([clickedPoints[currentVideoIndex][currentTrack][currentPointIndex]]);
+    getEpipolarInfo(referenceVideo, frame) {
+        let currentTrack = this.trackManager.currentTrack.absoluteIndex;
+        let pointHelper = (videoIndex, track) => {
+            return this.clickedPointsManager.getClickedPoints(videoIndex, track);
+        };
+
+        getEpipolarLinesOrUnifiedCoord(referenceVideo, frame, currentTrack, this.videosToSizes, pointHelper).then(
+            (result) => {
+                if (result === null) {
+                    return;
                 }
-                uvToXyz(pointsToReconstruct,
-                    null, DLT_COEFFICIENTS).then(
-                    (result) => {
-                        for (let i = 0; i < 1; i++) {
-                            for (let j = 0; j < points.length; j++) {
-                                let videoIndex = points[j].videoIndex;
-                                drawDiamonds(videoIndex, result);
-                            }
-                        }
+                if (result.type === 'epipolar') {
+                    let lines = result.result;
+                    for (let i = 0; i < lines.length; i++) {
+                        let lineInformation = lines[i][0][0];
+                        let videoIndex = lines[i][0][1];
+                        let callback = (i) => {
+                            this.videos[i].drawEpipolarLine(lineInformation)
+                        };
+                        let message = messageCreator("drawEpipolarLine", {
+                            "lineInfo": lineInformation
+                        });
+                        this.communicatorsManager.updateLocalOrCommunicator(videoIndex, callback, message);
                     }
-                );
-            } else {
-                for (let i = 0; i < lines.length; i++) {
-                    let lineInformation = lines[i][0][0];
-                    let videoIndex = lines[i][0][1];
-
-                    let callback = (i) => {
-                        videos[i].drawEpipolarLine(lineInformation);
-                    };
-                    let message = messageCreator("drawEpipolarLine", {
-                        "tmp": lineInformation
-                    });
-
-                    updateLocalOrCommunicator(videoIndex, callback, message);
+                } else if (result.type === 'unified') {
+                    let points = result.result[1];
+                    let xyz = result.result[0];
+                    for (let j = 0; j < points.length; j++) {
+                        let videoIndex = points[j].videoIndex;
+                        this.drawDiamonds(videoIndex, xyz);
+                    }
                 }
-            }
-        }
+            });
     }
-
 
     // Keyboard Inputs \\
     goForwardAFrame(id) {
@@ -656,7 +644,8 @@ class MainWindowManager extends WindowManager {
         } else {
             this.videos[id].moveToNextFrame();
         }
-        // getEpipolarLinesOrUnifiedCoord(id, frame);
+        this.clearEpipolarCanvases();
+        this.getEpipolarInfo(id, frame);
     }
 
     goBackwardsAFrame(id) {
@@ -668,6 +657,8 @@ class MainWindowManager extends WindowManager {
         if (settings["sync"] === true) {
             let callback = (i) => {
                 this.videos[i].goToFrame(frame);
+                this.clearEpipolarCanvases();
+                this.getEpipolarInfo(id, frame);
             };
             let message = messageCreator("goToFrame", {frame: frame});
 
@@ -678,8 +669,11 @@ class MainWindowManager extends WindowManager {
 
         } else {
             this.videos[id].goToFrame(frameTracker[id] - 1);
+            this.clearEpipolarCanvases();
+            this.getEpipolarInfo(id, frame);
         }
-        // getEpipolarLinesOrUnifiedCoord(id, frame);
+        this.clearEpipolarCanvases();
+        this.getEpipolarInfo(id, frame);
     }
 
     // Keyboard Inputs End \\
@@ -904,6 +898,8 @@ class MainWindowManager extends WindowManager {
 
                 let localCallback = (index) => {
                     this.videos[index].moveToNextFrame();
+                    this.clearEpipolarCanvases();
+                    this.getEpipolarInfo(index, frameTracker[index]);
                 };
 
                 let message = this.messageCreator("goToFrame", {frame: point.frame + 1});
@@ -911,10 +907,12 @@ class MainWindowManager extends WindowManager {
                 this.communicatorsManager.updateAllLocalOrCommunicator(localCallback, message);
             } else {
                 this.videos[index].moveToNextFrame();
+                this.clearEpipolarCanvases();
+                this.getEpipolarInfo(index, frameTracker[index]);
             }
         } else {
-            Video.clearEpipolarCanvases();
-            this.getEpipolarLinesOrUnifiedCoord(index, frameTracker[index]);
+            this.clearEpipolarCanvases();
+            this.getEpipolarInfo(index, frameTracker[index]);
         }
     }
 
@@ -930,12 +928,15 @@ class PopOutWindowManager extends WindowManager {
 
         let callbacks = {
             "goToFrame": (frame) => {
-                console.log("I was told to go to a new frame, here I go!");
                 this.videos[currentVideo].goToFrame(frame);
+                this.clearEpipolarCanvases();
             },
             "changeTrack": (newTrackAbsoluteIndex) => {
                 this.trackManager.changeCurrentTrack(newTrackAbsoluteIndex);
-                this.videos[currentVideo].changeTrack(newTrackAbsoluteIndex);
+                let points = this.clickedPointsManager.getClickedPoints(currentVideo, newTrackAbsoluteIndex);
+                let color = this.trackManager.currentTrack.color;
+                this.clearEpipolarCanvases();
+                this.videos[currentVideo].changeTracks(points, color);
             },
             "addNewTrack": (newTrackName) => {
                 // TODO: NEEDS WORK
@@ -943,17 +944,31 @@ class PopOutWindowManager extends WindowManager {
                 let newTrackIndex = this.trackManager.nextUnusedIndex - 1;
                 this.trackManager.changeCurrentTrack(newTrackIndex);
                 this.clickedPointsManager.addTrack(newTrackIndex);
+                this.clearEpipolarCanvases();
                 this.videos[currentVideo].changeTracks(newTrackIndex);
             },
-            "drawEpipolarLine": () => {
-                // TODO
+            "addSubTrack": (subTrackID) => {
+                this.trackManager.addSubTrack(subTrackID);
+                let track = this.trackManager.findTrack(subTrackID);
+                let points = this.clickedPointsManager.getClickedPoints(currentVideo, subTrackID);
+                this.videos[currentVideo].addSubTrack({"points": points, "color": track.color});
             },
-            "drawDiamond": () => {
-                // TODO
+
+            "removeSubTrack": (subTrackID) => {
+                this.trackManager.removeSubTrack(subTrackID);
+                let infos = this.generateSubTrackInfos(currentVideo);
+                this.videos[currentVideo].removeSubTrack(infos);
             },
-            "updateSecondaryTracks": () => {
-                // TODO
+
+            "drawEpipolarLine": (lineInfo) => {
+                this.clearEpipolarCanvases();
+                this.videos[currentVideo].drawEpipolarLine(lineInfo);
             },
+            "drawDiamond": (x, y) => {
+                this.clearEpipolarCanvases();
+                this.videos[currentVideo].drawDiamond(x, y, 10, 10);
+            },
+
             "loadPoints": () => {
                 // TODO
             },
@@ -970,6 +985,7 @@ class PopOutWindowManager extends WindowManager {
     }
 
     goForwardAFrame(id) {
+        this.clearEpipolarCanvases();
         this.videos[id].moveToNextFrame();
 
         // TODO: not sure if frameTracker exists in the pop out or if it does
@@ -982,13 +998,15 @@ class PopOutWindowManager extends WindowManager {
     }
 
     goBackwardsAFrame(id) {
+        this.clearEpipolarCanvases();
         if (frameTracker[id] < 2) {
             return;
         }
 
         let frame = frameTracker[id] - 1;
+        this.videos[id].goToFrame(frame);
         frameTracker[id] = frame;
-        let message = messageCreator("goToFrame", {frame: frame});
+        let message = messageCreator("goToFrame", {frame: frame, index: id});
         this.communicatorsManager.updateCommunicators(message);
     }
 
