@@ -129,8 +129,7 @@ class CommunicatorsManager {
          * Main Window but if a communicator exists for it, it is also popped out and invisible)
          *
          * TODO: Is this part of this function ever actually used?
-         * If this function is being called from a popped out window, we know that the video is in the DOM
-         * but if we are updating a communicator, it must be the main window communicator
+         * If this function is being called from a popped out window, it must be the main window communicator
          */
         if (this.state === STATES.POP_OUT) {
             this.communicators[0].communicator.postMessage(message);

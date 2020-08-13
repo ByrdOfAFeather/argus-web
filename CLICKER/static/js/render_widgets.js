@@ -99,7 +99,7 @@ function generateDropDownItems(itemNames) {
     return itemNames.map((value) => dropDownItemWidget(value.toLowerCase().replace(".", "-"), value));
 }
 
-function colorSpaceDropDownWidget(colorSpaceIndex, redrawVideosFunction) {
+function colorSpaceDropDownWidget(colorSpaceIndex, redrawVideosFunction, videoIndex, defaultValue = RGB) {
     /*
      * Generates a colorspace dropdown containing two items (RGB & GRAYSCALE)
      *
@@ -107,11 +107,11 @@ function colorSpaceDropDownWidget(colorSpaceIndex, redrawVideosFunction) {
      *  multiple IDs so they aren't canceling each other out.
      */
     let items = generateDropDownItems(["RGB", "Grayscale"]);
-    return genericDropDownWidget(`colorspace-${colorSpaceIndex}`, "RGB", items, function (e) {
+    return genericDropDownWidget(`colorspace-${colorSpaceIndex}`, colorspaceToText(defaultValue), items, function (e) {
         let container = $(`#colorspace-${colorSpaceIndex}-dropdown-container`);
 
         let newSelection = $(e.target).text();
-        changeColorSpace(newSelection.toLowerCase() === "rgb" ? RGB : GREYSCALE);
+        VIDEO_TO_COLORSPACE[videoIndex] = newSelection.toLowerCase() === "rgb" ? RGB : GREYSCALE;
         if (container.hasClass("is-active")) {
             container.removeClass("is-active");
         }
@@ -187,7 +187,7 @@ function trackDropDownWidget(onTrackClick, onTrackDisplay, onTrackDelete) {
 }
 
 
-function frameRateDropDownWidget() {
+function frameRateDropDownWidget(defaultValue = '30') {
     let COMMON_FRAME_RATES = [
         '29.97',
         '30',
@@ -246,7 +246,7 @@ function frameRateDropDownWidget() {
 
     let items = generateDropDownItems(COMMON_FRAME_RATES);
     items.push(dropDownItemWidget("frameRate-custom", "Custom", updateDropDownAndShowCustomForm));
-    return genericDropDownWidget('frame-rate', 'Select Framerate', items, updateDropDown).append(
+    return genericDropDownWidget('frame-rate', defaultValue, items, updateDropDown).append(
         genericDivWidget("is-not-display", "custom-frame-rate-container").append(
             genericDivWidget("columns has-margin-left is-gapless").append(
                 genericDivWidget("column is-4", "frame-rate-input-container").append(
@@ -267,11 +267,15 @@ function tooltipBuilder(helpText, multiline, style, direction) {
     return $("<button>", {
         class:
             `is-primary tooltip-button has-tooltip-${direction} ${multiline === true ? 'has-tooltip-multiline' : ''}`,
+        tabindex: -1
     }).attr(
         'data-tooltip',
         `${helpText}`
     ).append(
-        $(`<i class="fas fa-question-circle is-primary ${style}"></i>`)
+        $("<i>", {
+            class: `fas fa-question-circle is-primary ${style}`,
+            tabindex: -1
+        })
     )
 }
 
@@ -353,7 +357,7 @@ function clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick,
 }
 
 function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrameFunction,
-                       onKeyboardInput, onClick, onRightClick, setMousePos) {
+                       onKeyboardInput, onClick, onRightClick, setMousePos, initStyleValues) {
     /*
     videoIndex: Integer representing the video that this widget is being rendered for. There should be one
     canvas widget per video.
@@ -412,7 +416,8 @@ function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrame
                             `contrast-${videoIndex}`,
                             `saturation-${videoIndex}`,
                             updateVideoProperties,
-                            LABEL_STYLES.DARK
+                            LABEL_STYLES.DARK,
+                            initStyleValues
                         ),
                         genericDivWidget('column').append(
                             canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas", "z-index: 2;").attr(
@@ -432,7 +437,10 @@ function sliderWidget(id, min, max, initVal, onChange) {
     return $(`<input id="${id}" class="slider is-fullwidth" step="1" min="${min}" max="${max}" value="${initVal}" type="range">`).on('change', onChange);
 }
 
-function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, updateVideoProperties, labelStyle) {
+function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, updateVideoProperties, labelStyle,
+                                    initValues = {
+                                        brightness: '100', saturation: '100', 'contrast': '100'
+                                    }) {
     /*
     brightnessID: String representing what the desired unique identifier is for the brightness slider
     contrastID: String representing what the desired unique identifier is for the contrast slider
@@ -453,27 +461,30 @@ function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, upda
 
     return [genericDivWidget("column is-12").append(
         tooltipLabelWidget("Brightness", labelStyle, `${brightnessTooltipText}`, "top"),
-        sliderWidget(`${brightnessID}`, "0", "200", "100", function () {
+        sliderWidget(`${brightnessID}`, "0", "200", initValues.brightness, function () {
             updateVideoProperties(`${brightnessID}`);
         })),
         genericDivWidget("column is-12").append(
             tooltipLabelWidget("Contrast", labelStyle, `${contrastTooltipText}`, "top"),
-            sliderWidget(`${contrastID}`, '0', '100', '100', function () {
+            sliderWidget(`${contrastID}`, '0', '100', initValues.contrast, function () {
                 updateVideoProperties(`${contrastID}`)
             }),
         ),
         genericDivWidget("column is-12").append(
             tooltipLabelWidget("Saturation", labelStyle, `${saturationTooltipText}`, "top"),
-            sliderWidget(`${saturationID}`, '0', '100', '100', function () {
+            sliderWidget(`${saturationID}`, '0', '100', initValues.saturation, function () {
                 updateVideoProperties(`${saturationID}`)
             }),
         )]
 }
 
-function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, saveCallback, context) {
+function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, context, saveCallback, currentSettings) {
     // TODO : Clean Up
+    VIDEO_TO_COLORSPACE[context.index] = currentSettings.filter.colorspace; // Default to RGB, also will just reassign
+    FRAME_RATE = currentSettings.frameRate;
+    POINT_RADIUS_TO_VIDEO[context.index] = currentSettings.pointSize;
 
-    let colorSpaceDropDown = colorSpaceDropDownWidget(1, loadPreviewFrameFunction);
+    let colorSpaceDropDown = colorSpaceDropDownWidget(1, loadPreviewFrameFunction, context.index, currentSettings.filter.colorspace);
 
     // This lets the form look a little nicer by expanding the colorspace dropdown and its options to full width
     let triggerButton = colorSpaceDropDown.find("#colorspace-1-trigger");
@@ -484,10 +495,10 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
     optionMenu.addClass("has-text-centered");
     optionMenu.css("width", "100%");
 
-    let parseSetings = (context) => {
-        function validateFloatValue(stringValue) {
+    let parseSettings = (context) => {
+        function validatePositiveFloatValue(stringValue, nonzero = false) {
             let parsedFloat = parseFloat(stringValue);
-            if (!isNaN(parsedFloat)) {
+            if (!isNaN(parsedFloat) && !(parsedFloat === 0 && nonzero)) {
                 return {"valid": true, value: parsedFloat};
             } else {
                 return {"valid": false, value: null};
@@ -496,9 +507,9 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
 
         // Returns if settings are valid and if not which ones are invalid
         let parsed = {};
-        parsed["offset"] = validateFloatValue(context.offset);
-        parsed["frameRate"] = validateFloatValue(context.frameRate);
-        parsed["pointSize"] = validateFloatValue(context.pointSize);
+        parsed["offset"] = validatePositiveFloatValue(context.offset);
+        parsed["frameRate"] = validatePositiveFloatValue(context.frameRate, true);
+        parsed["pointSize"] = validatePositiveFloatValue(context.pointSize);
         return parsed;
     };
 
@@ -508,7 +519,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
             "Argus-web doesn't support multiple " +
             "framerates across videos, this value should be the framerate of all of the videos selected",
             "right"),
-        frameRateDropDownWidget()
+        frameRateDropDownWidget(currentSettings["frameRate"].toString())
     );
 
     // This is due to the fact that we only support global frame rates and thus we won't have frame rate input for
@@ -553,9 +564,64 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
         $(`#${id}-error`).remove();
     };
 
-    let previousButton = $("<button>", {class: "button", id: "preview-init-settings-button"}).text("Previous");
+    let validateFormAndSubmit = (previous = false) => {
+        let parsed = parseSettings({
+            "frameRate": FRAME_RATE,
+            "offset": $("#offset-input").val(),
+            "pointSize": $("#preview-point-size-input").val()
+        });
+
+        // Parsing
+        let valid = true;
+        if (context.index === 0) {
+            if (!parsed["frameRate"]["valid"]) {
+                valid = false;
+                let frameRateErrorText = "Framerate must be a valid number!";
+                appendError("framerate-column", frameRateErrorText);
+            } else {
+                removeError("framerate-column");
+            }
+        }
+        if (!parsed['offset']['valid']) {
+            valid = false;
+            let offsetErrorText = "Offset must be a valid number!";
+            appendError("offset-controller", offsetErrorText);
+        } else {
+            removeError("offset-controller");
+        }
+
+        if (valid) {
+            parsed.filter = {
+                "colorspace": VIDEO_TO_COLORSPACE[context.index],
+                "brightness": previewBrightness,
+                "contrast": previewContrast,
+                "saturate": previewSaturation,
+            };
+            parsed.index = context.index;
+            parsed.offset = parsed.offset.value;
+            parsed.frameRate = parsed.frameRate.value;
+            parsed.videoName = videoTitle;
+            parsed.pointSize = POINT_RADIUS_TO_VIDEO[context.index];
+            saveCallback(parsed, previous);
+        }
+    }
+
+    let previousButton = $("<button>", {class: "button", id: "preview-init-settings-button"}).text("Previous").on(
+        "click", () => validateFormAndSubmit(true)
+    );
     if (!context.previousButton) {
         previousButton = null;
+    }
+
+    let offsetField = genericDivWidget("controller", "offset-controller").append(
+        $("<input>", {
+            class: "input",
+            id: "offset-input",
+            placeholder: "In Frames",
+            value: currentSettings["offset"] === -1 ? "" : currentSettings["offset"]
+        }));
+    if (currentSettings["offset"] !== -1) {
+        offsetField.val(currentSettings["offset"]);
     }
 
     // The margin: 0 lets animation smoothly transition from one modal-state to the next ( if there are multiple ).
@@ -574,9 +640,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                                     "Your videos may start at different places, " +
                                     " the difference in starting points is the offset (in frames).",
                                     "right"),
-                                genericDivWidget("controller", "offset-controller").append(
-                                    $("<input>", {class: "input", id: "offset-input", placeholder: "In Frames"})
-                                )
+                                offsetField
                             ),
                         ),
                         frameRateInput
@@ -593,23 +657,31 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                             colorSpaceDropDown,
                         ),
                         genericDivWidget("column is-narrow").append(
-                            tooltipLabelWidget("Point Size", LABEL_STYLES.LIGHT,
-                                "This controls the radius of your points, the larger it is, the easier it" +
-                                " will be to see. However, this will cause overlap with other points",
-                                "left"),
+                            genericDivWidget("columns").append(
+                                genericDivWidget("column is-narrow").append(
+                                    tooltipLabelWidget("Point Size", LABEL_STYLES.LIGHT,
+                                        "This controls the radius of your points, the larger it is, the easier it" +
+                                        " will be to see. However, this will cause overlap with other points",
+                                        "left"),
 
-                            $("<input>", {
-                                class: "input",
-                                type: "text",
-                                id: "preview-point-size-input",
-                                placeholder: "Set size"
-                            }).on("keyup", function () {
-                                POINT_RADIUS = parseFloat($("#preview-point-size-input").val()) / 2;
-                                loadPreviewFrameFunction();
-                            })
-                        )
-                    ),
-                ),
+                                    $("<input>", {
+                                        class: "input",
+                                        type: "text",
+                                        id: "preview-point-size-input",
+                                        placeholder: "Set size",
+                                        value: currentSettings.pointSize
+                                    }).on("keyup", function () {
+                                            POINT_RADIUS_TO_VIDEO[context.index] = parseFloat($("#preview-point-size-input").val());
+                                            loadPreviewFrameFunction();
+                                        }
+                                    )
+                                ),
+                                genericDivWidget("column is-narrow").append(
+                                    // TODO: Dropdown for color options for points
+                                )
+                            )
+                        ),
+                    )),
 
                 genericDivWidget("column is-12").append(
                     genericDivWidget("columns is-multiline").append(
@@ -647,60 +719,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, save
                                         class: "button",
                                         id: 'save-init-settings-button'
                                     }).on("click", function () {
-                                        let parsed = parseSetings({
-                                            "frameRate": FRAME_RATE,
-                                            "offset": $("#offset-input").val(),
-                                            "pointSize": $("#preview-point-size-input").val()
-                                        });
-
-                                        if (context.index !== 0) {
-                                            // TODO
-                                            let valid = true;
-                                            if (valid) {
-                                                parsed.filter = {
-                                                    "brightness": previewBrightness,
-                                                    "contrast": previewContrast,
-                                                    "saturate": previewSaturation,
-                                                };
-                                                parsed.index = context.index;
-                                                parsed.offset = parsed.offset.value;
-                                                parsed.videoName = videoTitle;
-                                                saveCallback(parsed);
-                                            }
-                                        } else {
-                                            let valid = true;
-                                            if (!parsed["frameRate"]["valid"]) {
-                                                valid = false;
-                                                let frameRateErrorText = "Framerate must be a valid number!";
-                                                appendError("framerate-column", frameRateErrorText);
-                                            } else {
-                                                removeError("framerate-column");
-                                            }
-                                            if (!parsed['offset']['valid']) {
-                                                valid = false;
-                                                let offsetErrorText = "Offset must be a valid number!";
-                                                appendError("offset-controller", offsetErrorText);
-                                            } else {
-                                                removeError("offset-controller");
-                                            }
-                                            // if (!parsed['pointSize']['valid']) {
-                                            //     valid = false;
-                                            // } else {
-                                            // }
-
-                                            if (valid) {
-                                                parsed.filter = {
-                                                    "brightness": previewBrightness,
-                                                    "contrast": previewContrast,
-                                                    "saturate": previewSaturation,
-                                                };
-                                                parsed.index = context.index;
-                                                parsed.offset = parsed.offset.value;
-                                                parsed.frameRate = parsed.frameRate.value;
-                                                parsed.videoName = videoTitle;
-                                                saveCallback(parsed);
-                                            }
-                                        }
+                                        validateFormAndSubmit();
                                     }).text(`${context.nextButton}`),
                                 )
                             )
@@ -756,7 +775,7 @@ function fileInputWidget(labelText, inputID, acceptableFiles, onChangeCallback, 
     );
 }
 
-function genericTextInputWithTooltipWidget(labelText, labelStyle, tooltipText, inputID, onInput) {
+function genericTextInputWithTooltipWidget(labelText, labelStyle, tooltipText, inputID, onInput, tabIndex = 0) {
     return genericDivWidget('field').append(
         genericDivWidget('level is-fake-label').append(
             genericDivWidget('level-left').append(
@@ -771,7 +790,7 @@ function genericTextInputWithTooltipWidget(labelText, labelStyle, tooltipText, i
             )
         ),
         genericDivWidget('control').append(
-            $('<input>', {class: 'input', id: inputID}).on('input', onInput)
+            $('<input>', {class: 'input', id: inputID, 'tabindex': tabIndex}).on('input', onInput)
         )
     );
 }
@@ -905,7 +924,8 @@ function createProjectWidget(onSubmit, cleanFunction) {
                             LABEL_STYLES.LIGHT,
                             'Give a name to your project!',
                             'project-name-input',
-                            updateIfValid
+                            updateIfValid,
+                            1
                         )
                     ),
 
@@ -914,7 +934,9 @@ function createProjectWidget(onSubmit, cleanFunction) {
                             'Project Description',
                             LABEL_STYLES.LIGHT,
                             '(Optional) Describe your project!',
-                            'description-input'
+                            'description-input',
+                            null,
+                            0
                         )
                     ),
 
@@ -923,8 +945,8 @@ function createProjectWidget(onSubmit, cleanFunction) {
                             genericDivWidget('level-left').append(
                                 genericDivWidget('field').append(
                                     videoFileInput,
-                                    // This is a placeholder so that text can display what files were just selected
                                 ),
+                                // This is a placeholder so that text can display what files were just selected
                                 genericDivWidget('columns is-multiline', 'files-selected-container')
                             ),
 
@@ -1098,7 +1120,8 @@ function pointSizeSelectorWidget(index) {
     };
 
     let updatePointRaidus = () => {
-        POINT_RADIUS = $("#point-size-input").val() * videos[0].canvas.width / 800;
+        // TODO: Update to support point radius per video
+        POINT_RADIUS_TO_VIDEO[null] = $("#point-size-input").val() * videos[0].canvas.width / 800;
     };
 
 

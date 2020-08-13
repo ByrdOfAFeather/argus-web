@@ -159,7 +159,7 @@ function setup(message) {
     trackTracker = message["currentTracks"];
     COLORSPACE = message["currentColorSpace"];
     FRAME_RATE = message["frameRate"];
-    POINT_RADIUS = message["pointRadius"];
+    POINT_RADIUS_TO_VIDEO = message["pointRadius"];
     let offset = message["offset"];
     let initFrame = message["initFrame"];
 

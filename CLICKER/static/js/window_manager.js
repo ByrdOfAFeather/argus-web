@@ -20,6 +20,17 @@ class WindowManager {
             "auto-advance": true,
             "sync": true
         };
+        this.defaultVideoSettings = {
+            filter: {
+                colorspace: RGB,
+                contrastFilter: "",
+                saturationFilter: "",
+                brightnessFilter: "",
+            },
+            frameRate: 30,
+            offset: -1,
+            pointSize: 1
+        };
     }
 
     addNewPoint(event) {
@@ -236,6 +247,15 @@ class WindowManager {
             this.videos[currentIndex][property] = propertyValue;
         };
 
+        let brightnessBar = parsedInputs.filter.brightness.split("(")[1];
+        brightnessBar = brightnessBar.substring(0, brightnessBar.length - 2);
+
+        let saturateBar = parsedInputs.filter.saturate.split("(")[1];
+        saturateBar = saturateBar.substring(0, saturateBar.length - 2);
+
+        let contrastBar = parsedInputs.filter.contrast.split("(")[1];
+        contrastBar = contrastBar.substring(0, contrastBar.length - 2);
+
         let currentClickerWidget = clickerWidget(
             parsedInputs.index,
             updateVideoPropertyCallback,
@@ -243,7 +263,12 @@ class WindowManager {
             (event) => this.handleKeyboardInput(event),
             (event) => this.addNewPoint(event),
             (event) => this.deletePoint(event),
-            (event) => this.setMousePos(event)
+            (event) => this.setMousePos(event),
+            {
+                "brightness": brightnessBar,
+                'saturation': saturateBar,
+                'contrast': contrastBar
+            }
         );
         currentClickerWidget.find(`#videoLabel-${currentIndex}`).text(
             videoLabelDataToString({
@@ -259,8 +284,9 @@ class WindowManager {
             'width': this.videos[currentIndex].video.videoWidth
         };
         this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.brightness;
-        this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.contrast;
-        this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.saturate;
+        this.videos[currentIndex].currentContrastFilter = parsedInputs.filter.contrast;
+        this.videos[currentIndex].currentSaturateFilter = parsedInputs.filter.saturate;
+        this.videos[currentIndex].currentColorspace = VIDEO_TO_COLORSPACE[currentIndex];
 
         // Forces an update so that the video will be guaranteed to draw at least once
         this.videos[currentIndex].goToFrame(2.001);
@@ -305,6 +331,7 @@ class MainWindowManager extends WindowManager {
         NUMBER_OF_CAMERAS = files.length;
         this.videoFiles = files;
         this.videoFilesMemLocations = {};
+        this.videosToSettings = {}; // Used to save to the cloud / allows "previous" in setup
 
         let communicationsCallbacks = {
             'newFrame': (context) => {
@@ -314,7 +341,7 @@ class MainWindowManager extends WindowManager {
                 } else {
                     this.videos[context.index].goToFrame(context.frame);
                     this.clearEpipolarCanvases();
-                    this.getEpipolarInfo(context.index, frameTracker[context.index ]);
+                    this.getEpipolarInfo(context.index, frameTracker[context.index]);
                 }
             },
             'popoutDeath': (context) => {
@@ -688,6 +715,11 @@ class MainWindowManager extends WindowManager {
         this.communicatorsManager.updateAllLocalOrCommunicator(videoChangeTrack, message);
     }
 
+    removeVideoFromDOM(parsedInputs) {
+        let currentIndex = parsedInputs.index;
+        $(`#masterColumn-${currentIndex}`).remove();
+    }
+
     loadVideoIntoDOM(parsedInputs) {
         super.loadVideoIntoDOM(parsedInputs);
         let currentIndex = parsedInputs.index;
@@ -702,7 +734,7 @@ class MainWindowManager extends WindowManager {
     loadNewProject() {
         $("#starter-menu").remove();
         $("#footer").remove();
-        this.getVideoSettings(0);
+        this.getVideoSettings(0, this.defaultVideoSettings);
     }
 
 
@@ -720,9 +752,9 @@ class MainWindowManager extends WindowManager {
             "offset": this.videos[videoIndex].offset,
             "currentTracks": this.trackManager,
             "initFrame": frameTracker[videoIndex],
-            "currentColorSpace": COLORSPACE,
+            "currentColorSpace": VIDEO_TO_COLORSPACE,
             "frameRate": FRAME_RATE,
-            "pointRadius": POINT_RADIUS,
+            "pointRadius": POINT_RADIUS_TO_VIDEO,
         };
 
         // Hide Videos
@@ -750,23 +782,37 @@ class MainWindowManager extends WindowManager {
         }
     }
 
-    saveSettings(parsedInputs) {
+    saveSettings(parsedInputs, previous = false) {
         let index = parsedInputs.index;
+        this.videosToSettings[index] = parsedInputs
         // this.videos[index] = new Video(index, parsedInputs.offset);
 
-        // TODO: seperate this out probably so it's easier to update
+        // TODO: separate this out probably so it's easier to update
         // videos[index].filter = parsedInputs.filter;
-
-        index += 1;
-        if (index === NUMBER_OF_CAMERAS) {
-            this.loadSettings();
-            this.emptyInputModal();
-            $("#generic-input-modal").removeClass("is-active");
-            $("#blurrable").css("filter", "");
+        if (previous === true) {
+            index -= 1;
+            this.removeVideoFromDOM(parsedInputs);
             this.loadVideoIntoDOM(parsedInputs);
+            this.slideInputModalOut(700, () => this.getVideoSettings(index, this.videosToSettings[index]));
         } else {
-            this.loadVideoIntoDOM(parsedInputs);
-            this.slideInputModalOut(700, () => this.getVideoSettings(index));
+            if ($(`#masterColumn-${parsedInputs.index}`).get(0) !== undefined) {
+                this.removeVideoFromDOM(parsedInputs);
+            }
+            index += 1;
+            if (index === NUMBER_OF_CAMERAS) {
+                this.loadSettings();
+                this.emptyInputModal();
+                $("#generic-input-modal").removeClass("is-active");
+                $("#blurrable").css("filter", "");
+                this.loadVideoIntoDOM(parsedInputs);
+            } else {
+                this.loadVideoIntoDOM(parsedInputs);
+                if (this.videosToSettings[index] === undefined) {
+                    this.slideInputModalOut(700, () => this.getVideoSettings(index, this.defaultVideoSettings));
+                } else {
+                    this.slideInputModalOut(700, () => this.getVideoSettings(index, this.videosToSettings[index]));
+                }
+            }
         }
     }
 
@@ -774,12 +820,12 @@ class MainWindowManager extends WindowManager {
         $("#modal-content-container").empty();
     }
 
-    slideInputModalIn(animationTime) {
+    slideInputModalIn(animationTime, direction = "right") {
         // This slides the modal in from the right, typically used in conjuction with
         // slideInputModalOut
         let modalContentContainer = $("#modal-content-container");
         modalContentContainer.hide();
-        modalContentContainer.show("slide", {direction: "right"}, animationTime);
+        modalContentContainer.show("slide", {direction: direction}, animationTime);
     }
 
     slideInputModalOut(animationTime, postAnimationCallback) {
@@ -798,14 +844,20 @@ class MainWindowManager extends WindowManager {
         modalContentContainer.fadeIn(animationTime, postAnimationCallback);
     }
 
-    getVideoSettings(index) {
+    getVideoSettings(index, initSettings) {
+        // Resets global variables
+        previewBrightness = "brightness(100%)";
+        previewContrast = "contrast(100%)";
+        previewSaturation = "saturate(100%)";
+
         $("#blurrable").css("filter", "blur(10px)");
 
         // Setup in-place functions that will be later used to update the preview \\
         let drawPreviewPoint = (ctx, x, y) => {
+            ctx.strokeStyle = "#FF0000"
             ctx.beginPath();
-            ctx.arc(x, y, POINT_RADIUS, 0, Math.PI);
-            ctx.arc(x, y, POINT_RADIUS, Math.PI, 2 * Math.PI);
+            ctx.arc(x, y, POINT_RADIUS_TO_VIDEO[index], 0, Math.PI);
+            ctx.arc(x, y, POINT_RADIUS_TO_VIDEO[index], Math.PI, 2 * Math.PI);
             ctx.stroke();
         };
 
@@ -814,7 +866,7 @@ class MainWindowManager extends WindowManager {
             let canvas = document.getElementById("current-init-settings-preview-canvas").getContext("2d");
 
             // Setup filters
-            canvas.filter = COLORSPACE;
+            canvas.filter = VIDEO_TO_COLORSPACE[index];
             canvas.filter += " " + previewBrightness;
             canvas.filter += " " + previewContrast;
             canvas.filter += " " + previewSaturation;
@@ -868,8 +920,8 @@ class MainWindowManager extends WindowManager {
 
         // Smooths animations
         $("#generic-input-modal-content").css("margin", "0");
-        $("#modal-content-container").append(initialVideoPropertiesWidget(name, loadPreviewFrame,
-            (parsedInputs) => this.saveSettings(parsedInputs), context));
+        $("#modal-content-container").append(initialVideoPropertiesWidget(name, loadPreviewFrame, context,
+            (parsedInputs, previous) => this.saveSettings(parsedInputs, previous), initSettings));
 
         $("#generic-input-modal").addClass('is-active');
 

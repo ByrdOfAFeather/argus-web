@@ -15,7 +15,7 @@ const COLORS = ["rgb(228, 26, 28)", "rgb(55, 126, 184)", "rgb(77, 175, 74)", "rg
     "rgb(255, 127, 0)", "rgb(255, 255, 51)", "rgb(166, 86, 40)", "rgb(247, 129, 191)"];
 let previewBrightness = "brightness(100%)";
 let previewContrast = "contrast(100%)";
-let previewSaturation = "saturate(100%);";
+let previewSaturation = "saturate(100%)";
 
 let colorIndex = 0;
 
@@ -29,10 +29,17 @@ let DLT_COEFFICIENTS = null;
 let AUTO_SAVE_INTERVAL_ID = null;
 
 // COLORSPACE MANAGER
-let COLORSPACE = "grayscale(0%)";
+let VIDEO_TO_COLORSPACE = {};
+let colorspaceToText = (space) => {
+    if (space === RGB) {
+        return "RGB";
+    } else if (space === GREYSCALE) {
+        return "Grayscale";
+    }
+}
 
 // Point Radius Manager
-let POINT_RADIUS = 10;
+let POINT_RADIUS_TO_VIDEO = {};
 
 // MANAGER FOR POP OUT WINDOWS
 let communicators = [];
@@ -486,9 +493,7 @@ function triggerResizeMode() {
 
 function changeColorSpace(colorSpace) {
     COLORSPACE = colorSpace === RGB ? "grayscale(0%)" : "grayscale(100%)";
-    let callback = (i) => {
-        videos[i].loadFrame();
-    };
+    let callback = () => {};
     let message = messageCreator("changeColorSpace", {colorSpace: colorSpace});
     updateAllLocalOrCommunicator(callback, message);
 }

@@ -106,7 +106,7 @@ def saved_states(request):
 
     elif request.method == "DELETE":
         """
-		Deletes a saved state if the user is the creator of the saved state
+        Deletes a saved state if the user is the creator of the saved state
 		"""
         state_id = request.POST.get("id", "")
         print(state_id)

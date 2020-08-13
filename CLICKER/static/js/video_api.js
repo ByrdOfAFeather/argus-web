@@ -7,8 +7,8 @@ let ZOOM_BEING_MOVED = null;
 
 let videos = [];
 
-let RGB = 0;
-let GREYSCALE = 1;
+let RGB = "grayscale(0%)";
+let GREYSCALE = "grayscale(100%)";
 
 class Video {
     constructor(videosIndex, videoName, offset) {
@@ -37,6 +37,7 @@ class Video {
         this.currentBrightnessFilter = '';
         this.currentContrastFilter = '';
         this.currentSaturateFilter = '';
+        this.currentColorspace = '';
 
         this.videoLabelID = `videoLabel-${videosIndex}`;
 
@@ -185,7 +186,7 @@ class Video {
         canvasHeight = this.canvas.height;
         canvasWidth = this.canvas.width;
 
-        this.videoCanvasContext.filter = `${this.currentBrightnessFilter} ${this.currentContrastFilter} ${this.currentSaturateFilter}`;
+        this.videoCanvasContext.filter = `${this.currentBrightnessFilter} ${this.currentContrastFilter} ${this.currentSaturateFilter} ${this.currentColorspace}`;
         this.videoCanvasContext.fillRect(0, 0, canvasWidth, canvasHeight);
         this.videoCanvasContext.drawImage(this.video, 0, 0, canvasWidth, canvasHeight);
         this.currentStrokeStyle = mainTrackInfo.color;
@@ -234,12 +235,12 @@ class Video {
     drawFocusedPoint(x, y) {
         this.canvasContext.strokeStyle = "rgb(0,190,57)";
         this.canvasContext.beginPath();
-        this.canvasContext.arc(x, y, POINT_RADIUS, 0, Math.PI);
+        this.canvasContext.arc(x, y, POINT_RADIUS_TO_VIDEO[this.index], 0, Math.PI);
         this.canvasContext.stroke();
 
         this.canvasContext.strokeStyle = "rgb(0,18,190)";
         this.canvasContext.beginPath();
-        this.canvasContext.arc(x, y, POINT_RADIUS, Math.PI, 2 * Math.PI);
+        this.canvasContext.arc(x, y, POINT_RADIUS_TO_VIDEO[this.index], Math.PI, 2 * Math.PI);
         this.canvasContext.stroke();
 
     }
@@ -276,7 +277,7 @@ class Video {
         canvasContext.strokeStyle = color;
 
         canvasContext.beginPath();
-        canvasContext.arc(x, y, POINT_RADIUS, 0, 2 * Math.PI);
+        canvasContext.arc(x, y, POINT_RADIUS_TO_VIDEO[this.index], 0, 2 * Math.PI);
         canvasContext.stroke();
     }
 
