@@ -31,7 +31,133 @@ class WindowManager {
             offset: -1,
             pointSize: 1
         };
+
+        // Modified by subclasses
+        this.videoFiles = [];
+        this.videoFilesMemLocations = {};
+        this.videosToSettings = {};
     }
+
+    emptyInputModal() {
+        $("#modal-content-container").empty();
+    }
+
+    slideInputModalIn(animationTime, direction = "right") {
+        // This slides the modal in from the right, typically used in conjuction with
+        // slideInputModalOut
+        let modalContentContainer = $("#modal-content-container");
+        modalContentContainer.hide();
+        modalContentContainer.show("slide", {direction: direction}, animationTime);
+    }
+
+    fadeInputModalIn(animationTime, postAnimationCallback) {
+        let modalContentContainer = $("#modal-content-container");
+        modalContentContainer.hide();
+        modalContentContainer.fadeIn(animationTime, postAnimationCallback);
+    }
+
+    slideInputModalOut(animationTime, postAnimationCallback) {
+        // When sliding the modal out, we clean it off to make room for new content
+        // Then whatever is supposed to happen next, happens next.
+        let modalContentContainer = $("#modal-content-container");
+        modalContentContainer.hide("slide", {direction: "left"}, animationTime, () => {
+            this.emptyInputModal();
+            postAnimationCallback();
+        });
+    }
+
+    getVideoSettings(context, initSettings) {
+        // Resets global variables
+        previewBrightness = initSettings.filter.brightnessFilter;
+        previewContrast = initSettings.filter.contrastFilter;
+        previewSaturation = initSettings.filter.saturationFilter;
+
+        $("#blurrable").css("filter", "blur(10px)");
+
+        // Setup in-place functions that will be later used to update the preview \\
+        let drawPreviewPoint = (ctx, x, y) => {
+            ctx.strokeStyle = "#FF0000"
+            ctx.beginPath();
+            ctx.arc(x, y, previewPOINT_SIZE, 0, Math.PI);
+            ctx.arc(x, y, previewPOINT_SIZE, Math.PI, 2 * Math.PI);
+            ctx.stroke();
+        };
+
+
+        let loadPreviewFrame = function () {
+            let canvas = document.getElementById("current-settings-preview-canvas").getContext("2d");
+
+            // Setup filters
+            canvas.filter = previewCOLORSPACE;
+            canvas.filter += " " + previewBrightness;
+            canvas.filter += " " + previewContrast;
+            canvas.filter += " " + previewSaturation;
+
+            canvas.drawImage(document.getElementById(`video-${context.index}`), 0, 0, 400, 300);
+
+            // draw nearby points
+            drawPreviewPoint(canvas, 200, 150);
+            drawPreviewPoint(canvas, 230, 150);
+        };
+
+        let verifiedLoadPreviewFrame = function () {
+            // Firefox seems to not play nice with 'can play' and so a callback happens whenever
+            // there are transparent features in the canvas. Typically, transparent features on a canvas will mean
+            // that a video failed to draw.
+            loadPreviewFrame();
+            let currentImage = $("#current-settings-preview-canvas").get(0).getContext("2d").getImageData(0, 0, 400, 300);
+            let data = currentImage.data;
+            let isShowing = true;
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i + 3] < 255) {
+                    isShowing = false;
+                }
+            }
+            if (!isShowing) {
+                setTimeout(function () {
+                    loadPreviewFrame();
+                }, 570);
+            }
+        };
+
+
+        // Builds a context for the input builder so that we don't have redundant inputs or inputs that
+        // don't belong for a given video.
+        let name = this.videoFiles[context.index].name;
+        if (name.length > 20) {
+            name = name.slice(0, 20);
+            name += ". . .";
+        }
+
+        // Smooths animations
+        $("#generic-input-modal-content").css("margin", "0");
+        $("#modal-content-container").append(initialSettingsWidget(
+            name,
+            loadPreviewFrame,
+            context,
+            (parsedInputs, previous) => context.saveSettings(parsedInputs, previous),
+            initSettings
+            )
+        );
+
+        $("#generic-input-modal").addClass('is-active');
+
+        if (context.index === 0) {
+            this.fadeInputModalIn(700)
+        } else {
+            this.slideInputModalIn();
+        }
+
+        if (context.loadVideo) {
+            // Gets the video into the page so that the canvas actually has something to draw from
+            let memoryLocation = URL.createObjectURL(this.videoFiles[context.index]);
+            this.videoFilesMemLocations[context.index] = memoryLocation;
+            loadHiddenVideo(memoryLocation, context.index, verifiedLoadPreviewFrame);
+        } else {
+            loadPreviewFrame();
+        }
+    }
+
 
     addNewPoint(event) {
         // Adds a new point through the following:
@@ -223,6 +349,38 @@ class WindowManager {
         this.videos[videoIndex].loadFrame(mainTrackInfo);
     }
 
+    convertFilterToBarPosition(filter) {
+        let parsedFilter = {};
+        try {
+            let brightnessBar = filter.brightnessFilter.split("(")[1];
+            parsedFilter.brightnessBar = brightnessBar.substring(0, brightnessBar.length - 2);
+        } catch (err) {
+            parsedFilter.brightnessBar = "";
+        }
+
+        try {
+            let saturateBar = filter.saturationFilter.split("(")[1];
+            parsedFilter.saturateBar = saturateBar.substring(0, saturateBar.length - 2);
+        } catch (err) {
+            parsedFilter.saturateBar = "";
+        }
+
+        try {
+            let contrastBar = filter.contrastFilter.split("(")[1];
+            parsedFilter.contrastBar = contrastBar.substring(0, contrastBar.length - 2);
+        } catch (err) {
+            parsedFilter.contrastBar = "";
+        }
+        return parsedFilter;
+
+    }
+
+    createSettingsContext(initialization, index) {
+        // implemented in subclasses
+        let context = {};
+        return context;
+    }
+
     loadVideoIntoDOM(parsedInputs) {
         /* Based on provided video properties, loads a video in to DOM and creates video objects
         parsedInputs {
@@ -247,14 +405,11 @@ class WindowManager {
             this.videos[currentIndex][property] = propertyValue;
         };
 
-        let brightnessBar = parsedInputs.filter.brightness.split("(")[1];
-        brightnessBar = brightnessBar.substring(0, brightnessBar.length - 2);
-
-        let saturateBar = parsedInputs.filter.saturate.split("(")[1];
-        saturateBar = saturateBar.substring(0, saturateBar.length - 2);
-
-        let contrastBar = parsedInputs.filter.contrast.split("(")[1];
-        contrastBar = contrastBar.substring(0, contrastBar.length - 2);
+        let getSettings = () => {
+            let context = this.createSettingsContext(false, currentIndex);
+            this.getVideoSettings(context, this.videosToSettings[currentIndex]);
+        }
+        let parsedFilter = this.convertFilterToBarPosition(parsedInputs.filter);
 
         let currentClickerWidget = clickerWidget(
             parsedInputs.index,
@@ -265,10 +420,11 @@ class WindowManager {
             (event) => this.deletePoint(event),
             (event) => this.setMousePos(event),
             {
-                "brightness": brightnessBar,
-                'saturation': saturateBar,
-                'contrast': contrastBar
-            }
+                "brightness": parsedFilter.brightnessBar,
+                'saturation': parsedFilter.saturateBar,
+                'contrast': parsedFilter.contrastBar
+            },
+            () => getSettings()
         );
         currentClickerWidget.find(`#videoLabel-${currentIndex}`).text(
             videoLabelDataToString({
@@ -283,10 +439,10 @@ class WindowManager {
             'height': this.videos[currentIndex].video.videoHeight,
             'width': this.videos[currentIndex].video.videoWidth
         };
-        this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.brightness;
-        this.videos[currentIndex].currentContrastFilter = parsedInputs.filter.contrast;
-        this.videos[currentIndex].currentSaturateFilter = parsedInputs.filter.saturate;
-        this.videos[currentIndex].currentColorspace = VIDEO_TO_COLORSPACE[currentIndex];
+        this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.brightnessFilter;
+        this.videos[currentIndex].currentContrastFilter = parsedInputs.filter.contrastFilter;
+        this.videos[currentIndex].currentSaturateFilter = parsedInputs.filter.saturationFilter;
+        this.videos[currentIndex].currentColorspace = parsedInputs.filter.colorspace;
 
         // Forces an update so that the video will be guaranteed to draw at least once
         this.videos[currentIndex].goToFrame(2.001);
@@ -389,6 +545,78 @@ class MainWindowManager extends WindowManager {
             }
         };
         this.communicatorsManager = new CommunicatorsManager(STATES.MAIN_WINDOW, communicationsCallbacks);
+    }
+
+    updateVideoObject(newSettings) {
+        this.videos[newSettings.index].currentBrightnessFilter = newSettings.filter.brightnessFilter;
+        this.videos[newSettings.index].currentContrastFilter = newSettings.filter.contrastFilter;
+        this.videos[newSettings.index].currentSaturateFilter = newSettings.filter.saturationFilter;
+        this.videos[newSettings.index].currentColorspace = VIDEO_TO_COLORSPACE[newSettings.index];
+        if (VIDEO_TO_POINT_SIZE[newSettings.index] !== newSettings.pointSize) {
+            VIDEO_TO_POINT_SIZE[newSettings.index] = newSettings.pointSize;
+            let mainTrack = this.trackManager.currentTrack;
+            let mainTrackPoints = this.clickedPointsManager.getClickedPoints(newSettings.index, mainTrack.absoluteIndex);
+            this.videos[newSettings.index].redrawPoints(mainTrackPoints, mainTrack.color);
+            for (let i = 0; i < this.trackManager.subTracks.track_indicies.length; i++) {
+                let absoluteSubTrackIndex = this.trackManager.subTracks.track_indicies[i];
+                let subTrack = this.trackManager.tracks[absoluteSubTrackIndex];
+                let subTrackPoints = this.clickedPointsManager.getClickedPoints(newSettings.index, subTrack.absoluteIndex);
+                let clearPoints = i === 0;
+                this.videos[newSettings.index].redrawPoints(
+                    subTrackPoints,
+                    subTrack.color,
+                    this.videos[newSettings.index].subTrackCanvasContext,
+                    clearPoints
+                );
+            }
+        }
+    }
+
+    saveSettings(parsedInputs, previous) {
+
+        if (!previous) { // Previous gets used as the cancel button in this context!
+            FRAME_RATE = parsedInputs.frameRate;
+            VIDEO_TO_COLORSPACE[parsedInputs.index] = parsedInputs.filter.colorspace;
+            this.videosToSettings[parsedInputs.index] = parsedInputs;
+            this.updateVideoObject(parsedInputs);
+            this.redrawWindow(parsedInputs.index);
+            this.emptyInputModal();
+        }
+        $("#generic-input-modal").removeClass("is-active");
+        $("#blurrable").css("filter", "");
+    }
+
+
+    createSettingsContext(initialization, index) {
+        // These booleans strike me as poorly thought out. A rewrite may come one day..... TODO
+        let context = {};
+        context.loadVideo = initialization;
+        context.saveSettings = initialization ?
+            (parsedInputs, previous) => this.initializationSaveSettings(parsedInputs, previous) :
+            (parsedInputs, previous) => this.saveSettings(parsedInputs, previous);
+        if (!initialization) {
+            context.nextButtonText = "Save";
+            context.nextButton = true;
+            context.previousButton = true;
+            context.previousButtonText = "Cancel";
+        }
+        if (index === 0 && initialization) {
+            context.previousButton = false;
+            context.nextButtonText = "Next";
+            context.nextButton = true;
+        }
+        if (index + 1 === NUMBER_OF_CAMERAS && initialization) {
+            context.nextButtonText = "Finish";
+            context.nextButton = true;
+        }
+        if (index !== 0 && initialization) {
+            context.previousButton = true;
+            context.previousButtonText = "Previous"
+            context.nextButton = true;
+            context.nextButtonText = "Next";
+        }
+        context.index = index;
+        return context;
     }
 
 
@@ -731,10 +959,12 @@ class MainWindowManager extends WindowManager {
         $(`#pop-out-${currentIndex}-placeholder`).append(popOutButton);
     }
 
+
     loadNewProject() {
         $("#starter-menu").remove();
         $("#footer").remove();
-        this.getVideoSettings(0, this.defaultVideoSettings);
+        let context = this.createSettingsContext(true, 0);
+        this.getVideoSettings(context, this.defaultVideoSettings);
     }
 
 
@@ -754,7 +984,7 @@ class MainWindowManager extends WindowManager {
             "initFrame": frameTracker[videoIndex],
             "currentColorSpace": VIDEO_TO_COLORSPACE,
             "frameRate": FRAME_RATE,
-            "pointRadius": POINT_RADIUS_TO_VIDEO,
+            "pointRadius": VIDEO_TO_POINT_SIZE,
         };
 
         // Hide Videos
@@ -782,23 +1012,32 @@ class MainWindowManager extends WindowManager {
         }
     }
 
-    saveSettings(parsedInputs, previous = false) {
+    initializationSaveSettings(parsedInputs, previous = false) {
         let index = parsedInputs.index;
         this.videosToSettings[index] = parsedInputs
+        if (parsedInputs.index === 0) {
+            FRAME_RATE = parsedInputs.frameRate;
+        }
+        VIDEO_TO_COLORSPACE[parsedInputs.index] = parsedInputs.filter.colorspace;
+        VIDEO_TO_POINT_SIZE[parsedInputs.index] = parsedInputs.pointSize;
         // this.videos[index] = new Video(index, parsedInputs.offset);
 
         // TODO: separate this out probably so it's easier to update
         // videos[index].filter = parsedInputs.filter;
         if (previous === true) {
             index -= 1;
+            let context = this.createSettingsContext(true, index)
             this.removeVideoFromDOM(parsedInputs);
+            context.loadVideo = false;
             this.loadVideoIntoDOM(parsedInputs);
-            this.slideInputModalOut(700, () => this.getVideoSettings(index, this.videosToSettings[index]));
+            this.slideInputModalOut(700, () => this.getVideoSettings(context, this.videosToSettings[index]));
         } else {
+            index += 1;
+            let context = this.createSettingsContext(true, index);
             if ($(`#masterColumn-${parsedInputs.index}`).get(0) !== undefined) {
+                context.loadVideo = false;
                 this.removeVideoFromDOM(parsedInputs);
             }
-            index += 1;
             if (index === NUMBER_OF_CAMERAS) {
                 this.loadSettings();
                 this.emptyInputModal();
@@ -808,133 +1047,12 @@ class MainWindowManager extends WindowManager {
             } else {
                 this.loadVideoIntoDOM(parsedInputs);
                 if (this.videosToSettings[index] === undefined) {
-                    this.slideInputModalOut(700, () => this.getVideoSettings(index, this.defaultVideoSettings));
+                    this.slideInputModalOut(700, () => this.getVideoSettings(context, this.defaultVideoSettings));
                 } else {
-                    this.slideInputModalOut(700, () => this.getVideoSettings(index, this.videosToSettings[index]));
+                    this.slideInputModalOut(700, () => this.getVideoSettings(context, this.videosToSettings[index]));
                 }
             }
         }
-    }
-
-    emptyInputModal() {
-        $("#modal-content-container").empty();
-    }
-
-    slideInputModalIn(animationTime, direction = "right") {
-        // This slides the modal in from the right, typically used in conjuction with
-        // slideInputModalOut
-        let modalContentContainer = $("#modal-content-container");
-        modalContentContainer.hide();
-        modalContentContainer.show("slide", {direction: direction}, animationTime);
-    }
-
-    slideInputModalOut(animationTime, postAnimationCallback) {
-        // When sliding the modal out, we clean it off to make room for new content
-        // Then whatever is supposed to happen next, happens next.
-        let modalContentContainer = $("#modal-content-container");
-        modalContentContainer.hide("slide", {direction: "left"}, animationTime, () => {
-            this.emptyInputModal();
-            postAnimationCallback();
-        });
-    }
-
-    fadeInputModalIn(animationTime, postAnimationCallback) {
-        let modalContentContainer = $("#modal-content-container");
-        modalContentContainer.hide();
-        modalContentContainer.fadeIn(animationTime, postAnimationCallback);
-    }
-
-    getVideoSettings(index, initSettings) {
-        // Resets global variables
-        previewBrightness = "brightness(100%)";
-        previewContrast = "contrast(100%)";
-        previewSaturation = "saturate(100%)";
-
-        $("#blurrable").css("filter", "blur(10px)");
-
-        // Setup in-place functions that will be later used to update the preview \\
-        let drawPreviewPoint = (ctx, x, y) => {
-            ctx.strokeStyle = "#FF0000"
-            ctx.beginPath();
-            ctx.arc(x, y, POINT_RADIUS_TO_VIDEO[index], 0, Math.PI);
-            ctx.arc(x, y, POINT_RADIUS_TO_VIDEO[index], Math.PI, 2 * Math.PI);
-            ctx.stroke();
-        };
-
-
-        let loadPreviewFrame = function () {
-            let canvas = document.getElementById("current-init-settings-preview-canvas").getContext("2d");
-
-            // Setup filters
-            canvas.filter = VIDEO_TO_COLORSPACE[index];
-            canvas.filter += " " + previewBrightness;
-            canvas.filter += " " + previewContrast;
-            canvas.filter += " " + previewSaturation;
-
-            canvas.drawImage(document.getElementById(`video-${index}`), 0, 0, 400, 300);
-
-            // draw nearby points
-            drawPreviewPoint(canvas, 200, 150);
-            drawPreviewPoint(canvas, 230, 150);
-        };
-
-        let verifiedLoadPreviewFrame = function () {
-            // Firefox seems to not play nice with 'can play' and so a callback happens whenever
-            // there are transparent features in the canvas. Typically, transparent features on a canvas will mean
-            // that a video failed to draw.
-            loadPreviewFrame();
-            let currentImage = $("#current-init-settings-preview-canvas").get(0).getContext("2d").getImageData(0, 0, 400, 300);
-            let data = currentImage.data;
-            let isShowing = true;
-            for (let i = 0; i < data.length; i += 4) {
-                if (data[i + 3] < 255) {
-                    isShowing = false;
-                }
-            }
-            if (!isShowing) {
-                setTimeout(function () {
-                    loadPreviewFrame();
-                }, 570);
-            }
-        };
-
-
-        // Builds a context for the input builder so that we don't have redundant inputs or inputs that
-        // don't belong for a given video.
-        let name = this.videoFiles[index].name;
-        if (name.length > 20) {
-            name = name.slice(0, 20);
-            name += ". . .";
-        }
-
-        let context = {"nextButton": "Next", "previousButton": true, "index": index};
-
-        if (index + 1 === NUMBER_OF_CAMERAS) {
-            context.nextButton = "Finish";
-        }
-
-        if (index === 0) {
-            context.previousButton = false;
-        }
-
-
-        // Smooths animations
-        $("#generic-input-modal-content").css("margin", "0");
-        $("#modal-content-container").append(initialVideoPropertiesWidget(name, loadPreviewFrame, context,
-            (parsedInputs, previous) => this.saveSettings(parsedInputs, previous), initSettings));
-
-        $("#generic-input-modal").addClass('is-active');
-
-        if (index === 0) {
-            this.fadeInputModalIn(700)
-        } else {
-            this.slideInputModalIn();
-        }
-
-        // Gets the video into the page so that the canvas actually has something to draw from
-        let memoryLocation = URL.createObjectURL(this.videoFiles[index]);
-        this.videoFilesMemLocations[index] = memoryLocation;
-        loadHiddenVideo(memoryLocation, index, verifiedLoadPreviewFrame);
     }
 
     addNewPoint(event) {

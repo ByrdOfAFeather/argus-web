@@ -13,11 +13,14 @@ Details: mozilla::SupportChecker::AddMediaFormatChecker(const mozilla::TrackInfo
 // A LIST OF COLORS THAT DEFINE TRACK COLORS IN ORDER
 const COLORS = ["rgb(228, 26, 28)", "rgb(55, 126, 184)", "rgb(77, 175, 74)", "rgb(152, 78, 163)",
     "rgb(255, 127, 0)", "rgb(255, 255, 51)", "rgb(166, 86, 40)", "rgb(247, 129, 191)"];
+
+let colorIndex = 0;
 let previewBrightness = "brightness(100%)";
 let previewContrast = "contrast(100%)";
 let previewSaturation = "saturate(100%)";
-
-let colorIndex = 0;
+let previewCOLORSPACE = RGB;
+let previewFRAMERATE = 30;
+let previewPOINT_SIZE = 1;
 
 // DEBUGGING CONSTANTS
 const PINHOLE = 1;
@@ -39,7 +42,7 @@ let colorspaceToText = (space) => {
 }
 
 // Point Radius Manager
-let POINT_RADIUS_TO_VIDEO = {};
+let VIDEO_TO_POINT_SIZE = {};
 
 // MANAGER FOR POP OUT WINDOWS
 let communicators = [];

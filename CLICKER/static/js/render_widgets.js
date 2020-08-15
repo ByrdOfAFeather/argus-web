@@ -111,7 +111,7 @@ function colorSpaceDropDownWidget(colorSpaceIndex, redrawVideosFunction, videoIn
         let container = $(`#colorspace-${colorSpaceIndex}-dropdown-container`);
 
         let newSelection = $(e.target).text();
-        VIDEO_TO_COLORSPACE[videoIndex] = newSelection.toLowerCase() === "rgb" ? RGB : GREYSCALE;
+        previewCOLORSPACE = newSelection.toLowerCase() === "rgb" ? RGB : GREYSCALE;
         if (container.hasClass("is-active")) {
             container.removeClass("is-active");
         }
@@ -235,7 +235,7 @@ function frameRateDropDownWidget(defaultValue = '30') {
         $("#custom-frame-rate-container").addClass("is-not-display");
         let frameRate = parseFloat(e.target.id.replace("-", "."));
         $("#frame-rate-current-selection").text(frameRate);
-        FRAME_RATE = frameRate;
+        previewFRAMERATE = frameRate;
         if (container.hasClass("is-active")) {
             container.removeClass("is-active");
         } else {
@@ -303,7 +303,9 @@ function popOutButtonWidget(videoIndex, videoURL, popOutFunction) {
     popOutFunction: (event: jquery event object, videoURL: str same as above) { handles popping a video into a new
     tab and adding it to the current communicators }
     */
-    let popOutButton = $("<button>", {class: "button", id: `popVideo-${videoIndex}`}).text("pop-out video");
+    let popOutButton = $("<button>", {class: "button", id: `popVideo-${videoIndex}`}).append(
+        $("<i>", {class: "fa fa-window-restore"}).attr("aria-hidden", "true")
+    );
     popOutButton.on("click", function (_) {
         popOutFunction(videoIndex, videoURL)
     });
@@ -357,7 +359,7 @@ function clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick,
 }
 
 function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrameFunction,
-                       onKeyboardInput, onClick, onRightClick, setMousePos, initStyleValues) {
+                       onKeyboardInput, onClick, onRightClick, setMousePos, initStyleValues, displaySettings) {
     /*
     videoIndex: Integer representing the video that this widget is being rendered for. There should be one
     canvas widget per video.
@@ -401,30 +403,46 @@ function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrame
                         genericDivWidget("level-left").append(
                             $('<p>', {class: "video-label render-unselectable", id: `videoLabel-${videoIndex}`})
                         ),
-                        genericDivWidget("level-right", `pop-out-${videoIndex}-placeholder`)
+                        genericDivWidget("level-right").append(
+                            genericDivWidget("columns").append(
+                                genericDivWidget("column", `pop-out-${videoIndex}-placeholder`),
+                                genericDivWidget("column").append(
+                                    // <i class="fa fa-cog" aria-hidden="true"></i>
+                                    $("<button>", {class: "button"}).append(
+                                        $("<i>", {class: "fa fa-cog"}).attr("aria-hidden", "true")
+                                    ).on("click", displaySettings)
+                                )
+                            )
+                        )
                     )
                 ),
 
                 genericDivWidget("column").append(
-                    clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick, setMousePos)
-                ),
-
-                genericDivWidget("column").append(
-                    genericDivWidget("columns is-multiline", `misc-settings-${videoIndex}`).append(
-                        videoPropertySlidersWidget(
-                            `brightness-${videoIndex}`,
-                            `contrast-${videoIndex}`,
-                            `saturation-${videoIndex}`,
-                            updateVideoProperties,
-                            LABEL_STYLES.DARK,
-                            initStyleValues
+                    genericDivWidget("columns", `misc-settings-${videoIndex}`).append(
+                        // videoPropertySlidersWidget(
+                        //     `brightness-${videoIndex}`,
+                        //     `contrast-${videoIndex}`,
+                        //     `saturation-${videoIndex}`,
+                        //     updateVideoProperties,
+                        //     LABEL_STYLES.DARK,
+                        //     initStyleValues
+                        // ),
+                        genericDivWidget("column").append(
+                            clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick, setMousePos)
                         ),
                         genericDivWidget('column').append(
-                            canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas", "z-index: 2;").attr(
-                                'height', '400'
-                            ).attr(
-                                'width', '400'
-                            )
+                            genericDivWidget("columns is-multiline").append(
+                                genericDivWidget("column is-12").append(
+                                    canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas", "z-index: 2;").attr(
+                                        'height', '400'
+                                    ).attr(
+                                        'width', '400'
+                                    ),
+                                ),
+                                genericDivWidget("column").append(
+                                    $("<p>X = Zoom Out<br>Z = Zoom In</p>")
+                                )
+                            ),
                         )
                     )
                 )
@@ -478,11 +496,11 @@ function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, upda
         )]
 }
 
-function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, context, saveCallback, currentSettings) {
+function initialSettingsWidget(videoTitle, loadPreviewFrameFunction, context, saveCallback, currentSettings) {
     // TODO : Clean Up
-    VIDEO_TO_COLORSPACE[context.index] = currentSettings.filter.colorspace; // Default to RGB, also will just reassign
-    FRAME_RATE = currentSettings.frameRate;
-    POINT_RADIUS_TO_VIDEO[context.index] = currentSettings.pointSize;
+    previewCOLORSPACE = currentSettings.filter.colorspace; // Default to RGB, also will just reassign
+    previewFRAMERATE = currentSettings.frameRate;
+    previewPOINT_SIZE = currentSettings.pointSize;
 
     let colorSpaceDropDown = colorSpaceDropDownWidget(1, loadPreviewFrameFunction, context.index, currentSettings.filter.colorspace);
 
@@ -566,7 +584,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, cont
 
     let validateFormAndSubmit = (previous = false) => {
         let parsed = parseSettings({
-            "frameRate": FRAME_RATE,
+            "frameRate": previewFRAMERATE,
             "offset": $("#offset-input").val(),
             "pointSize": $("#preview-point-size-input").val()
         });
@@ -592,26 +610,33 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, cont
 
         if (valid) {
             parsed.filter = {
-                "colorspace": VIDEO_TO_COLORSPACE[context.index],
-                "brightness": previewBrightness,
-                "contrast": previewContrast,
-                "saturate": previewSaturation,
+                "colorspace": previewCOLORSPACE,
+                "brightnessFilter": previewBrightness,
+                "contrastFilter": previewContrast,
+                "saturationFilter": previewSaturation,
             };
             parsed.index = context.index;
             parsed.offset = parsed.offset.value;
             parsed.frameRate = parsed.frameRate.value;
             parsed.videoName = videoTitle;
-            parsed.pointSize = POINT_RADIUS_TO_VIDEO[context.index];
+            parsed.pointSize = previewPOINT_SIZE;
             saveCallback(parsed, previous);
         }
     }
 
-    let previousButton = $("<button>", {class: "button", id: "preview-init-settings-button"}).text("Previous").on(
-        "click", () => validateFormAndSubmit(true)
-    );
-    if (!context.previousButton) {
-        previousButton = null;
-    }
+    // Assign buttons if the context permits, otherwise, null.
+    let previousButton = context.previousButton ?
+        $("<button>", {class: "button", id: "preview-init-settings-button"}).text("Previous")
+            .on("click", () => validateFormAndSubmit(true))
+            .text(`${context.previousButtonText}`) :
+        null;
+    let nextButton = context.nextButton ?
+        $("<button>", {class: "button", id: 'save-init-settings-button'})
+            .on("click", function () {
+                validateFormAndSubmit();
+            })
+            .text(`${context.nextButtonText}`) :
+        null;
 
     let offsetField = genericDivWidget("controller", "offset-controller").append(
         $("<input>", {
@@ -622,6 +647,28 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, cont
         }));
     if (currentSettings["offset"] !== -1) {
         offsetField.val(currentSettings["offset"]);
+    }
+
+    let parsedFilter = {};
+    try {
+        let brightnessBar = currentSettings.filter.brightnessFilter.split("(")[1];
+        parsedFilter.brightnessBar = brightnessBar.substring(0, brightnessBar.length - 2);
+    } catch (err) {
+        parsedFilter.brightnessBar = "";
+    }
+
+    try {
+        let saturateBar = currentSettings.filter.saturationFilter.split("(")[1];
+        parsedFilter.saturateBar = saturateBar.substring(0, saturateBar.length - 2);
+    } catch (err) {
+        parsedFilter.saturateBar = "";
+    }
+
+    try {
+        let contrastBar = currentSettings.filter.contrastFilter.split("(")[1];
+        parsedFilter.contrastBar = contrastBar.substring(0, contrastBar.length - 2);
+    } catch (err) {
+        parsedFilter.contrastBar = "";
     }
 
     // The margin: 0 lets animation smoothly transition from one modal-state to the next ( if there are multiple ).
@@ -671,7 +718,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, cont
                                         placeholder: "Set size",
                                         value: currentSettings.pointSize
                                     }).on("keyup", function () {
-                                            POINT_RADIUS_TO_VIDEO[context.index] = parseFloat($("#preview-point-size-input").val());
+                                            previewPOINT_SIZE = parseFloat($("#preview-point-size-input").val());
                                             loadPreviewFrameFunction();
                                         }
                                     )
@@ -691,7 +738,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, cont
                                     $("<label>", {class: "label has-text-white"}).text("Preview:"),
                                     $("<canvas>", {
                                         // style: "height: 100%; width: 100%;",
-                                        id: "current-init-settings-preview-canvas"
+                                        id: "current-settings-preview-canvas"
                                     }).attr("height", 300).attr("width", 400)
                                 ),
                                 genericDivWidget("column").append(
@@ -701,7 +748,12 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, cont
                                             "preview-contrast",
                                             "preview-saturation",
                                             updateVideoPropertiesGeneric,
-                                            LABEL_STYLES.LIGHT
+                                            LABEL_STYLES.LIGHT,
+                                            {
+                                                brightness: parsedFilter.brightnessBar,
+                                                contrast: parsedFilter.contrastBar,
+                                                saturateBar: parsedFilter.saturateBar
+                                            }
                                         )
                                     ),
                                 ),
@@ -715,12 +767,7 @@ function initialVideoPropertiesWidget(videoTitle, loadPreviewFrameFunction, cont
                                     previousButton,
                                 ),
                                 genericDivWidget("level-right").append(
-                                    $("<button>", {
-                                        class: "button",
-                                        id: 'save-init-settings-button'
-                                    }).on("click", function () {
-                                        validateFormAndSubmit();
-                                    }).text(`${context.nextButton}`),
+                                    nextButton,
                                 )
                             )
                         )
@@ -1043,14 +1090,6 @@ function firstRowOfSettingsWidget(settingsBindings) {
             )
         ),
 
-        // Colorspace drop down
-        genericDivWidget("column").append(
-            genericDivWidget("columns is-multiline is-vcentered").append(
-                genericDivWidget("column is-12 has-text-centered").append(
-                    colorSpaceDropDownWidget(0)
-                ),
-            )
-        ),
 
         // Save & load points
         genericDivWidget("column").append(
@@ -1120,8 +1159,7 @@ function pointSizeSelectorWidget(index) {
     };
 
     let updatePointRaidus = () => {
-        // TODO: Update to support point radius per video
-        POINT_RADIUS_TO_VIDEO[null] = $("#point-size-input").val() * videos[0].canvas.width / 800;
+        VIDEO_TO_POINT_SIZE[null] = $("#point-size-input").val() * videos[0].canvas.width / 800;
     };
 
 
@@ -1176,9 +1214,6 @@ function settingsInputWidget(settingsBindings) {
                     genericDivWidget("column has-text-centered").append(
                         $("<p id='auto-save-placeholder'>Last Saved: Never!</p>")
                     ),
-                    genericDivWidget("column").append(
-                        pointSizeSelectorWidget(0)
-                    )
                 )
             )
         ),

@@ -56,10 +56,12 @@ class Video {
         };
     }
 
-    redrawPoints(points) {
-        this.clearPoints();
-        this.drawPoints(points);
-        this.drawLines(points);
+    redrawPoints(points, color=this.currentStrokeStyle, canvasContext=this.canvasContext, clearPoints=true) {
+        if (clearPoints) {
+            this.clearPoints(canvasContext);
+        }
+        this.drawPoints(points, canvasContext, color);
+        this.drawLines(points, canvasContext, color);
     }
 
     drawZoomWindow(color) {
@@ -235,12 +237,12 @@ class Video {
     drawFocusedPoint(x, y) {
         this.canvasContext.strokeStyle = "rgb(0,190,57)";
         this.canvasContext.beginPath();
-        this.canvasContext.arc(x, y, POINT_RADIUS_TO_VIDEO[this.index], 0, Math.PI);
+        this.canvasContext.arc(x, y, VIDEO_TO_POINT_SIZE[this.index], 0, Math.PI);
         this.canvasContext.stroke();
 
         this.canvasContext.strokeStyle = "rgb(0,18,190)";
         this.canvasContext.beginPath();
-        this.canvasContext.arc(x, y, POINT_RADIUS_TO_VIDEO[this.index], Math.PI, 2 * Math.PI);
+        this.canvasContext.arc(x, y, VIDEO_TO_POINT_SIZE[this.index], Math.PI, 2 * Math.PI);
         this.canvasContext.stroke();
 
     }
@@ -277,7 +279,7 @@ class Video {
         canvasContext.strokeStyle = color;
 
         canvasContext.beginPath();
-        canvasContext.arc(x, y, POINT_RADIUS_TO_VIDEO[this.index], 0, 2 * Math.PI);
+        canvasContext.arc(x, y, VIDEO_TO_POINT_SIZE[this.index], 0, 2 * Math.PI);
         canvasContext.stroke();
     }
 
@@ -346,8 +348,8 @@ class Video {
         this.drawLines(newPoints);
     }
 
-    clearPoints() {
-        this.canvasContext.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    clearPoints(context=this.canvasContext) {
+        context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
 
