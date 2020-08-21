@@ -344,7 +344,7 @@ function clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick,
     let epipolarCanvas = canvas(`epipolarCanvas-${videoIndex}`, "epipolar-canvas absolute", "z-index: 2;");
     epipolarCanvas = _canvasWidthAndHeightManager(epipolarCanvas, 800, 600);
 
-    let videoCanvas = canvas(`videoCanvas-${videoIndex}`, "video-canvas absolute draggable", "z-index: 1;");
+    let videoCanvas = canvas(`videoCanvas-${videoIndex}`, "video-canvas absolute", "z-index: 1;");
     videoCanvas = _canvasWidthAndHeightManager(videoCanvas, 800, 600);
 
     let subTrackCanvas = canvas(`subtrackCanvas-${videoIndex}`, 'sub-track absolute', 'z-index: 3;');
@@ -396,58 +396,58 @@ function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrame
         loadPreviewFrameFunction(videoIndex);
     };
     return genericDivWidget("column", `masterColumn-${videoIndex}`).append(
-        genericDivWidget("container").append(
-            genericDivWidget("columns has-text-centered is-multiline", `canvas-columns-${videoIndex}`).append(
-                genericDivWidget("column is-12 video-label-container").append(
-                    genericDivWidget("level").append(
-                        genericDivWidget("level-left").append(
-                            $('<p>', {class: "video-label render-unselectable", id: `videoLabel-${videoIndex}`})
-                        ),
-                        genericDivWidget("level-right").append(
-                            genericDivWidget("columns").append(
-                                genericDivWidget("column", `pop-out-${videoIndex}-placeholder`),
-                                genericDivWidget("column").append(
-                                    // <i class="fa fa-cog" aria-hidden="true"></i>
-                                    $("<button>", {class: "button"}).append(
-                                        $("<i>", {class: "fa fa-cog"}).attr("aria-hidden", "true")
-                                    ).on("click", displaySettings)
-                                )
+        // genericDivWidget("container").append(
+        genericDivWidget("columns has-text-centered is-multiline", `canvas-columns-${videoIndex}`).append(
+            genericDivWidget("column is-12 video-label-container").append(
+                genericDivWidget("level").append(
+                    genericDivWidget("level-left").append(
+                        $('<p>', {class: "video-label render-unselectable", id: `videoLabel-${videoIndex}`})
+                    ),
+                    genericDivWidget("level-right").append(
+                        genericDivWidget("columns").append(
+                            genericDivWidget("column", `pop-out-${videoIndex}-placeholder`),
+                            genericDivWidget("column").append(
+                                // <i class="fa fa-cog" aria-hidden="true"></i>
+                                $("<button>", {class: "button"}).append(
+                                    $("<i>", {class: "fa fa-cog"}).attr("aria-hidden", "true")
+                                ).on("click", displaySettings)
                             )
                         )
                     )
-                ),
+                )
+            ),
 
-                genericDivWidget("column").append(
-                    genericDivWidget("columns", `misc-settings-${videoIndex}`).append(
-                        // videoPropertySlidersWidget(
-                        //     `brightness-${videoIndex}`,
-                        //     `contrast-${videoIndex}`,
-                        //     `saturation-${videoIndex}`,
-                        //     updateVideoProperties,
-                        //     LABEL_STYLES.DARK,
-                        //     initStyleValues
-                        // ),
-                        genericDivWidget("column").append(
-                            clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick, setMousePos)
-                        ),
-                        genericDivWidget('column').append(
-                            genericDivWidget("columns is-multiline").append(
-                                genericDivWidget("column is-12").append(
-                                    canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas", "z-index: 2;").attr(
-                                        'height', '400'
-                                    ).attr(
-                                        'width', '400'
-                                    ),
+            genericDivWidget("column").append(
+                genericDivWidget("columns", `misc-settings-${videoIndex}`).append(
+                    // videoPropertySlidersWidget(
+                    //     `brightness-${videoIndex}`,
+                    //     `contrast-${videoIndex}`,
+                    //     `saturation-${videoIndex}`,
+                    //     updateVideoProperties,
+                    //     LABEL_STYLES.DARK,
+                    //     initStyleValues
+                    // ),
+                    genericDivWidget("column").append(
+                        clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick, setMousePos)
+                    ),
+                    genericDivWidget('column').append(
+                        genericDivWidget("columns is-multiline").append(
+                            genericDivWidget("column is-12").append(
+                                canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas", "z-index: 2;").attr(
+                                    'height', '400'
+                                ).attr(
+                                    'width', '400'
                                 ),
-                                genericDivWidget("column").append(
-                                    $("<p>X = Zoom Out<br>Z = Zoom In</p>")
-                                )
                             ),
-                        )
+                            genericDivWidget("column").append(
+                                $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In</p>")
+                            )
+                        ),
                     )
                 )
             )
         )
+        // )
     );
 }
 
@@ -496,7 +496,7 @@ function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, upda
         )]
 }
 
-function initialSettingsWidget(videoTitle, loadPreviewFrameFunction, context, saveCallback, currentSettings) {
+function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, saveCallback, currentSettings) {
     // TODO : Clean Up
     previewCOLORSPACE = currentSettings.filter.colorspace; // Default to RGB, also will just reassign
     previewFRAMERATE = currentSettings.frameRate;
@@ -1067,18 +1067,6 @@ function firstRowOfSettingsWidget(settingsBindings) {
 
         // Add new track
         genericDivWidget("column").append(
-            genericDivWidget("field").append(
-                $("<label>", {class: "label"}).text("Add New Track: "),
-                genericDivWidget("control").append(
-                    $("<input>", {id: "new-track-input", type: "text", class: "input small-input"}),
-                    $("<input>", {
-                        id: "add-track-button",
-                        type: "button",
-                        class: "button",
-                        value: "=>"
-                    }).on("click", settingsBindings.onTrackAdd),
-                )
-            )
         ),
 
         // Track Drop Down
@@ -1218,5 +1206,155 @@ function settingsInputWidget(settingsBindings) {
             )
         ),
         $("<hr>"),
+    );
+}
+
+function trackWidget(name, onDelete, onSelect, onCheck) {
+
+}
+
+function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEvent, bindings) {
+    let mod = (track, display) => {
+        track.display = display;
+        return track;
+    }
+    let tracksDisplay = [currentTrack];
+    tracksDisplay.push(...selectedTracks);
+    tracksDisplay = tracksDisplay.map((track) => mod(track, true));
+    if (tracksDisplay.length < 5) {
+        let tracksToPush = 5 - tracksDisplay.length;
+        let setOfTracks = new Set();
+        // Make sure not to list a selected track twice
+        selectedTracks.map((track) => track.absoluteIndex).forEach(setOfTracks.add, setOfTracks)
+        let localTracks = allTracks.filter((track) => !setOfTracks.has(track.absoluteIndex));
+        localTracks = localTracks.map((track) => mod(track, false));
+        tracksDisplay.push(...localTracks.splice(0, tracksToPush));
+    }
+    let tracks = genericDivWidget("columns is-multiline");
+    for (let i = 0; i < tracksDisplay.length; i++) {
+        let trackName = tracksDisplay[i].name;
+        if (trackName.length > 9) {
+            trackName = `${trackName.substring(0, 9)}...`;
+        }
+
+        let displayingIcon = tracksDisplay[i].display ? $("<i>", {
+            class: "fas fa-eye-slash",
+            id: `trackdisp-${tracksDisplay[i].absoluteIndex}-icon`
+        }) : $("<i>", {
+            class: "fas fa-eye",
+            id: `trackdisp-${tracksDisplay[i].absoluteIndex}-icon`
+        });
+        let disabledClass = ""
+        if (i === 0) {
+            disabledClass = "disabled";  // This is for the track currently being edited
+        }
+        let currentTrack = genericDivWidget("column is-12").append(
+            genericDivWidget("columns").append(
+                genericDivWidget("column is-3").append(
+                    $(`<p>${trackName}</p>`)
+                ),
+                genericDivWidget("column is-3").append(
+                    $("<button>", {
+                        class: `button ${disabledClass}`,
+                        id: `track-${tracksDisplay[i].absoluteIndex}`
+                    }).append(
+                        $("<i>", {
+                            class: "fas fa-edit",
+                            id: `track-${tracksDisplay[i].absoluteIndex}-icon`
+                        })
+                    ).on("click", (event) => updateEvent(bindings.onTrackClick, event)))
+                ,
+                genericDivWidget("column is-3").append(
+                    $("<button>", {
+                        class: `button ${disabledClass}`,
+                        id: `trackdisp-${tracksDisplay[i].absoluteIndex}`
+                    }).append(
+                        displayingIcon
+                    ).on("click", (event) => updateEvent(bindings.onTrackDisplay, event))
+                ),
+                genericDivWidget("column is-3").append(
+                    $("<button>", {class: "button", id: `trackdelete-${tracksDisplay[i].absoluteIndex}`}).append(
+                        $("<i>", {
+                            class: "fas fa-trash-alt",
+                            id: `trackdelete-${tracksDisplay[i].absoluteIndex}-icon`
+                        })
+                    ).on("click", (event) => updateEvent(bindings.onTrackDelete, event))
+                )
+            ));
+        if (i === 0) {
+            currentTrack.append($("<hr>"));
+        }
+        tracks.append(currentTrack);
+    }
+    return tracks;
+}
+
+function currentlyEditingWidget(trackInformation) {
+    let name = trackInformation.name;
+    if (name.length > 20) {
+        name = `${name.substring(0, 20)}...`;
+    }
+    return genericDivWidget("columns is-multiline is-centered is-vcentered").append(
+        genericDivWidget("column is-12 has-text-centered").append(
+            $('<h1>Currently Editing</h1>') // TODO: This probably looks like crap
+        ),
+        genericDivWidget("column is-6").append(
+            $("<hr>")
+        ),
+        genericDivWidget("column is-12 has-text-centered").append(
+            $(`<p>${name}</p>`)
+        )
+    );
+}
+
+function trackManagementWidget(bindings) {
+    let updateEvent = (updateCallback, event) => {
+        event.stopPropagation();
+        updateCallback(event);
+        let currentTrack = bindings.getCurrentTrack();
+        let allTracks = bindings.getSelectableTracks();
+        let selectedTracks = bindings.getSelectedTracks();
+        let newEditingWidget = currentlyEditingWidget(currentTrack);
+        editingWidget.replaceWith(newEditingWidget);
+        editingWidget = newEditingWidget;
+        let newPaginationWidget = trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEvent, bindings);
+        paginationWidget.replaceWith(newPaginationWidget);
+        paginationWidget = newPaginationWidget;
+    }
+
+    let editingWidget = currentlyEditingWidget(bindings.getCurrentTrack());
+    let paginationWidget = trackPaginationWidget(bindings.getCurrentTrack(),
+        bindings.getSelectedTracks(),
+        bindings.getSelectableTracks(),
+        updateEvent,
+        bindings);
+
+
+    return genericDivWidget("column is-12").append(
+        genericDivWidget("columns is-multiline is-centered").append(
+            genericDivWidget("column is-7 box has-text-centered", "track-input").append(
+                genericDivWidget("columns", "track-input-columns").append(
+                    genericDivWidget("column", "track-text-input").append(
+                        genericDivWidget("field").append(
+                            $("<label>", {class: "label"}).text("Add New Track: "),
+                            genericDivWidget("control has-text-centered").append(
+                                $("<input>", {id: "new-track-input", type: "text", class: "input"}),
+                                $("<button>", {class: "button"}).append($("<i>", {
+                                    id: "add-track-button",
+                                    type: "button",
+                                    class: "fas fa-plus",
+                                })).on("click", (event) => updateEvent(bindings.onTrackAdd, event)),
+                            )
+                        )
+                    )
+                )
+            ),
+            genericDivWidget("column is-7 box", "currently-editing-track").append(
+                editingWidget
+            ),
+            genericDivWidget("column is-7 box", "currently-viewing-tracks").append(
+                paginationWidget
+            )
+        )
     );
 }

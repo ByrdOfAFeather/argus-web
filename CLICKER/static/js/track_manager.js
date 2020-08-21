@@ -1,26 +1,26 @@
 class SubTracksManager {
     // Stores IDs of tracks to draw alongside the current track
     constructor() {
-        this.track_indicies = [];
+        this.trackIndicies = [];
         this.currentTrackStash = null;
     }
 
     removeIndex(indexToRemove) {
-        let index = this.track_indicies.indexOf(indexToRemove);
+        let index = this.trackIndicies.indexOf(indexToRemove);
         if (index >= 0) {
-            this.track_indicies.splice(index, 1);
+            this.trackIndicies.splice(index, 1);
         }
     }
 
     addIndex(indexToAdd) {
-        let index = this.track_indicies.indexOf(indexToAdd);
+        let index = this.trackIndicies.indexOf(indexToAdd);
         if (index < 0) {
-            this.track_indicies.push(indexToAdd);
+            this.trackIndicies.push(indexToAdd);
         }
     }
 
     hasIndex(indexToCheckFor) {
-        let test = this.track_indicies.indexOf(indexToCheckFor);
+        let test = this.trackIndicies.indexOf(indexToCheckFor);
         return test >= 0;
     }
 
@@ -33,12 +33,12 @@ class SubTracksManager {
         if (this.currentTrackStash == null) {
             return false;
         }
-        this.track_indicies.push(this.currentTrackStash);
+        this.trackIndicies.push(this.currentTrackStash);
         this.currentTrackStash = null;
         return true;
     }
 
-    length() { return this.track_indicies.length };
+    length() { return this.trackIndicies.length };
 }
 
 

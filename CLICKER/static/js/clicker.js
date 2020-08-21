@@ -686,6 +686,7 @@ function generateColorspaceDropdown(uniqueID) {
 
 
 function loadSettings() {
+    return null;
     let settingsBindings = {
         onDLTCoeffChange: null,
         onCameraProfileChange: null,

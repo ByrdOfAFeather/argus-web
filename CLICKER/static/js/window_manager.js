@@ -131,7 +131,7 @@ class WindowManager {
 
         // Smooths animations
         $("#generic-input-modal-content").css("margin", "0");
-        $("#modal-content-container").append(initialSettingsWidget(
+        $("#modal-content-container").append(videoSettingsWidget(
             name,
             loadPreviewFrame,
             context,
@@ -142,7 +142,7 @@ class WindowManager {
 
         $("#generic-input-modal").addClass('is-active');
 
-        if (context.index === 0) {
+        if (context.index === 0 || !context.initialization) {
             this.fadeInputModalIn(700)
         } else {
             this.slideInputModalIn();
@@ -306,7 +306,7 @@ class WindowManager {
     generateSubTrackInfos(videoIndex) {
         let infos = [];
         for (let j = 0; j < this.trackManager.subTracks.length(); j++) {
-            let currentIndex = this.trackManager.subTracks.track_indicies[j];
+            let currentIndex = this.trackManager.subTracks.trackIndicies[j];
             let currentTrack = this.trackManager.findTrack(currentIndex);
             let currentPoints = this.clickedPointsManager.getClickedPoints(videoIndex, currentIndex);
             infos.push({"points": currentPoints, "color": currentTrack.color});
@@ -557,8 +557,8 @@ class MainWindowManager extends WindowManager {
             let mainTrack = this.trackManager.currentTrack;
             let mainTrackPoints = this.clickedPointsManager.getClickedPoints(newSettings.index, mainTrack.absoluteIndex);
             this.videos[newSettings.index].redrawPoints(mainTrackPoints, mainTrack.color);
-            for (let i = 0; i < this.trackManager.subTracks.track_indicies.length; i++) {
-                let absoluteSubTrackIndex = this.trackManager.subTracks.track_indicies[i];
+            for (let i = 0; i < this.trackManager.subTracks.trackIndicies.length; i++) {
+                let absoluteSubTrackIndex = this.trackManager.subTracks.trackIndicies[i];
                 let subTrack = this.trackManager.tracks[absoluteSubTrackIndex];
                 let subTrackPoints = this.clickedPointsManager.getClickedPoints(newSettings.index, subTrack.absoluteIndex);
                 let clearPoints = i === 0;
@@ -580,8 +580,8 @@ class MainWindowManager extends WindowManager {
             this.videosToSettings[parsedInputs.index] = parsedInputs;
             this.updateVideoObject(parsedInputs);
             this.redrawWindow(parsedInputs.index);
-            this.emptyInputModal();
         }
+        this.emptyInputModal();
         $("#generic-input-modal").removeClass("is-active");
         $("#blurrable").css("filter", "");
     }
@@ -590,7 +590,8 @@ class MainWindowManager extends WindowManager {
     createSettingsContext(initialization, index) {
         // These booleans strike me as poorly thought out. A rewrite may come one day..... TODO
         let context = {};
-        context.loadVideo = initialization;
+        context.loadVideo = initialization; // This gets changed depending on user input
+        context.initialization = initialization; // This is constant after being set
         context.saveSettings = initialization ?
             (parsedInputs, previous) => this.initializationSaveSettings(parsedInputs, previous) :
             (parsedInputs, previous) => this.saveSettings(parsedInputs, previous);
@@ -606,10 +607,11 @@ class MainWindowManager extends WindowManager {
             context.nextButton = true;
         }
         if (index + 1 === NUMBER_OF_CAMERAS && initialization) {
-            context.nextButtonText = "Finish";
+            context.previousButton = true;
+            context.previousButtonText = "Previous"
             context.nextButton = true;
-        }
-        if (index !== 0 && initialization) {
+            context.nextButtonText = "Finish";
+        } else if (index !== 0 && initialization) {
             context.previousButton = true;
             context.previousButtonText = "Previous"
             context.nextButton = true;
@@ -673,7 +675,7 @@ class MainWindowManager extends WindowManager {
     onTrackDisplay(event) {
         event.stopPropagation();
         let trackID = event.target.id.split('-')[1];
-        let isActive = $(`#${event.target.id}`).is(":checked");
+        let isActive = $(`#trackdisp-${trackID}-icon`).get(0).classList.contains("fa-eye");
         if (isActive) {
             this.trackManager.addSubTrack(trackID);
             let callback = (videoIndex) => {
@@ -743,6 +745,22 @@ class MainWindowManager extends WindowManager {
 
 
     loadSettings() {
+        let settingsColumn = genericDivWidget("columns is-multiline is-centered is-vcentered");
+        let trackBindings = {
+            onTrackClick: (event) => this.onTrackClick(event),
+            onTrackDisplay: (event) => this.onTrackDisplay(event),
+            onTrackDelete: (event) => this.onTrackDelete(event),
+            onTrackAdd: (event) => this.onTrackAdd(event),
+            getCurrentTrack: () => this.trackManager.currentTrack,
+            getSelectableTracks: () => this.trackManager.tracks.filter((track) => track.absoluteIndex !== this.trackManager.currentTrack.absoluteIndex),
+            getSelectedTracks: () => this.trackManager.subTracks.trackIndicies.map((index) => this.trackManager.findTrack(index))
+        };
+        let trackMangementWidget = trackManagementWidget(trackBindings);
+        settingsColumn.append(trackMangementWidget);
+        $("#settings").append(settingsColumn);
+
+        // TODO: Delete
+        return null;
         let settingsBindings = {
             onDLTCoeffChange: (event) => this.loadDLTCoefficents(event),
             onCameraProfileChange: (event) => this.loadCameraProfile(event),
