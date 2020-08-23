@@ -313,7 +313,7 @@ function popOutButtonWidget(videoIndex, videoURL, popOutFunction) {
 }
 
 function _canvasWidthAndHeightManager(canvas, width, height) {
-    return canvas.attr("height", height).attr("width", width).css("height", height + "px").css("width", width + "px");
+    return canvas.css("width", "100%").css("height", "100%").attr("height", 600).attr("width", 800);
 }
 
 function clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick, setMousePos) {
@@ -337,25 +337,25 @@ function clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick,
      */
 
     let clickableCanvas = canvas(`canvas-${videoIndex}`, "clickable-canvas absolute", "z-index: 4;");
-    clickableCanvas = _canvasWidthAndHeightManager(clickableCanvas, 800, 600);
+    clickableCanvas = _canvasWidthAndHeightManager(clickableCanvas, "100%", 600);
     clickableCanvas.prop('tabindex', 1000);
     clickableCanvas.on('keydown', onKeyboardInput);
 
     let epipolarCanvas = canvas(`epipolarCanvas-${videoIndex}`, "epipolar-canvas absolute", "z-index: 2;");
-    epipolarCanvas = _canvasWidthAndHeightManager(epipolarCanvas, 800, 600);
+    epipolarCanvas = _canvasWidthAndHeightManager(epipolarCanvas, "100%", 600);
 
     let videoCanvas = canvas(`videoCanvas-${videoIndex}`, "video-canvas absolute", "z-index: 1;");
-    videoCanvas = _canvasWidthAndHeightManager(videoCanvas, 800, 600);
+    videoCanvas = _canvasWidthAndHeightManager(videoCanvas, "100%", 600);
 
     let subTrackCanvas = canvas(`subtrackCanvas-${videoIndex}`, 'sub-track absolute', 'z-index: 3;');
-    subTrackCanvas = _canvasWidthAndHeightManager(subTrackCanvas, 800, 600);
+    subTrackCanvas = _canvasWidthAndHeightManager(subTrackCanvas, "100%", 600);
 
-    return genericDivWidget("container-for-canvas", `container-for-canvas-${videoIndex}`).append(
+    return genericDivWidget("container", `container-for-canvas-${videoIndex}`).append(
         clickableCanvas.on("click", onClick).on("contextmenu", onRightClick).on("mousemove", setMousePos),
         epipolarCanvas,
         videoCanvas,
         subTrackCanvas
-    ).css("width", "800px").css("height", "600px");
+    ).css("height", "100%");
 }
 
 function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrameFunction,
@@ -395,7 +395,7 @@ function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrame
         }
         loadPreviewFrameFunction(videoIndex);
     };
-    return genericDivWidget("column", `masterColumn-${videoIndex}`).append(
+    return genericDivWidget("column is-12", `masterColumn-${videoIndex}`).append(
         // genericDivWidget("container").append(
         genericDivWidget("columns has-text-centered is-multiline", `canvas-columns-${videoIndex}`).append(
             genericDivWidget("column is-12 video-label-container").append(
@@ -419,35 +419,20 @@ function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrame
 
             genericDivWidget("column").append(
                 genericDivWidget("columns", `misc-settings-${videoIndex}`).append(
-                    // videoPropertySlidersWidget(
-                    //     `brightness-${videoIndex}`,
-                    //     `contrast-${videoIndex}`,
-                    //     `saturation-${videoIndex}`,
-                    //     updateVideoProperties,
-                    //     LABEL_STYLES.DARK,
-                    //     initStyleValues
-                    // ),
-                    genericDivWidget("column").append(
+                    genericDivWidget("column is-7").append(
                         clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick, setMousePos)
                     ),
-                    genericDivWidget('column').append(
-                        genericDivWidget("columns is-multiline").append(
-                            genericDivWidget("column is-12").append(
-                                canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas", "z-index: 2;").attr(
-                                    'height', '400'
-                                ).attr(
-                                    'width', '400'
-                                ),
+                    genericDivWidget("column").append(
+                        genericDivWidget("container", `zoom-text-${videoIndex}`).append(
+                            genericDivWidget("container", `zoom-canvas-${videoIndex}`).append(
+                                canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas", "z-index: 2;").css("height", "100%").css("width", "100%"),
                             ),
-                            genericDivWidget("column").append(
-                                $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In</p>")
-                            )
-                        ),
-                    )
-                )
+                            $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In</p>")
+                        )
+                    ),
+                ),
             )
         )
-        // )
     );
 }
 
@@ -1096,30 +1081,6 @@ function firstRowOfSettingsWidget(settingsBindings) {
                 ),
             )
         ),
-
-        genericDivWidget("column").append(
-            // Auto Advance Checkbox
-            $("<label>", {class: "label"}).text("Auto Advance:"),
-            $("<input>", {
-                id: "auto-advance-setting",
-                type: "checkbox",
-                class: "checkbox",
-                checked: settings["auto-advance"] ? "checked" : ""
-            }).on("click", function () {
-                settingsBindings.inverseSetting('auto-advance')
-            }),
-
-            // Sync Check box
-            $("<label>", {class: "label"}).text("Snyc:"),
-            $("<input>", {
-                id: "sync-setting",
-                type: "checkbox",
-                class: "checkbox",
-                checked: settings["sync"] ? "checked" : ""
-            }).on("click", function () {
-                settingsBindings.inverseSetting('sync');
-            }),
-        )
     );
     return widget;
 }
@@ -1238,10 +1199,10 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
         }
 
         let displayingIcon = tracksDisplay[i].display ? $("<i>", {
-            class: "fas fa-eye-slash",
+            class: "fas fa-eye-slash icon",
             id: `trackdisp-${tracksDisplay[i].absoluteIndex}-icon`
         }) : $("<i>", {
-            class: "fas fa-eye",
+            class: "fas fa-eye icon",
             id: `trackdisp-${tracksDisplay[i].absoluteIndex}-icon`
         });
         let disabledClass = ""
@@ -1249,22 +1210,22 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
             disabledClass = "disabled";  // This is for the track currently being edited
         }
         let currentTrack = genericDivWidget("column is-12").append(
-            genericDivWidget("columns").append(
-                genericDivWidget("column is-3").append(
+            genericDivWidget("columns is-multiline").append(
+                genericDivWidget("column").append(
                     $(`<p>${trackName}</p>`)
                 ),
-                genericDivWidget("column is-3").append(
+                genericDivWidget("column").append(
                     $("<button>", {
                         class: `button ${disabledClass}`,
                         id: `track-${tracksDisplay[i].absoluteIndex}`
                     }).append(
                         $("<i>", {
-                            class: "fas fa-edit",
+                            class: "fas fa-edit icon",
                             id: `track-${tracksDisplay[i].absoluteIndex}-icon`
                         })
                     ).on("click", (event) => updateEvent(bindings.onTrackClick, event)))
                 ,
-                genericDivWidget("column is-3").append(
+                genericDivWidget("column").append(
                     $("<button>", {
                         class: `button ${disabledClass}`,
                         id: `trackdisp-${tracksDisplay[i].absoluteIndex}`
@@ -1272,10 +1233,10 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
                         displayingIcon
                     ).on("click", (event) => updateEvent(bindings.onTrackDisplay, event))
                 ),
-                genericDivWidget("column is-3").append(
+                genericDivWidget("column").append(
                     $("<button>", {class: "button", id: `trackdelete-${tracksDisplay[i].absoluteIndex}`}).append(
                         $("<i>", {
-                            class: "fas fa-trash-alt",
+                            class: "fas fa-trash-alt icon",
                             id: `trackdelete-${tracksDisplay[i].absoluteIndex}-icon`
                         })
                     ).on("click", (event) => updateEvent(bindings.onTrackDelete, event))
@@ -1289,24 +1250,6 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
     return tracks;
 }
 
-function currentlyEditingWidget(trackInformation) {
-    let name = trackInformation.name;
-    if (name.length > 20) {
-        name = `${name.substring(0, 20)}...`;
-    }
-    return genericDivWidget("columns is-multiline is-centered is-vcentered").append(
-        genericDivWidget("column is-12 has-text-centered").append(
-            $('<h1>Currently Editing</h1>') // TODO: This probably looks like crap
-        ),
-        genericDivWidget("column is-6").append(
-            $("<hr>")
-        ),
-        genericDivWidget("column is-12 has-text-centered").append(
-            $(`<p>${name}</p>`)
-        )
-    );
-}
-
 function trackManagementWidget(bindings) {
     let updateEvent = (updateCallback, event) => {
         event.stopPropagation();
@@ -1314,15 +1257,11 @@ function trackManagementWidget(bindings) {
         let currentTrack = bindings.getCurrentTrack();
         let allTracks = bindings.getSelectableTracks();
         let selectedTracks = bindings.getSelectedTracks();
-        let newEditingWidget = currentlyEditingWidget(currentTrack);
-        editingWidget.replaceWith(newEditingWidget);
-        editingWidget = newEditingWidget;
         let newPaginationWidget = trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEvent, bindings);
         paginationWidget.replaceWith(newPaginationWidget);
         paginationWidget = newPaginationWidget;
     }
 
-    let editingWidget = currentlyEditingWidget(bindings.getCurrentTrack());
     let paginationWidget = trackPaginationWidget(bindings.getCurrentTrack(),
         bindings.getSelectedTracks(),
         bindings.getSelectableTracks(),
@@ -1331,30 +1270,62 @@ function trackManagementWidget(bindings) {
 
 
     return genericDivWidget("column is-12").append(
-        genericDivWidget("columns is-multiline is-centered").append(
-            genericDivWidget("column is-7 box has-text-centered", "track-input").append(
-                genericDivWidget("columns", "track-input-columns").append(
-                    genericDivWidget("column", "track-text-input").append(
-                        genericDivWidget("field").append(
-                            $("<label>", {class: "label"}).text("Add New Track: "),
-                            genericDivWidget("control has-text-centered").append(
+        genericDivWidget("columns is-multiline is-centered is-mobile").append(
+            genericDivWidget("column box is-three-fifths has-text-centered", "track-input").append(
+                genericDivWidget("field").append(
+                    $("<label>", {class: "label"}).text("Add New Track: "),
+                    genericDivWidget("control has-text-centered").append(
+                        genericDivWidget("columns is-gapless").append(
+                            genericDivWidget("column").append(
                                 $("<input>", {id: "new-track-input", type: "text", class: "input"}),
+                            ),
+                            genericDivWidget("column").append(
                                 $("<button>", {class: "button"}).append($("<i>", {
                                     id: "add-track-button",
                                     type: "button",
                                     class: "fas fa-plus",
-                                })).on("click", (event) => updateEvent(bindings.onTrackAdd, event)),
+                                })).on("click", (event) => updateEvent(bindings.onTrackAdd, event))
                             )
                         )
                     )
                 )
             ),
-            genericDivWidget("column is-7 box", "currently-editing-track").append(
-                editingWidget
-            ),
-            genericDivWidget("column is-7 box", "currently-viewing-tracks").append(
+            genericDivWidget("column box is-three-fifths", "currently-viewing-tracks").append(
                 paginationWidget
             )
+        ));
+}
+
+function frameMovementSettingsWidget(bindings) {
+    return genericDivWidget("column is-12").append(
+        genericDivWidget("columns").append(
+            genericDivWidget("column box").append(
+                // Auto Advance Checkbox
+                $("<label>", {class: "label"}).text("Auto Advance:"),
+                $("<input>", {
+                    id: "auto-advance-setting",
+                    type: "checkbox",
+                    class: "checkbox",
+                    checked: settings["auto-advance"] ? "checked" : ""
+                }).on("click", function () {
+                    bindings.inverseSetting('auto-advance')
+                }),
+
+                // Sync Check box
+                $("<label>", {class: "label"}).text("Snyc:"),
+                $("<input>", {
+                    id: "sync-setting",
+                    type: "checkbox",
+                    class: "checkbox",
+                    checked: settings["sync"] ? "checked" : ""
+                }).on("click", function () {
+                    bindings.inverseSetting('sync');
+                }),
+            )
         )
-    );
+    )
+}
+
+function exportSettings() {
+
 }

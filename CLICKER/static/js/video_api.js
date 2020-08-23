@@ -32,6 +32,7 @@ class Video {
 
         this.zoomCanvas = document.getElementById(`zoomCanvas-${videosIndex}`);
         this.zoomCanvasContext = this.zoomCanvas.getContext("2d");
+        this.zoomCanvas = $(this.zoomCanvas);
         this.zoomOffset = 10;
 
         this.currentBrightnessFilter = '';
@@ -70,22 +71,25 @@ class Video {
 
         this.zoomCanvasContext.strokeStyle = color;
 
-        this.zoomCanvasContext.clearRect(0, 0, this.zoomCanvas.width, this.zoomCanvas.height);
+        let width = parseFloat(this.zoomCanvas.css("width"));
+        let height = parseFloat(this.zoomCanvas.css("height"));
+
+        this.zoomCanvasContext.clearRect(0, 0, width, height);
         this.zoomCanvasContext.drawImage(
             this.videoCanvas,
             startX - this.zoomOffset,
             startY - this.zoomOffset,
             this.zoomOffset * 2,
-            this.zoomOffset * 2, 0, 0, 400, 400); // startX, startY, endX, endY, 0, 0, endY, endX);
+            this.zoomOffset * 2, 0, 0, width, height); // startX, startY, endX, endY, 0, 0, endY, endX);
 
         this.zoomCanvasContext.beginPath();
-        this.zoomCanvasContext.moveTo(200, 0);
-        this.zoomCanvasContext.lineTo(200, 400);
+        this.zoomCanvasContext.moveTo(width / 2, 0);
+        this.zoomCanvasContext.lineTo(width / 2, height);
         this.zoomCanvasContext.stroke();
 
         this.zoomCanvasContext.beginPath();
-        this.zoomCanvasContext.moveTo(0, 200);
-        this.zoomCanvasContext.lineTo(400, 200);
+        this.zoomCanvasContext.moveTo(0, height / 2);
+        this.zoomCanvasContext.lineTo(width, height / 2);
         this.zoomCanvasContext.stroke();
     }
 
@@ -171,7 +175,7 @@ class Video {
 
         frameTracker[this.index] = orgFrame;
         let parsedLabel = Video.parseVideoLabel(document.getElementById(this.videoLabelID).innerText);
-        parsedLabel["FRAME"] = frameTracker[this.index];
+        parsedLabel["FRAME"] = Math.floor(frameTracker[this.index]);
         document.getElementById(this.videoLabelID).innerText = Video.videoLabelDataToString(parsedLabel);
     }
 
@@ -665,7 +669,7 @@ function loadHiddenVideo(objectURL, index, onCanPlay) {
     });
 
     $("#videos").append(curVideo);
-    curVideo.get(0).currentTime = 1.001;
+    curVideo.get(0).currentTime = 0.001;
     curVideo.one("loadeddata", onCanPlay);
     return curVideo;
 }

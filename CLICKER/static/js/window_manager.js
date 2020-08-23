@@ -36,7 +36,9 @@ class WindowManager {
         this.videoFiles = [];
         this.videoFilesMemLocations = {};
         this.videosToSettings = {};
+        this.videosToAspectRatios = {};
     }
+
 
     emptyInputModal() {
         $("#modal-content-container").empty();
@@ -159,7 +161,7 @@ class WindowManager {
     }
 
 
-    addNewPoint(event) {
+        addNewPoint(event) {
         // Adds a new point through the following:
         // Checks if the user can even add a new point (if a frame is still being loaded they can't)
         // Checks if a point already exists at this frame
@@ -396,7 +398,7 @@ class WindowManager {
         deletePoint = callback used whenever a clickable-canvas is rightClicked
          */
         let currentIndex = parsedInputs.index;
-        frameTracker[currentIndex] = 2.001;
+        frameTracker[currentIndex] = 0.001;
         let loadPreviewFrameFunction = (videoIndex) => {
             this.redrawWindow(videoIndex)
         };
@@ -445,7 +447,7 @@ class WindowManager {
         this.videos[currentIndex].currentColorspace = parsedInputs.filter.colorspace;
 
         // Forces an update so that the video will be guaranteed to draw at least once
-        this.videos[currentIndex].goToFrame(2.001);
+        this.videos[currentIndex].goToFrame(0.001);
 
         // TODO: Note that at this point there is wasted time in calling a function that
         // draws the preview frame in the modal which is deleted at this point
@@ -743,9 +745,39 @@ class MainWindowManager extends WindowManager {
         }
     }
 
+    keepCanvasAspectRatio(initial) {
+        let mainWindow = this;
+        $("#canvases").find(".container").each(function () {
+            let videoID = $(this).attr("id").split("-")[3];
+            if (videoID === undefined) {
+                return true;
+            }
+            let width = parseFloat($($(this).find("canvas").get(0)).css("width"));
+            let height = width * mainWindow.videosToSizes[videoID].height / mainWindow.videosToSizes[videoID].width;
+            $(this).css("height", `${height}px`);
+            $(this).find("canvas").each(function () {
+                if (initial) {
+                    mainWindow.videos[videoID].goToFrame(frameTracker[videoID]);
+                } else {
+                    let currentTrack = mainWindow.trackManager.currentTrack
+                    let points = mainWindow.clickedPointsManager.getClickedPoints(videoID, currentTrack.absoluteIndex);
+                    currentTrack.points = points;
+                    mainWindow.videos[videoID].loadFrame(currentTrack);
+                }
+            });
+        });
+        $(".zoom-canvas").each(function () {
+            let width = parseFloat($(this).css("width"));
+            let height = width;
+            $(this.parentElement).css("height", `${height}px`);
+            $(this).attr("width", width);
+            $(this).attr("height", height);
+        })
+    }
+
 
     loadSettings() {
-        let settingsColumn = genericDivWidget("columns is-multiline is-centered is-vcentered");
+        let allSettings = genericDivWidget("columns is-multiline is-centered is-vcentered");
         let trackBindings = {
             onTrackClick: (event) => this.onTrackClick(event),
             onTrackDisplay: (event) => this.onTrackDisplay(event),
@@ -755,9 +787,18 @@ class MainWindowManager extends WindowManager {
             getSelectableTracks: () => this.trackManager.tracks.filter((track) => track.absoluteIndex !== this.trackManager.currentTrack.absoluteIndex),
             getSelectedTracks: () => this.trackManager.subTracks.trackIndicies.map((index) => this.trackManager.findTrack(index))
         };
+
         let trackMangementWidget = trackManagementWidget(trackBindings);
-        settingsColumn.append(trackMangementWidget);
-        $("#settings").append(settingsColumn);
+        allSettings.append(trackMangementWidget)
+
+        let frameMovementSettingsBindings = {
+            inverseSetting: (setting) => {
+                this.settings[setting] = !this.settings[setting];
+            },
+        }
+        let frameMovementSettings = frameMovementSettingsWidget(frameMovementSettingsBindings);
+        allSettings.append(frameMovementSettings);
+        $("#settings").append(allSettings);
 
         // TODO: Delete
         return null;
@@ -766,9 +807,6 @@ class MainWindowManager extends WindowManager {
             onCameraProfileChange: (event) => this.loadCameraProfile(event),
             savePoints: (event) => this.exportPointsInArgusFormat(event),
             onLoadPointsChange: (event) => this.loadPoints(event),
-            inverseSetting: (setting) => {
-                this.settings[setting] = !this.settings[setting];
-            },
             onTrackClick: (event) => this.onTrackClick(event),
             onTrackDisplay: (event) => this.onTrackDisplay(event),
             onTrackDelete: (event) => this.onTrackDelete(event),
@@ -922,7 +960,7 @@ class MainWindowManager extends WindowManager {
     }
 
     goBackwardsAFrame(id) {
-        if (frameTracker[id] - 1 < 2) {
+        if (frameTracker[id] - 1 < 0) {
             return;
         }
 
@@ -975,6 +1013,7 @@ class MainWindowManager extends WindowManager {
             (videoIndex, videoURL) => this.popOutVideo(videoIndex, videoURL)
         );
         $(`#pop-out-${currentIndex}-placeholder`).append(popOutButton);
+        this.keepCanvasAspectRatio(true); // A little wasteful as I resize previous videos that don't need it
     }
 
 
@@ -1062,6 +1101,7 @@ class MainWindowManager extends WindowManager {
                 $("#generic-input-modal").removeClass("is-active");
                 $("#blurrable").css("filter", "");
                 this.loadVideoIntoDOM(parsedInputs);
+                $(window).on("resize", () => this.keepCanvasAspectRatio(false));
             } else {
                 this.loadVideoIntoDOM(parsedInputs);
                 if (this.videosToSettings[index] === undefined) {
@@ -1094,11 +1134,13 @@ class MainWindowManager extends WindowManager {
 
                 this.communicatorsManager.updateAllLocalOrCommunicator(localCallback, message);
             } else {
+                let index = event.target.id.split("-")[1];
                 this.videos[index].moveToNextFrame();
                 this.clearEpipolarCanvases();
                 this.getEpipolarInfo(index, frameTracker[index]);
             }
         } else {
+            let index = event.target.id.split("-")[1];
             this.clearEpipolarCanvases();
             this.getEpipolarInfo(index, frameTracker[index]);
         }
