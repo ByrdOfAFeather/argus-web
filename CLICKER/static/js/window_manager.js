@@ -128,7 +128,7 @@ class WindowManager {
         let name = this.videoFiles[context.index].name;
         if (name.length > 20) {
             name = name.slice(0, 20);
-            name += ". . .";
+            name += "...";
         }
 
         // Smooths animations
@@ -161,7 +161,7 @@ class WindowManager {
     }
 
 
-        addNewPoint(event) {
+    addNewPoint(event) {
         // Adds a new point through the following:
         // Checks if the user can even add a new point (if a frame is still being loaded they can't)
         // Checks if a point already exists at this frame
@@ -275,14 +275,13 @@ class WindowManager {
             if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
                 return {input: input, valid: false};
             } else {
-                frameToGoTo -= 1;
                 frameToGoTo += .001;
                 return {input: frameToGoTo, valid: true};
             }
         };
 
         let callback = (parsedInput) => {
-            if (settings["sync"]) {
+            if (this.settings["sync"]) {
                 for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
                     frameTracker[i] = parsedInput;
                 }
@@ -588,6 +587,46 @@ class MainWindowManager extends WindowManager {
         $("#blurrable").css("filter", "");
     }
 
+    saveProject(autoSaved) {
+        let videoObjects = [];
+        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+            let newVideo = {
+                offset: this.videos[i].offset
+            };
+
+            if (this.communicatorsManager.communicators.find((elem) => elem.index === i) !== undefined) {
+                newVideo.poppedOut = true;
+            } else {
+                newVideo.poppedOut = false;
+            }
+
+            newVideo.name = Video.parseVideoLabel(
+                document.getElementById(
+                    windowManager.videos[i].videoLabelID
+                ).innerText
+            ).TITLE;
+
+            videoObjects.push(newVideo);
+        }
+        let date = new Date();
+        let output_json = {
+            videos: videoObjects,
+            title: PROJECT_NAME,
+            description: PROJECT_DESCRIPTION,
+            dateSaved: date,
+            points: this.clickedPoints,
+            frameTracker: frameTracker,
+            trackTracker: this.trackTracker,
+            cameraProfile: CAMERA_PROFILE,
+            dltCoefficents: DLT_COEFFICIENTS,
+            settings: this.settings,
+            frameRate: FRAME_RATE,
+            colorSpaces: VIDEO_TO_COLORSPACE,
+            pointSizes: VIDEO_TO_POINT_SIZE,
+        };
+        createNewSavedState(output_json, autoSaved, PROJECT_ID);
+    }
+
 
     createSettingsContext(initialization, index) {
         // These booleans strike me as poorly thought out. A rewrite may come one day..... TODO
@@ -702,19 +741,32 @@ class MainWindowManager extends WindowManager {
         event.stopPropagation();
         let trackID = event.target.id.split('-')[1];
         // change to default track (can't be deleted)
-        this.trackManager.changeCurrentTrack(0);
+        if (this.trackManager.currentTrack.absoluteIndex == trackID) {
+            this.trackManager.changeCurrentTrack(0);
+        }
         this.trackManager.removeTrack(trackID);
         this.clickedPointsManager.removeTrack(trackID);
-        removeTrackFromDropDown(trackID);
         let callback = (i) => {
             // Gets the default track
-            let points = this.clickedPointsManager.getClickedPoints(i, 0);
+            let points = this.clickedPointsManager.getClickedPoints(i, this.trackManager.currentTrack.absoluteIndex);
             let track = this.trackManager.currentTrack;
             this.videos[i].changeTracks(points, track.color);
+            // let infos = this.generateSubTrackInfos(i); // TODO: I'm not sure what the heck this pattern is used for or what exactly does as I would use this terminology to describe the for loop below
+            this.videos[i].clearPoints(this.videos[i].subTrackCanvasContext);
+            for (let j = 0; j < this.trackManager.subTracks.length(); j++) {
+                let absoluteSubTrackIndex = this.trackManager.subTracks.trackIndicies[j];
+                let subTrack = this.trackManager.findTrack(absoluteSubTrackIndex);
+                let subTrackPoints = this.clickedPointsManager.getClickedPoints(i, subTrack.absoluteIndex);
+                this.videos[i].redrawPoints(
+                    subTrackPoints,
+                    subTrack.color,
+                    this.videos[i].subTrackCanvasContext,
+                    false
+                );
+            }
         };
         let message = messageCreator("removeTrack", {track: trackID});
         this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
-        // TODO Remove from dropdown
     }
 
     onTrackAdd(_) {
@@ -777,7 +829,7 @@ class MainWindowManager extends WindowManager {
 
 
     loadSettings() {
-        let allSettings = genericDivWidget("columns is-multiline is-centered is-vcentered");
+        let allSettings = genericDivWidget("columns is-multiline is-centered is-mobile");
         let trackBindings = {
             onTrackClick: (event) => this.onTrackClick(event),
             onTrackDisplay: (event) => this.onTrackDisplay(event),
@@ -788,9 +840,8 @@ class MainWindowManager extends WindowManager {
             getSelectedTracks: () => this.trackManager.subTracks.trackIndicies.map((index) => this.trackManager.findTrack(index))
         };
 
-        let trackMangementWidget = trackManagementWidget(trackBindings);
-        allSettings.append(trackMangementWidget)
-
+        let trackWidgets = trackManagementWidgets(trackBindings);
+        allSettings.append(trackWidgets);
         let frameMovementSettingsBindings = {
             inverseSetting: (setting) => {
                 this.settings[setting] = !this.settings[setting];
@@ -798,23 +849,13 @@ class MainWindowManager extends WindowManager {
         }
         let frameMovementSettings = frameMovementSettingsWidget(frameMovementSettingsBindings);
         allSettings.append(frameMovementSettings);
+
+
+        let saveBinding = () => this.saveProject(false);
+        let saveWidget = saveProjectWidget(saveBinding);
+        allSettings.append(saveWidget);
+
         $("#settings").append(allSettings);
-
-        // TODO: Delete
-        return null;
-        let settingsBindings = {
-            onDLTCoeffChange: (event) => this.loadDLTCoefficents(event),
-            onCameraProfileChange: (event) => this.loadCameraProfile(event),
-            savePoints: (event) => this.exportPointsInArgusFormat(event),
-            onLoadPointsChange: (event) => this.loadPoints(event),
-            onTrackClick: (event) => this.onTrackClick(event),
-            onTrackDisplay: (event) => this.onTrackDisplay(event),
-            onTrackDelete: (event) => this.onTrackDelete(event),
-            onTrackAdd: (event) => this.onTrackAdd(event),
-        };
-
-        let settingsWidget = settingsInputWidget(settingsBindings);
-        $("#settingsInput").append(settingsWidget);
     }
 
 
@@ -940,8 +981,7 @@ class MainWindowManager extends WindowManager {
     // Keyboard Inputs \\
     goForwardAFrame(id) {
         let frame = frameTracker[id] + 1;
-        if (settings["sync"] === true) {
-
+        if (this.settings["sync"] === true) {
             let callback = (i) => {
                 this.videos[i].moveToNextFrame();
             };
@@ -965,7 +1005,7 @@ class MainWindowManager extends WindowManager {
         }
 
         let frame = frameTracker[id] - 1;
-        if (settings["sync"] === true) {
+        if (this.settings["sync"] === true) {
             let callback = (i) => {
                 this.videos[i].goToFrame(frame);
                 this.clearEpipolarCanvases();
@@ -1101,6 +1141,10 @@ class MainWindowManager extends WindowManager {
                 $("#generic-input-modal").removeClass("is-active");
                 $("#blurrable").css("filter", "");
                 this.loadVideoIntoDOM(parsedInputs);
+                AUTO_SAVE_INTERVAL_ID = setInterval(() => {
+                    this.saveProject(true)
+                },
+                60000);
                 $(window).on("resize", () => this.keepCanvasAspectRatio(false));
             } else {
                 this.loadVideoIntoDOM(parsedInputs);

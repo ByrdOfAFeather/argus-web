@@ -26,23 +26,15 @@ def saved_states(request):
             start_index = int(request.GET.get('pagination', 0))
         except ValueError:
             print("Non integer value sent for pagination, defaulting to 0")
+        project_id = request.GET.get("projectID", False)
+        if not project_id:
+            # TODO: Error here
+            pass
 
-        saved_state_query_set = SavedState.objects.filter(
+        project_object = Project.objects.get(id=project_id)
+        user_states = SavedState.objects.filter(
             user=request.user,
-            autosaved=False).order_by("-id")
-
-        end_of_pagination = False
-        user_states = saved_state_query_set[start_index:start_index + 5]
-        if not user_states:
-            end_of_pagination = True
-            query_set_length = len(saved_state_query_set)
-            if query_set_length == 0:
-                user_states = []
-            else:
-                user_states = saved_state_query_set[query_set_length - 6: query_set_length - 1]
-
-        else:
-            if len(user_states) < 5: end_of_pagination = True
+            project=project_object).order_by("-id")
 
         json_objects = []
         for state in user_states:
@@ -54,19 +46,7 @@ def saved_states(request):
                 }
             )
 
-        try:
-            user_autosaved_state = SavedState.objects.get(user=request.user, autosaved=True)
-            json_objects.append(
-                {
-                    "state_data": json.loads(user_autosaved_state.json[0:-2] + r',\"autosaved\": true }"'),
-                    "project_id": user_autosaved_state.project.id,
-                    "state_id": user_autosaved_state.id
-                }
-            )
-        except SavedState.DoesNotExist:
-            pass
-
-        response = JsonResponse({"states": json_objects, "end_of_pagination": end_of_pagination})
+        response = JsonResponse({"states": json_objects})
         response.status_code = 200
         return response
 
@@ -118,6 +98,19 @@ def saved_states(request):
             response = JsonResponse({"error": "Saved State does not exist with that id!"})
             response.status_code = 404
             return response
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def saved_projects(request):
+    if request.method == "GET":
+        projects = Project.objects.filter(owner=request.user)
+        return_json = {
+            "projects": [(project.name, project.description, project.id) for project in projects]
+        }
+        response = JsonResponse(return_json)
+        response.status_code = 200
+        return response
 
 
 @api_view(["POST"])

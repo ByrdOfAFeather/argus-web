@@ -147,12 +147,13 @@
                 window.location = "{% url 'login' %}";
             }
 
-            async function getSavedStates(pagination) {
+            async function getSavedStates(projectID) {
                 let results = await $.ajax({
                         url: "{% url 'api:saved-states' %}",
                         method: "GET",
                         data: {
-                            pagination: pagination,
+                            pagination: 100,
+                            projectID: projectID,
                         },
                         error: (error) => {
                             if (error.status === 403) {
@@ -164,7 +165,24 @@
                     }
                 );
 
-                return {results: results.states, endOfPagination: results.end_of_pagination};
+                return results;
+            }
+
+            async function getSavedProjects(pagination) {
+                let results = await $.ajax({
+                        url: "{% url 'api:saved-projects' %}",
+                        method: "GET",
+                        error: (error) => {
+                            if (error.status === 403) {
+                                generateError("You have to login before you can access this feature!",
+                                    $(`<button class="button" onclick="goToLogin()">Login</button>
+                           <button class="button" onclick="genericInputCleanUp($('#modal-content-container'), $('#generic-input-modal'));">Cancel</button>`))
+                            }
+                        }
+                    }
+                );
+
+                return results.projects;
             }
 
             function createNewSavedState(outputJson, autoSaved, projectID) {
@@ -185,9 +203,12 @@
                     success: function () {
                         let successText = $("#auto-save-placeholder");
                         let now = new Date();
-                        successText.text(`Last saved : ${now.toString()}`);
+                        let auto = "";
+                        if (autoSaved) { auto = "(Auto)"; }
+                        successText.text(`Last saved : ${now.toString()} ${auto}`);
                     },
                     error: function (error) {
+                        // TODO: Allow a user to still save after creating an account / logging in
                         if (error.statusCode === 403) {
                             if (!autoSaved) {
                                 generateError("You have to be logged in to use this feature!");

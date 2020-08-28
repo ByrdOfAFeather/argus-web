@@ -6,8 +6,10 @@ class SubTracksManager {
     }
 
     removeIndex(indexToRemove) {
-        let index = this.trackIndicies.indexOf(indexToRemove);
-        if (index >= 0) {
+        let index = this.trackIndicies.findIndex((idx) => idx == indexToRemove);
+        if (index === - 1) {
+            return;
+        } else {
             this.trackIndicies.splice(index, 1);
         }
     }
@@ -20,7 +22,7 @@ class SubTracksManager {
     }
 
     hasIndex(indexToCheckFor) {
-        let test = this.trackIndicies.indexOf(indexToCheckFor);
+        let test = this.trackIndicies.findIndex((idx) => idx == indexToCheckFor);
         return test >= 0;
     }
 
@@ -94,12 +96,12 @@ class TrackManager {
     }
 
     removeTrack(index) {
-        let indexToRemove = this.tracks.findIndex((track) => track.absoluteIndex === index);
+        let indexToRemove = this.tracks.findIndex((track) => track.absoluteIndex == index);
         if (indexToRemove < 0) {
             return false;
         } else {
             this.tracks.splice(indexToRemove, 1);
-            this.subTracks.remove(index);
+            this.subTracks.removeIndex(index);
             return true;
         }
     }

@@ -215,13 +215,13 @@ function frameRateDropDownWidget(defaultValue = '30') {
                 let parse = parseFloat(input);
                 let warning = $("#modal-input-warning-frame-rate");
                 if (!isNaN(parse)) {
-                    FRAME_RATE = parse;
+                    previewFRAMERATE = parse;
                     dropdownSelection.text(input);
                     warning.addClass("is-not-display");
                     frameRateContainer.addClass("is-not-display");
                     saveButton.off();
                 } else {
-                    FRAME_RATE = null;
+                    previewFRAMERATE = null;
                     if (warning.hasClass("is-not-display")) {
                         warning.removeClass("is-not-display");
                     }
@@ -1209,6 +1209,10 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
         if (i === 0) {
             disabledClass = "disabled";  // This is for the track currently being edited
         }
+        let deleteDisabled = "";
+        if (tracksDisplay[i].absoluteIndex === 0) {
+            deleteDisabled = "disabled";
+        }
         let currentTrack = genericDivWidget("column is-12").append(
             genericDivWidget("columns is-multiline").append(
                 genericDivWidget("column").append(
@@ -1234,9 +1238,12 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
                     ).on("click", (event) => updateEvent(bindings.onTrackDisplay, event))
                 ),
                 genericDivWidget("column").append(
-                    $("<button>", {class: "button", id: `trackdelete-${tracksDisplay[i].absoluteIndex}`}).append(
+                    $("<button>", {
+                        class: `button ${deleteDisabled}`,
+                        id: `trackdelete-${tracksDisplay[i].absoluteIndex}`
+                    }).append(
                         $("<i>", {
-                            class: "fas fa-trash-alt icon",
+                            class: `fas fa-trash-alt icon`,
                             id: `trackdelete-${tracksDisplay[i].absoluteIndex}-icon`
                         })
                     ).on("click", (event) => updateEvent(bindings.onTrackDelete, event))
@@ -1250,7 +1257,7 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
     return tracks;
 }
 
-function trackManagementWidget(bindings) {
+function trackManagementWidgets(bindings) {
     let updateEvent = (updateCallback, event) => {
         event.stopPropagation();
         updateCallback(event);
@@ -1269,63 +1276,116 @@ function trackManagementWidget(bindings) {
         bindings);
 
 
-    return genericDivWidget("column is-12").append(
-        genericDivWidget("columns is-multiline is-centered is-mobile").append(
-            genericDivWidget("column box is-three-fifths has-text-centered", "track-input").append(
-                genericDivWidget("field").append(
-                    $("<label>", {class: "label"}).text("Add New Track: "),
-                    genericDivWidget("control has-text-centered").append(
-                        genericDivWidget("columns is-gapless").append(
-                            genericDivWidget("column").append(
-                                $("<input>", {id: "new-track-input", type: "text", class: "input"}),
-                            ),
-                            genericDivWidget("column").append(
-                                $("<button>", {class: "button"}).append($("<i>", {
-                                    id: "add-track-button",
-                                    type: "button",
-                                    class: "fas fa-plus",
-                                })).on("click", (event) => updateEvent(bindings.onTrackAdd, event))
-                            )
-                        )
+    return [genericDivWidget("column box is-three-fifths has-text-centered", "track-input").append(
+        genericDivWidget("field").append(
+            $("<label>", {class: "label"}).text("Add New Track: "),
+            genericDivWidget("control has-text-centered").append(
+                genericDivWidget("columns is-gapless").append(
+                    genericDivWidget("column").append(
+                        $("<input>", {id: "new-track-input", type: "text", class: "input"}),
+                    ),
+                    genericDivWidget("column").append(
+                        $("<button>", {class: "button"}).append($("<i>", {
+                            id: "add-track-button",
+                            type: "button",
+                            class: "fas fa-plus",
+                        })).on("click", (event) => updateEvent(bindings.onTrackAdd, event))
                     )
                 )
-            ),
-            genericDivWidget("column box is-three-fifths", "currently-viewing-tracks").append(
-                paginationWidget
             )
-        ));
+        )
+    ),
+        genericDivWidget("column box is-three-fifths", "currently-viewing-tracks").append(
+            paginationWidget
+        )];
 }
 
 function frameMovementSettingsWidget(bindings) {
-    return genericDivWidget("column is-12").append(
-        genericDivWidget("columns").append(
-            genericDivWidget("column box").append(
-                // Auto Advance Checkbox
-                $("<label>", {class: "label"}).text("Auto Advance:"),
-                $("<input>", {
-                    id: "auto-advance-setting",
-                    type: "checkbox",
-                    class: "checkbox",
-                    checked: settings["auto-advance"] ? "checked" : ""
-                }).on("click", function () {
-                    bindings.inverseSetting('auto-advance')
-                }),
+    return genericDivWidget("column box is-three-fifths").append(
+        // Auto Advance Checkbox
+        $("<label>", {class: "label"}).text("Auto Advance:"),
+        $("<input>", {
+            id: "auto-advance-setting",
+            type: "checkbox",
+            class: "checkbox",
+            checked: settings["auto-advance"] ? "checked" : ""
+        }).on("click", function () {
+            bindings.inverseSetting('auto-advance')
+        }),
 
-                // Sync Check box
-                $("<label>", {class: "label"}).text("Snyc:"),
-                $("<input>", {
-                    id: "sync-setting",
-                    type: "checkbox",
-                    class: "checkbox",
-                    checked: settings["sync"] ? "checked" : ""
-                }).on("click", function () {
-                    bindings.inverseSetting('sync');
-                }),
+        // Sync Check box
+        $("<label>", {class: "label"}).text("Snyc:"),
+        $("<input>", {
+            id: "sync-setting",
+            type: "checkbox",
+            class: "checkbox",
+            checked: settings["sync"] ? "checked" : ""
+        }).on("click", function () {
+            bindings.inverseSetting('sync');
+        }),
+    );
+}
+
+function saveProjectWidget(saveCallback) {
+    return genericDivWidget("column has-text-centered box is-three-fifths").append(
+        $("<button class='button'>Save Project</button>").on("click", saveCallback),
+        $("<p>", {id: "auto-save-placeholder"})
+    );
+}
+
+function savedStateWidget(savedState) {
+    let savedStateInfo = JSON.parse(savedState.state_data);
+    return genericDivWidget("column is-12").append(
+        genericDivWidget("box").append(
+            genericDivWidget("level").append(
+                genericDivWidget("level-left").append(
+                    $("<p>",).text(`${savedStateInfo.dateSaved}`)
+                ),
+                genericDivWidget("level-right").append(
+                    $("<button>", {class: "button"}).append(
+                        $("<i>", {class: "fas fa-save"})
+                    )
+                )
             )
         )
     )
 }
 
-function exportSettings() {
+async function savedProjectWidget(projectName, projectID, getSavedStates) {
+    let projectStateInfo = await getSavedStates();
+    // TODO: come back and add pagination and make sure auto save is always on top
+    let projectStateWidgets = projectStateInfo.states.map((state) => savedStateWidget(state));
 
+    let projectStates = genericDivWidget("column is-12").append(
+        genericDivWidget("columns is-multiline is-centered is-vcentered no-display").append(
+            projectStateWidgets
+        ));
+
+    let projectButton = genericDivWidget("column",).append(
+        genericDivWidget("box").append(
+            genericDivWidget("columns is-multiline", `${projectID}`).append(
+                genericDivWidget("column is-12").append(
+                    genericDivWidget("level").append(
+                        genericDivWidget("level-left").append(
+                            $("<p>").text(projectName)
+                        ),
+                        genericDivWidget("level-right").append(
+                            $("<button>", {
+                                class: "button",
+                                id: `project-${projectID}`
+                            }).append(
+                                $("<i>", {class: "fas fa-arrow-down", id: `projecticon-${projectID}`})
+                            ).on("click", (event) => {
+                                event.stopPropagation();
+                                projectStates.removeClass("no-display");
+                                let id = event.target.id.split("-")[1];
+                                if (projectStateInfo.states.length !== 0) {
+                                    $("#" + id).append(projectStates);
+                                }
+                            })
+                        )
+                    )
+                ),
+            )));
+    return projectButton;
 }

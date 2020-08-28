@@ -411,11 +411,6 @@ function getSavedStateVideoPaths(videoConfigs, index, cameras, pointConfig, fram
             let modal = $("#generic-input-modal");
             modal.removeClass("is-active");
             clearInterval(AUTO_SAVE_INTERVAL_ID);
-            AUTO_SAVE_INTERVAL_ID = setInterval(function () {
-                    exportConfig(true)
-                },
-                600000);
-
         }
     };
 
@@ -922,93 +917,14 @@ function savedStatePaginationHandler(newPagination, type) {
 
 
 async function displaySavedStates(currentPagination, direction = null) {
-    let response = await getSavedStates(currentPagination);
-    let endOfPagination = response.endOfPagination;
-    let results = response.results;
-
-    let section = $("#saved-states-columns");
-
-    if (results.length === 0) {
-        section.append(`<h3 class="notification has-text-weight-bold is-warning">You don't have any saved projects! Try creating some!</h3>`);
-        $("#continue-working-button").slideUp(750);
-        $('#new-project-button').addClass("float");
+    let projects = await getSavedProjects();
+    for (let i = 0; i<projects.length; i++) {
+        $("#saved-states-columns").append(
+            await savedProjectWidget(projects[i][0], projects[i][2], () => getSavedStates(projects[i][2]))
+        );
     }
-
-    let parsedResults = [];
-
-    for (let i = 0; i < results.length; i++) {
-        console.log(results[i]);
-        parsedResults.push({
-            "state_data": JSON.parse(results[i].state_data),
-            "project_id": results[i].project_id,
-            "state_id": results[i].state_id
-        })
-    }
-
-    parsedResults.sort((a, b) => new Date(b.dateSaved) - new Date(a.dateSaved));
-    for (let i = 0; i < parsedResults.length; i++) {
-        let newState = generateDOMSavedState(parsedResults[i].state_data, parsedResults[i].state_id);
-        section.append(newState);
-        $(`#saved-states-${parsedResults[i].state_id}`).on("click", function () {
-            $("#starter-menu").remove();
-            $("#footer").remove();
-            PROJECT_ID = parsedResults[i].project_id;
-            loadSavedState(parsedResults[i].state_data);
-        });
-    }
-    section.find(".card").css("box-shadow", "0px 0px");
-
     $("#saved-states-section").removeClass("no-display");
-
-    if (currentPagination === 0) {
-        for (let i = 0; i < parsedResults.length; i++) {
-            $("#saved-states-columns").css("display", "");
-            autoHeightAnimate($(`#saved-states-${parsedResults[i].state_id}`), 650 + (100 * i), function () {
-                $(`#saved-states-${parsedResults[i].state_id}-card`).animate({boxShadow: "0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1)"}, function () {
-                    $(`#saved-states-${parsedResults[i].state_id}-card`).removeAttr("style");
-                });
-            });
-        }
-    } else {
-        $(".column, .hidden").removeClass("hidden");
-        slideSavedStates(parsedResults.length, direction);
-    }
-
-
-    $("#continue-working-button").off();
-
-
-    if (!endOfPagination) {
-        let forwardPaginationButton = $(`
-                             <div class="column is-narrow" id="button-column">
-                                 <button id="pagination-button" class="rounded-button">
-                                    <span class='icon'>
-                                        <i class="fas fa-arrow-right"></i>
-                                    </span>
-                                </button>
-                            </div>`);
-
-        forwardPaginationButton.find("#pagination-button").on('click', function () {
-            savedStatePaginationHandler(currentPagination + 5, 'forwards');
-        });
-        $('#saved-states-columns').append(forwardPaginationButton);
-    }
-
-    if (!(currentPagination === 0)) {
-        let backwardPaginationButton = $(`
-                             <div class="column is-narrow" id="button-column">
-                                 <button id="pagination-button" class="rounded-button">
-                                    <span class='icon'>
-                                        <i class="fas fa-arrow-left"></i>
-                                    </span>
-                                </button>
-                            </div>`);
-
-        backwardPaginationButton.find("#pagination-button").on('click', function () {
-            savedStatePaginationHandler(currentPagination - 5, 'backwards');
-        });
-        $('#saved-states-columns').prepend(backwardPaginationButton);
-    }
+    // slideSavedStates(parsedResults.length, direction);
 }
 
 
