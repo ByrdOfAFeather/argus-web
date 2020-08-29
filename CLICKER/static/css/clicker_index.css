@@ -94,6 +94,10 @@ input.input.small-input {
     cursor: pointer;
 }
 
+.flexable-level {
+    flex-shrink: 1!important;
+}
+
 .hidden {
     opacity: 0;
 }
@@ -167,7 +171,7 @@ input.input.small-input {
 /*}*/
 
 .no-display {
-    display: none;
+    display: none!important;
 }
 
 .float {

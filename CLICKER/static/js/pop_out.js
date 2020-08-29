@@ -209,46 +209,6 @@ function sendDeathNotification() {
     // Otherwise the user really wants to leave the page
 }
 
-function handleKeyboardInput(e) {
-    if (String.fromCharCode(e.which) === "Q") {
-        triggerResizeMode();
-    } else if (String.fromCharCode(e.which) === "F") {
-        video.moveToNextFrame();
-        sendNewFrame(frameTracker[video.index]);
-    } else if (String.fromCharCode(e.which) === "B") {
-        if (frameTracker[video.index] < 2) {
-            return;
-        } else {
-            let frameNumber = frameTracker[video.index] - 1;
-            video.goToFrame(frameNumber);
-            sendNewFrame(frameNumber);
-        }
-    } else if (String.fromCharCode(e.which) === "G") {
-        let validate = (input) => {
-            let frameToGoTo = parseInt(input, 10);
-            if (isNaN(frameToGoTo) || frameToGoTo % 1 !== 0) {
-                return {input: null, valid: false};
-            } else {
-                frameToGoTo += .001;
-                return {input: frameToGoTo, valid: true};
-            }
-        };
-
-        let callback = (parseInput) => {
-            video.goToFrame(parseInput);
-            sendNewFrame(parseInput);
-        };
-
-        let label = "What frame would you like to go to?";
-        let errorText = "You must input a valid integer!";
-        getGenericStringLikeInput(validate, callback, label, errorText);
-    } else if (String.fromCharCode(e.which) === "Z") {
-        zoomInZoomWindow(e.target.id.split("-")[1]);
-    } else if (String.fromCharCode(e.which) === "X") {
-        zoomOutZoomWindow(e.target.id.split("-")[1]);
-    }
-}
-
 
 $(document).ready(function () {
     initCommunicator.onmessage = setup;

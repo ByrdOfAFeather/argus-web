@@ -370,85 +370,18 @@ function exportConfig(autoSaved = false) {
     createNewSavedState(output_json, autoSaved, PROJECT_ID);
 }
 
-function getSavedStateVideoPaths(videoConfigs, index, cameras, pointConfig, frameTrackerConfig) {
-    let invalid = function (event) {
-        generateError("You have to provide a path for this video!");
-    };
-
-    let validate = function (restorePoint) {
-        let selectedFile = Array.from($("#generic-file-input").prop("files"));
-        let curURL = URL.createObjectURL(selectedFile[0]);
-
-        let callback = null;
-        if (videoConfigs[index].poppedOut === true) {
-            callback = () => {
-                clickedPoints = pointConfig.slice(0);
-                frameTracker = Object.assign({}, frameTrackerConfig);
-                popOutVideo({target: {id: `popVideo-${index}`}}, curURL);
-            }
-        } else {
-            callback = () => {
-                clickedPoints = pointConfig.slice(0);
-                frameTracker = Object.assign({}, frameTrackerConfig);
-                videos[index].goToFrame(frameTracker[index]);
-                let points = getClickedPoints(index, trackTracker.currentTrack);
-                videos[index].drawPoints(points);
-                videos[index].drawLines(points);
-                getEpipolarLinesOrUnifiedCoord(index, frameTracker[index]);
-                changeTracks(trackTracker.currentTrack, cameras);
-            };
-        }
-
-
-        loadVideosIntoDOM(curURL, index, videoConfigs[index].name, mainWindowAddNewPoint, mainWindowDeletePoint, true,
-            videoConfigs[index].offset, callback);
-        let modalContent = $("#modal-content-container");
-        modalContent.empty();
-        modalContent.append(restorePoint);
-        if (index + 1 < videoConfigs.length) {
-            getSavedStateVideoPaths(videoConfigs, index + 1, cameras, pointConfig, frameTrackerConfig);
-        } else {
-            let modal = $("#generic-input-modal");
-            modal.removeClass("is-active");
-            clearInterval(AUTO_SAVE_INTERVAL_ID);
-        }
-    };
-
-    getGenericFileInput(`Remind me where ${videoConfigs[index].name} is`, validate, invalid);
-}
-
-
 function loadSavedState(config) {
     PROJECT_NAME = config.title;
-    colorIndex = 0;
-    clickedPoints = [];
-    trackTracker = {tracks: [{name: "Track 1", color: COLORS[0], index: 0}], currentTrack: 0};
-    NUMBER_OF_CAMERAS = config.videos.length;
-    FRAME_RATE = config.frameRate;
-    COLORSPACE = config.colorSpace;
     PROJECT_DESCRIPTION = config.description;
-
-
-    trackTracker.currentTrack = config.trackTracker.currentTrack;
-
-    let cameras = [];
-    for (let i = 0; i < config.videos.length; i++) {
-        cameras.push(i);
-    }
-
+    PROJECT_ID = config.projectID;
     CAMERA_PROFILE = config.cameraProfile;
     DLT_COEFFICIENTS = config.dltCoefficents;
-    settings = config.settings;
-
-    $("#saved-states-section").empty();
-    loadSettings();
-
-
-    for (let i = 1; i < config.trackTracker.tracks.length; i++) {
-        addTrackToDropDown(config.trackTracker.tracks[i].name);
-    }
-
-    getSavedStateVideoPaths(config.videos, 0, cameras, config.points, config.frameTracker);
+    FRAME_RATE = config.frameRate;
+    VIDEO_TO_COLORSPACE = config.colorSpaces;
+    VIDEO_TO_POINT_SIZE = config.pointSizes;
+    NUMBER_OF_CAMERAS = config.videos.length;
+    windowManager = new MainWindowManager(PROJECT_NAME, PROJECT_DESCRIPTION, PROJECT_ID);
+    windowManager.loadSavedState(config);
 }
 
 /// TRACK MANAGEMENT ///
@@ -491,7 +424,8 @@ function triggerResizeMode() {
 
 function changeColorSpace(colorSpace) {
     COLORSPACE = colorSpace === RGB ? "grayscale(0%)" : "grayscale(100%)";
-    let callback = () => {};
+    let callback = () => {
+    };
     let message = messageCreator("changeColorSpace", {colorSpace: colorSpace});
     updateAllLocalOrCommunicator(callback, message);
 }
@@ -918,9 +852,9 @@ function savedStatePaginationHandler(newPagination, type) {
 
 async function displaySavedStates(currentPagination, direction = null) {
     let projects = await getSavedProjects();
-    for (let i = 0; i<projects.length; i++) {
+    for (let i = 0; i < projects.length; i++) {
         $("#saved-states-columns").append(
-            await savedProjectWidget(projects[i][0], projects[i][2], () => getSavedStates(projects[i][2]))
+            await savedProjectWidget(projects[i][0], projects[i][2], () => getSavedStates(projects[i][2]), (savedStateInfo) => loadSavedState(savedStateInfo))
         );
     }
     $("#saved-states-section").removeClass("no-display");

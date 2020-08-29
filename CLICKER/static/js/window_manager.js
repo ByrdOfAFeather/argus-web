@@ -18,7 +18,9 @@ class WindowManager {
         };
         this.settings = {
             "auto-advance": true,
-            "sync": true
+            "sync": true,
+            "forwardMove": 1,
+            "backwardsMove": 1,
         };
         this.defaultVideoSettings = {
             filter: {
@@ -39,6 +41,23 @@ class WindowManager {
         this.videosToAspectRatios = {};
     }
 
+    drawAllPoints(videoIndex) {
+        let mainTrack = this.trackManager.currentTrack;
+        let mainTrackPoints = this.clickedPointsManager.getClickedPoints(videoIndex, mainTrack.absoluteIndex);
+        this.videos[videoIndex].redrawPoints(mainTrackPoints, mainTrack.color);
+        for (let i = 0; i < this.trackManager.subTracks.trackIndicies.length; i++) {
+            let absoluteSubTrackIndex = this.trackManager.subTracks.trackIndicies[i];
+            let subTrack = this.trackManager.tracks[absoluteSubTrackIndex];
+            let subTrackPoints = this.clickedPointsManager.getClickedPoints(videoIndex, subTrack.absoluteIndex);
+            let clearPoints = i === 0;
+            this.videos[videoIndex].redrawPoints(
+                subTrackPoints,
+                subTrack.color,
+                this.videos[videoIndex].subTrackCanvasContext,
+                clearPoints
+            );
+        }
+    }
 
     emptyInputModal() {
         $("#modal-content-container").empty();
@@ -263,7 +282,7 @@ class WindowManager {
         }
     }
 
-    goForwardAFrame() {
+    goForwardFrames() {
     }
 
     goBackwardsAFrame() {
@@ -330,7 +349,7 @@ class WindowManager {
         if (String.fromCharCode(e.which) === "Q") {
             triggerResizeMode();
         } else if (String.fromCharCode(e.which) === "F") {
-            this.goForwardAFrame(id);
+            this.goForwardFrames(id);
         } else if (String.fromCharCode(e.which) === "B") {
             this.goBackwardsAFrame(id);
         } else if (String.fromCharCode(e.which) === "G") {
@@ -382,6 +401,58 @@ class WindowManager {
         return context;
     }
 
+    createClickerWidget(currentVideoIndex, videoSettingsInfo) {
+        let loadPreviewFrameFunction = (videoIndex) => {
+            try {
+                this.redrawWindow(videoIndex);
+            } catch (e) {
+                // this is the case where the video hasn't been created yet. TODO
+            }
+        };
+
+        let updateVideoPropertyCallback = (property, propertyValue) => {
+            this.videos[currentVideoIndex][property] = propertyValue;
+        };
+
+        let getSettings = () => {
+            let context = this.createSettingsContext(false, currentVideoIndex);
+            this.getVideoSettings(context, this.videosToSettings[currentVideoIndex]);
+        }
+        let currentClickerWidget = clickerWidget(
+            currentVideoIndex,
+            updateVideoPropertyCallback,
+            loadPreviewFrameFunction,
+            (event) => this.handleKeyboardInput(event),
+            (event) => this.addNewPoint(event),
+            (event) => this.deletePoint(event),
+            (event) => this.setMousePos(event),
+            {
+                "brightness": videoSettingsInfo.brightness,
+                'saturation': videoSettingsInfo.saturation,
+                'contrast': videoSettingsInfo.contrast
+            },
+            () => getSettings()
+        );
+        currentClickerWidget.find(`#videoLabel-${currentVideoIndex}`).text(
+            videoLabelDataToString({
+                'title': videoSettingsInfo.name,
+                'frame': frameTracker[currentVideoIndex],
+                'offset': videoSettingsInfo.offset
+            })
+        );
+        $("#canvases").append(currentClickerWidget);
+        // TODO: Note that at this point there is wasted time in calling a function that
+        // draws the preview frame in the modal which is deleted at this point
+        // I don't know the performance effects of this. The below code will also remove error
+        // warnings and I'm not sure if that's such as good idea....
+        // $(`#video-${currentIndex}`).off();
+
+        $(`#video-${currentVideoIndex}`).on("canplay", () => {
+            loadPreviewFrameFunction(currentVideoIndex);
+            this.locks.can_click = true;
+        });
+    }
+
     loadVideoIntoDOM(parsedInputs) {
         /* Based on provided video properties, loads a video in to DOM and creates video objects
         parsedInputs {
@@ -398,43 +469,13 @@ class WindowManager {
          */
         let currentIndex = parsedInputs.index;
         frameTracker[currentIndex] = 0.001;
-        let loadPreviewFrameFunction = (videoIndex) => {
-            this.redrawWindow(videoIndex)
-        };
-
-        let updateVideoPropertyCallback = (property, propertyValue) => {
-            this.videos[currentIndex][property] = propertyValue;
-        };
-
-        let getSettings = () => {
-            let context = this.createSettingsContext(false, currentIndex);
-            this.getVideoSettings(context, this.videosToSettings[currentIndex]);
-        }
         let parsedFilter = this.convertFilterToBarPosition(parsedInputs.filter);
+        parsedInputs.brightness = parsedFilter.brightnessBar;
+        parsedInputs.contrast = parsedFilter.contrast;
+        parsedInputs.saturation = parsedFilter.saturateBar;
+        parsedInputs.name = parsedInputs.videoName; // TODO: done to line up with savedstate, need more consisting naming
+        this.createClickerWidget(parsedInputs.index, parsedInputs)
 
-        let currentClickerWidget = clickerWidget(
-            parsedInputs.index,
-            updateVideoPropertyCallback,
-            loadPreviewFrameFunction,
-            (event) => this.handleKeyboardInput(event),
-            (event) => this.addNewPoint(event),
-            (event) => this.deletePoint(event),
-            (event) => this.setMousePos(event),
-            {
-                "brightness": parsedFilter.brightnessBar,
-                'saturation': parsedFilter.saturateBar,
-                'contrast': parsedFilter.contrastBar
-            },
-            () => getSettings()
-        );
-        currentClickerWidget.find(`#videoLabel-${currentIndex}`).text(
-            videoLabelDataToString({
-                'title': parsedInputs.videoName,
-                'frame': frameTracker[currentIndex],
-                'offset': parsedInputs.offset
-            })
-        );
-        $("#canvases").append(currentClickerWidget);
         this.videos[currentIndex] = new Video(currentIndex, parsedInputs.videoName, parsedInputs.offset);
         this.videosToSizes[currentIndex] = {
             'height': this.videos[currentIndex].video.videoHeight,
@@ -447,17 +488,6 @@ class WindowManager {
 
         // Forces an update so that the video will be guaranteed to draw at least once
         this.videos[currentIndex].goToFrame(0.001);
-
-        // TODO: Note that at this point there is wasted time in calling a function that
-        // draws the preview frame in the modal which is deleted at this point
-        // I don't know the performance effects of this. The below code will also remove error
-        // warnings and I'm not sure if that's such as good idea....
-        // $(`#video-${currentIndex}`).off();
-
-        $(`#video-${currentIndex}`).on("canplay", () => {
-            loadPreviewFrameFunction(currentIndex);
-            this.locks.can_click = true;
-        });
     }
 
     clearEpipolarCanvases() {
@@ -482,11 +512,13 @@ class WindowManager {
 
 class MainWindowManager extends WindowManager {
 
-    constructor(projectTitle, projectDescription, projectID, files) {
+    constructor(projectTitle, projectDescription, projectID, files = []) {
         super();
-        this.clickedPointsManager = new ClickedPointsManager(files.length);
-        NUMBER_OF_CAMERAS = files.length;
-        this.videoFiles = files;
+        if (files.length !== 0) {
+            this.clickedPointsManager = new ClickedPointsManager(files.length);
+            NUMBER_OF_CAMERAS = files.length;
+            this.videoFiles = files;
+        }
         this.videoFilesMemLocations = {};
         this.videosToSettings = {}; // Used to save to the cloud / allows "previous" in setup
 
@@ -555,21 +587,7 @@ class MainWindowManager extends WindowManager {
         this.videos[newSettings.index].currentColorspace = VIDEO_TO_COLORSPACE[newSettings.index];
         if (VIDEO_TO_POINT_SIZE[newSettings.index] !== newSettings.pointSize) {
             VIDEO_TO_POINT_SIZE[newSettings.index] = newSettings.pointSize;
-            let mainTrack = this.trackManager.currentTrack;
-            let mainTrackPoints = this.clickedPointsManager.getClickedPoints(newSettings.index, mainTrack.absoluteIndex);
-            this.videos[newSettings.index].redrawPoints(mainTrackPoints, mainTrack.color);
-            for (let i = 0; i < this.trackManager.subTracks.trackIndicies.length; i++) {
-                let absoluteSubTrackIndex = this.trackManager.subTracks.trackIndicies[i];
-                let subTrack = this.trackManager.tracks[absoluteSubTrackIndex];
-                let subTrackPoints = this.clickedPointsManager.getClickedPoints(newSettings.index, subTrack.absoluteIndex);
-                let clearPoints = i === 0;
-                this.videos[newSettings.index].redrawPoints(
-                    subTrackPoints,
-                    subTrack.color,
-                    this.videos[newSettings.index].subTrackCanvasContext,
-                    clearPoints
-                );
-            }
+            this.drawAllPoints(newSettings.index);
         }
     }
 
@@ -594,6 +612,8 @@ class MainWindowManager extends WindowManager {
                 offset: this.videos[i].offset
             };
 
+            newVideo.index = i;
+
             if (this.communicatorsManager.communicators.find((elem) => elem.index === i) !== undefined) {
                 newVideo.poppedOut = true;
             } else {
@@ -606,25 +626,76 @@ class MainWindowManager extends WindowManager {
                 ).innerText
             ).TITLE;
 
+            newVideo.brightness = this.videos[i].currentBrightnessFilter;
+            newVideo.contrast = this.videos[i].currentContrastFilter;
+            newVideo.saturation = this.videos[i].currentSaturateFilter;
+
             videoObjects.push(newVideo);
         }
         let date = new Date();
         let output_json = {
-            videos: videoObjects,
-            title: PROJECT_NAME,
-            description: PROJECT_DESCRIPTION,
-            dateSaved: date,
-            points: this.clickedPoints,
-            frameTracker: frameTracker,
-            trackTracker: this.trackTracker,
-            cameraProfile: CAMERA_PROFILE,
-            dltCoefficents: DLT_COEFFICIENTS,
-            settings: this.settings,
-            frameRate: FRAME_RATE,
-            colorSpaces: VIDEO_TO_COLORSPACE,
-            pointSizes: VIDEO_TO_POINT_SIZE,
+            videos: videoObjects, // ----
+            title: PROJECT_NAME, // -----
+            description: PROJECT_DESCRIPTION, // -----
+            dateSaved: date, // -----
+            pointsManager: this.clickedPointsManager, // ----- () ?
+            frameTracker: frameTracker, // -----
+            trackManager: this.trackManager, // -----
+            cameraProfile: CAMERA_PROFILE, // -----
+            dltCoefficents: DLT_COEFFICIENTS, // -----
+            settings: this.settings, // -----
+            frameRate: FRAME_RATE, // -----
+            colorSpaces: VIDEO_TO_COLORSPACE, // ----
+            pointSizes: VIDEO_TO_POINT_SIZE, // ----
         };
         createNewSavedState(output_json, autoSaved, PROJECT_ID);
+    }
+
+    loadSavedStateVideos(videos) {
+        this.emptyInputModal();
+        $("#generic-input-modal").removeClass("is-active");
+        $("#starter-menu").remove();
+        $("#footer").remove();
+        $("#blurrable").css("filter", "");
+        for (let i = 0; i < videos.length; i++) {
+            this.videoFiles[videos[i].index] = videos[i].file;
+            let memoryLocation = URL.createObjectURL(this.videoFiles[videos[i].index]);
+            this.videoFilesMemLocations[videos[i].index] = memoryLocation;
+            loadHiddenVideo(memoryLocation, videos[i].index, () => {
+            });
+            this.createClickerWidget(videos[i].index, videos[i]);
+            this.videos.push(new Video(videos[i].index, videos[i].name, videos[i].offset));
+            this.videosToSizes[videos[i].index] = {
+                'height': this.videos[videos[i].index].video.videoHeight,
+                'width': this.videos[videos[i].index].video.videoWidth
+            };
+            this.videos[videos[i].index].currentBrightnessFilter = videos[videos[i].index].brightness;
+            this.videos[videos[i].index].currentContrastFilter = videos[videos[i].index].contrast;
+            this.videos[videos[i].index].currentSaturateFilter = videos[videos[i].index].saturation;
+            this.videos[videos[i].index].currentColorspace = VIDEO_TO_COLORSPACE[videos[i].index];
+
+            // Forces an update so that the video will be guaranteed to draw at least once
+            this.videos[videos[i].index].goToFrame(frameTracker[videos[i].index]);
+            this.drawAllPoints(i);
+        }
+        this.keepCanvasAspectRatio(true); // A little wasteful as I resize previous videos that don't need it
+        $(window).on("resize", () => this.keepCanvasAspectRatio(false));
+        this.loadSettings();
+    }
+
+    loadSavedState(state) {
+        this.trackManager = new TrackManager(state.trackManager);
+        let trackIndicies = this.trackManager.tracks;
+        trackIndicies.map((track) => track.absoluteIndex);
+        this.clickedPointsManager = new ClickedPointsManager(NUMBER_OF_CAMERAS, trackIndicies, state.pointsManager.clickedPoints);
+        frameTracker = state.frameTracker;
+        this.settings = state.settings;
+        let videoGetter = loadSavedStateWidget(state.videos, (videos) => this.loadSavedStateVideos(videos));
+        let modal = $("#generic-input-modal");
+        $("#modal-content-container").append(videoGetter);
+        $("#blurrable").css("filter", "blur(10px)");
+        this.fadeInputModalIn(700);
+        modal.addClass("is-active");
     }
 
 
@@ -752,6 +823,8 @@ class MainWindowManager extends WindowManager {
             let track = this.trackManager.currentTrack;
             this.videos[i].changeTracks(points, track.color);
             // let infos = this.generateSubTrackInfos(i); // TODO: I'm not sure what the heck this pattern is used for or what exactly does as I would use this terminology to describe the for loop below
+            // TODO: This pattern has been implemented in this.drawAllPoints, but it also draws the current main track as well, hmmmmm
+            // Perhaps this is fine .... . . . . . . . . . .
             this.videos[i].clearPoints(this.videos[i].subTrackCanvasContext);
             for (let j = 0; j < this.trackManager.subTracks.length(); j++) {
                 let absoluteSubTrackIndex = this.trackManager.subTracks.trackIndicies[j];
@@ -853,8 +926,17 @@ class MainWindowManager extends WindowManager {
 
         let saveBinding = () => this.saveProject(false);
         let saveWidget = saveProjectWidget(saveBinding);
-        allSettings.append(saveWidget);
 
+        let onChange = (event) => {
+            let type = event.target.id.split("-")[0];
+            if (type === "forward") {
+                this.settings["forwardMove"] = parseInt($("#" + event.target.id).val()); // TODO: error checking
+            } else {
+                this.settings["backwardsMove"] = parseInt($("#" + event.target.id).val());
+            }
+        }
+        allSettings.append(changeForwardBackwardOffsetWidget(onChange))
+        allSettings.append(saveWidget);
         $("#settings").append(allSettings);
     }
 
@@ -979,11 +1061,11 @@ class MainWindowManager extends WindowManager {
     }
 
     // Keyboard Inputs \\
-    goForwardAFrame(id) {
-        let frame = frameTracker[id] + 1;
+    goForwardFrames(id) {
+        let frame = frameTracker[id] + this.settings["forwardMove"];
         if (this.settings["sync"] === true) {
             let callback = (i) => {
-                this.videos[i].moveToNextFrame();
+                this.videos[i].goToFrame(frame);
             };
             let message = messageCreator("goToFrame", {frame: frame});
 
@@ -993,18 +1075,18 @@ class MainWindowManager extends WindowManager {
             }
 
         } else {
-            this.videos[id].moveToNextFrame();
+            this.videos[id].goToFrame(frame);
         }
         this.clearEpipolarCanvases();
         this.getEpipolarInfo(id, frame);
     }
 
     goBackwardsAFrame(id) {
-        if (frameTracker[id] - 1 < 0) {
+        if (frameTracker[id] - this.settings["backwardsMove"] < 0) {
             return;
         }
 
-        let frame = frameTracker[id] - 1;
+        let frame = frameTracker[id] - this.settings["backwardsMove"];
         if (this.settings["sync"] === true) {
             let callback = (i) => {
                 this.videos[i].goToFrame(frame);
@@ -1019,9 +1101,7 @@ class MainWindowManager extends WindowManager {
             }
 
         } else {
-            this.videos[id].goToFrame(frameTracker[id] - 1);
-            this.clearEpipolarCanvases();
-            this.getEpipolarInfo(id, frame);
+            this.videos[id].goToFrame(frame);
         }
         this.clearEpipolarCanvases();
         this.getEpipolarInfo(id, frame);
@@ -1142,9 +1222,9 @@ class MainWindowManager extends WindowManager {
                 $("#blurrable").css("filter", "");
                 this.loadVideoIntoDOM(parsedInputs);
                 AUTO_SAVE_INTERVAL_ID = setInterval(() => {
-                    this.saveProject(true)
-                },
-                60000);
+                        this.saveProject(true)
+                    },
+                    60000);
                 $(window).on("resize", () => this.keepCanvasAspectRatio(false));
             } else {
                 this.loadVideoIntoDOM(parsedInputs);
@@ -1258,7 +1338,7 @@ class PopOutWindowManager extends WindowManager {
         this.communicatorsManager.registerCommunicator(currentVideo);
     }
 
-    goForwardAFrame(id) {
+    goForwardFrames(id) {
         this.clearEpipolarCanvases();
         this.videos[id].moveToNextFrame();
 

@@ -1,13 +1,18 @@
 class SubTracksManager {
     // Stores IDs of tracks to draw alongside the current track
-    constructor() {
-        this.trackIndicies = [];
-        this.currentTrackStash = null;
+    constructor(initSubTracks = null) {
+        if (initSubTracks !== null) {
+            this.trackIndicies = initSubTracks.trackIndicies;
+            this.currentTrackStash = initSubTracks.currentTrackStash;
+        } else {
+            this.trackIndicies = [];
+            this.currentTrackStash = null;
+        }
     }
 
     removeIndex(indexToRemove) {
         let index = this.trackIndicies.findIndex((idx) => idx == indexToRemove);
-        if (index === - 1) {
+        if (index === -1) {
             return;
         } else {
             this.trackIndicies.splice(index, 1);
@@ -40,7 +45,9 @@ class SubTracksManager {
         return true;
     }
 
-    length() { return this.trackIndicies.length };
+    length() {
+        return this.trackIndicies.length
+    };
 }
 
 
@@ -52,6 +59,7 @@ class TrackManager {
             this.colorIndex = initTracks.colorIndex;
             this.nextUnusedIndex = initTracks.nextUnusedIndex;
             this.currentTrack = initTracks.currentTrack;
+            this.subTracks = new SubTracksManager(initTracks.subTracks)
         } else {
             this.tracks = [
                 {
@@ -63,9 +71,8 @@ class TrackManager {
             this.colorIndex += 1;
             this.nextUnusedIndex = 1;
             this.currentTrack = this.tracks[0];
+            this.subTracks = new SubTracksManager();
         }
-
-        this.subTracks = new SubTracksManager();
     }
 
     generateTrackObject(trackName) {
