@@ -119,6 +119,8 @@ class CommunicatorsManager {
         } else if (messageContent.type === "changeColorSpace") {
         } else if (messageContent.type === "mainWindowDeath") {
             this.callbacks['mainWindowDeath']();
+        } else if (messageContent.type === "updateSettings") {
+            this.callbacks["updateSettings"](messageContent.data.settings);
         }
     }
 

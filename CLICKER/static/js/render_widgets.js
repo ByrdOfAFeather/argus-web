@@ -407,7 +407,6 @@ function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrame
                         genericDivWidget("columns").append(
                             genericDivWidget("column", `pop-out-${videoIndex}-placeholder`),
                             genericDivWidget("column").append(
-                                // <i class="fa fa-cog" aria-hidden="true"></i>
                                 $("<button>", {class: "button"}).append(
                                     $("<i>", {class: "fa fa-cog"}).attr("aria-hidden", "true")
                                 ).on("click", displaySettings)
@@ -1305,6 +1304,8 @@ function trackManagementWidgets(bindings) {
 }
 
 function frameMovementSettingsWidget(bindings) {
+    let auto = bindings.get("auto-advance") ? "checked": "";
+    let sync = bindings.get("sync") ? "checked": "";
     return genericDivWidget("column  is-three-fifths").append(
         genericDivWidget("box").append(
             // Auto Advance Checkbox
@@ -1313,10 +1314,9 @@ function frameMovementSettingsWidget(bindings) {
                 id: "auto-advance-setting",
                 type: "checkbox",
                 class: "checkbox",
-                checked: settings["auto-advance"] ? "checked" : ""
             }).on("click", function () {
-                bindings.inverseSetting('auto-advance')
-            }),
+                bindings.inverseSetting('auto-advance');
+            }).prop("checked", auto),
 
             // Sync Check box
             $("<label>", {class: "label"}).text("Snyc:"),
@@ -1324,15 +1324,14 @@ function frameMovementSettingsWidget(bindings) {
                 id: "sync-setting",
                 type: "checkbox",
                 class: "checkbox",
-                checked: settings["sync"] ? "checked" : ""
             }).on("click", function () {
                 bindings.inverseSetting('sync');
-            }),
+            }).prop("checked", sync),
         )
     );
 }
 
-function changeForwardBackwardOffsetWidget(onChange) {
+function changeForwardBackwardOffsetWidget(bindings) {
     return genericDivWidget("column is-three-fifths").append(
         genericDivWidget("box").append(
             genericDivWidget("columns is-multiline").append(
@@ -1342,7 +1341,10 @@ function changeForwardBackwardOffsetWidget(onChange) {
                             $("<label>", {class: 'label'}).text("Forward Movement (f): ")
                         ),
                         genericDivWidget("column").append(
-                            $("<input>", {class: "input", id:"forward-frame-input"}).val(1).on("change", (event) => onChange(event))
+                            $("<input>", {
+                                class: "input",
+                                id: "forward-frame-input"
+                            }).val(bindings["get"]("forwardMove")).on("change", (event) => bindings["onChange"](event))
                         )
                     )
                 ),
@@ -1352,7 +1354,10 @@ function changeForwardBackwardOffsetWidget(onChange) {
                             $("<label>", {class: 'label'}).text("Backwards Movement (f): ")
                         ),
                         genericDivWidget("column").append(
-                            $("<input>", {class: "input", id:"backward-frame-input"}).val(1).on("change", (event) => onChange(event))
+                            $("<input>", {
+                                class: "input",
+                                id: "backward-frame-input"
+                            }).val(bindings["get"]("backwardsMove")).on("change", (event) => bindings["onChange"](event))
                         )
                     )
                 )

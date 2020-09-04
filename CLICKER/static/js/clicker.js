@@ -77,8 +77,6 @@ let locks = {
 // KEEPS TRACK OF THE NUMBER OF CAMERAS
 let NUMBER_OF_CAMERAS = 0;
 
-// CURRENTLY NOT USEFUL
-let currentResizable = null;
 
 // KEEPS TRACK OF THE CLICKED POINTS
 // [CAMERA INDEX][TRACK INDEX][POINT]
@@ -95,142 +93,7 @@ let PROJECT_DESCRIPTION = "";
 let PROJECT_ID = null;
 let windowManager = null;
 
-class TrackDropDown {
-    // STATIC CLASS CONTAINER FOR VARIOUS FUNCTIONS RELATING TO THE TRACK MANAGER AND SECONDARY TRACK MANAGER
-    constructor() {
-    }
-}
 
-// TRACK DROP DOWN VARIABLES
-TrackDropDown.dropDown = $(`
-            <div class="columns is-centered is-vcentered">
-                <div class="column">
-                    <div id="track-dropdown-container" class="dropdown">
-                        <div class="dropdown-trigger">
-                            <button id="track-dropdown-trigger" class="button" aria-haspopup="true" 
-                            aria-controls="track-dropdown">
-                                <span>Select Track</span><i class="fas fa-caret-down has-margin-left"></i>
-                            </button>
-                        </div>
-                        <div class="dropdown-menu" id="track-dropdown" role="menu">
-                            <div id="track-Track-1" class="dropdown-content">
-                                <div id=track-0 class="dropdown-item has-text-centered">
-                                    Track 1
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="column">
-                    <p id="current-track-display">Current Track: Track 1</p>
-                </div>
-            </div>
-        `);
-
-TrackDropDown.currentForcedDisplay = null;
-
-// TRACK DROP DOWN FUNCTIONS
-TrackDropDown.generateDropDownOption = (trackName, deleteButton, curIndex) =>
-    $(`
-        <div id=track-${trackName.replace(/ /g, "-")} class="dropdown-content">
-        <div class="container">
-            <div class="level">
-                <div class="level-left">
-                    <div class="column is-narrow"><label class="label is-small">Disp.</label></div>
-                    <div class="column is-narrow"><input id="track-${curIndex}-disp" type="checkbox" class="checkbox" checked="checked" disabled></div>
-                    <div id=track-${curIndex} class="dropdown-item has-text-centered">
-                        ${trackName}
-                    </div>
-                </div>
-                <!-- TODO: cleanup --> 
-                <div class="level-right">
-                ${deleteButton === true ? `<div class="column is-narrow"><button id="track-${curIndex}-delete" class="dropdown-item-delete delete">Delete</button></div>` :
-        ``
-    }</div>
-                
-                </div>
-            </div>
-            </div>
-    `);
-
-
-TrackDropDown.addTrack = (trackName, deleteButton = true) => {
-    if (trackName.length === 0) {
-        generateError("Track name can't be empty!");
-    } else if (trackTracker["tracks"].some((trackObject) => trackObject.name === trackName)) {
-        generateError("You can't add a track with the same name twice!");
-    } else {
-        let previousIndex = trackTracker.currentTrack;
-
-        $("#current-track-display").text(`Current Track: ${trackName}`);
-        let curIndex = trackTracker["currentTrack"];
-        let newDropdownItem = TrackDropDown.generateDropDownOption(trackName, deleteButton, curIndex);
-
-        if (TrackDropDown.currentForcedDisplay !== null) {
-            TrackDropDown.disableForcedDisplay();
-        }
-
-        TrackDropDown.currentForcedDisplay = newDropdownItem;
-
-        secondaryTracksTracker.removeIndex(curIndex);
-
-        let dropDownItemsContainer = TrackDropDown.dropDown.find("#track-dropdown");
-        dropDownItemsContainer.append(newDropdownItem);
-        dropDownItemsContainer.find($(`#track-${previousIndex}-disp`)).prop('checked', false);
-
-        let displayOption = $(`#track-${curIndex}-disp`);
-        displayOption.on("change", function () {
-            if (displayOption.prop("checked") === true) {
-                let message = messageCreator("updateSecondaryTracks", {"add": curIndex});
-                let callback = () => {
-                    secondaryTracksTracker.addIndex(curIndex);
-                };
-                updateAllLocalOrCommunicator(callback, message);
-                secondaryTracksTracker.drawTracks();
-
-            } else {
-                let message = messageCreator("updateSecondaryTracks", {"remove": curIndex});
-                let callback = () => {
-                    secondaryTracksTracker.removeIndex(curIndex);
-                };
-                updateAllLocalOrCommunicator(callback, message);
-                secondaryTracksTracker.drawTracks(true);
-            }
-        });
-
-        // Defaults to true since a new track is automatically switched to
-        displayOption.prop('checked', true);
-    }
-};
-
-TrackDropDown.disableForcedDisplay = () => {
-    let checkboxIndices = TrackDropDown.currentForcedDisplay.find('.checkbox');
-
-    if (checkboxIndices.length !== 0) {
-        checkboxIndices.prop("disabled", "");
-        checkboxIndices.prop("checked", "");
-
-        let id = parseInt(TrackDropDown.currentForcedDisplay.find(".checkbox")[0].id.split("-")[1], 10);
-        secondaryTracksTracker.removeIndex(id);
-        secondaryTracksTracker.drawTracks(true);
-    }
-};
-
-TrackDropDown.enableForcedDisplay = () => {
-    let checkboxIndices = TrackDropDown.currentForcedDisplay.find('.checkbox');
-    if (checkboxIndices.length !== 0) {
-        checkboxIndices.prop("disabled", "disabled");
-        checkboxIndices.prop("checked", "checked");
-    }
-};
-
-
-TrackDropDown.changeTracks = (trackID) => {
-    $("#current-track-display").text(`Current Track: ${trackTracker["tracks"][trackTracker["currentTrack"]].name}`);
-    TrackDropDown.disableForcedDisplay();
-    TrackDropDown.currentForcedDisplay = $(`#track-${trackID}-disp`).parent();
-    TrackDropDown.enableForcedDisplay();
-};
 
 
 function loadPoints(text) {
@@ -303,72 +166,7 @@ function loadPoints(text) {
     reader.readAsText(text[0]);
 }
 
-function updatePopouts(message) {
-    communicators.forEach((communicator) => communicator.communicator.postMessage(message));
-}
 
-
-function updateLocalOrCommunicator(index, localCallback, message) {
-    let currentCommunicator = communicators.find((elem) => elem.index === index);
-    if (currentCommunicator === undefined) {
-        localCallback(index);
-    } else {
-        currentCommunicator.communicator.postMessage(message);
-    }
-}
-
-function updateAllLocalOrCommunicator(localCallback, message, ignoreParam = null) {
-    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-        if (ignoreParam !== null) {
-            if (ignoreParam === i) {
-                continue;
-            }
-        }
-        updateLocalOrCommunicator(i, localCallback, message);
-    }
-}
-
-
-function exportConfig(autoSaved = false) {
-    let videoObjects = [];
-    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-        let newVideo = {
-            offset: windowManager.videos[i].offset
-        };
-
-        if (communicators.find((elem) => elem.index === i) !== undefined) {
-            newVideo.poppedOut = true;
-        } else {
-            newVideo.poppedOut = false;
-        }
-
-        newVideo.name = Video.parseVideoLabel(
-            document.getElementById(
-                windowManager.videos[i].videoLabelID
-            ).innerText
-        ).TITLE;
-
-        videoObjects.push(newVideo);
-    }
-
-    let date = new Date();
-    let output_json = {
-        videos: videoObjects,
-        title: PROJECT_NAME,
-        description: PROJECT_DESCRIPTION,
-        dateSaved: date,
-        points: windowManager.clickedPoints,
-        frameTracker: frameTracker,
-        trackTracker: windowManager.trackTracker,
-        cameraProfile: CAMERA_PROFILE,
-        dltCoefficents: DLT_COEFFICIENTS,
-        settings: windowManager.settings,
-        frameRate: FRAME_RATE,
-        colorSpace: COLORSPACE
-    };
-
-    createNewSavedState(output_json, autoSaved, PROJECT_ID);
-}
 
 function loadSavedState(config) {
     PROJECT_NAME = config.title;
@@ -384,51 +182,9 @@ function loadSavedState(config) {
     windowManager.loadSavedState(config);
 }
 
-/// TRACK MANAGEMENT ///
 
 
-function removeTrackFromDropDown(trackIndex) {
-    if (trackIndex === trackTracker["currentTrack"]) {
-        $("#current-track-display").text(`Current Track: ${trackTracker["tracks"][0].name}`);
-    }
-    $(`#track-${trackTracker.tracks[trackIndex].name.replace(/ /g, "-")}`).remove();
-    removeTrack(trackIndex);
-    // if (trackIndex.hasClass("is-active")) {
-    //     trackIndex.removeClass("is-active");
-    // }
-}
 
-
-function addTrackToDropDown(trackName, deleteButton = true) {
-
-}
-
-
-/// END TRACK MANAGEMENT ///
-
-
-function triggerResizeMode() {
-    let canvases = $(".clickable-canvas");
-    if (locks["resizing_mov"]) {
-        locks["resizing_mov"] = false;
-        canvases.off("mousedown");
-        canvases.off("mouseup");
-        $(document).off("mousemove");
-        canvases.css("border", "none");
-    } else {
-        locks["resizing_mov"] = true;
-        $(document).on("mousemove", setMousePos);
-        canvases.css("border", "1px solid black");
-    }
-}
-
-function changeColorSpace(colorSpace) {
-    COLORSPACE = colorSpace === RGB ? "grayscale(0%)" : "grayscale(100%)";
-    let callback = () => {
-    };
-    let message = messageCreator("changeColorSpace", {colorSpace: colorSpace});
-    updateAllLocalOrCommunicator(callback, message);
-}
 
 /// LOAD FILE FUNCTIONS ///
 
@@ -587,99 +343,6 @@ function exportPoints() {
 }
 
 
-function generateColorspaceDropdown(uniqueID) {
-    return $(`
-    <div class="buffer-div">
-        <div id="rgb-dropdown-container-${uniqueID}" class="dropdown">
-            <div class="dropdown-trigger">
-                <button id="rgb-dropdown-trigger-${uniqueID}" class="button" aria-haspopup="true" aria-controls="rgb-dropdown">
-                     <span id="current-colorspace-selection-${uniqueID}">RGB</span><i class="fas fa-caret-down has-margin-left"></i>
-                </button>
-            </div>
-            <div class="dropdown-menu" id="rgb-dropdown-${uniqueID}" role="menu">
-                <div class="dropdown-content">
-                    <div id="rgb-${uniqueID}" class="dropdown-item">
-                        RGB
-                    </div>
-                </div>
-                <div class="dropdown-content">
-                    <div id="greyscale-${uniqueID}" class="dropdown-item">
-                        Greyscale
-                    </div>                        
-                </div>
-            </div>
-        </div>
-    </div>
-    `);
-}
-
-
-function loadSettings() {
-    return null;
-    let settingsBindings = {
-        onDLTCoeffChange: null,
-        onCameraProfileChange: null,
-        savePoints: null,
-        onLoadPointsChange: null,
-        inverseSetting: null,
-        onTrackClick: null,
-        onTrackDisplay: null,
-        onTrackDelete: null
-    };
-    let setupSettingsInput = settingsInputWidget(settingsBindings);
-    $("#settingsInput").append(setupSettingsInput);
-    $("#track-dropdown-container-column").append(TrackDropDown.dropDown);
-    let track_trigger = $("#track-dropdown-trigger");
-    let track_container = $("#track-dropdown-container");
-    let track_dropdown = $("#track-dropdown");
-
-    // let pointPreviewCanvas = document.getElementById("point-preview-canvas");
-    // let ctx = pointPreviewCanvas.getContext("2d");
-    // ctx.arc(50, 50, POINT_RADIUS, 0, Math.PI);
-    // ctx.arc(50, 50, POINT_RADIUS, Math.PI, 2 * Math.PI);
-    // ctx.stroke();
-
-    track_trigger.on("click", function () {
-        if (track_container.hasClass("is-active")) {
-            track_container.removeClass("is-active");
-        } else {
-            track_container.addClass("is-active");
-        }
-    });
-
-
-    track_dropdown.on("click", ".dropdown-item", function (event) {
-        let trackID = parseInt(event.target.id.split("-")[1], 10);
-
-        if (track_container.hasClass("is-active")) {
-            track_container.removeClass("is-active");
-        }
-
-        let cameraIndex = [];
-        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-            cameraIndex.push(i);
-        }
-        // This change tracks changes the underlying representation ( trackTracker & drawings )
-        changeTracks(trackID, cameraIndex);
-        if (communicators.length !== 0) {
-            updatePopouts({
-                type: "changeTrack",
-                data: {
-                    "track": trackID
-                }
-            });
-        }
-
-        // This change tracks changes the dropdown display, including managing the display options
-        TrackDropDown.changeTracks(trackID);
-    });
-
-    track_dropdown.on("click", ".dropdown-item-delete", function (event) {
-        let curTrackIndex = parseInt(event.target.id.split("-")[1], 10);
-        removeTrackFromDropDown(curTrackIndex);
-    });
-
-}
 
 
 function mainWindowAddNewPoint(event) {
@@ -733,12 +396,20 @@ function mainWindowDeletePoint(e) {
 
 /// END LOAD FUNCTIONS ///
 
-function sendKillNotification() {
-    windowManager.communicationsManager.updateCommunicators(
+function sendKillNotification(e) {
+    e.preventDefault();
+    e.returnValue = '';
+    windowManager.communicatorsManager.updateCommunicators(
         messageCreator(
             "mainWindowDeath",
             {"none": "none"}
-        ));
+        )
+    );
+    windowManager.killPoppedWindows();
+    try {
+        windowManager.saveProject(true);
+    } catch (e) {
+    }
 }
 
 function handleSavedStateDelete(event) {
