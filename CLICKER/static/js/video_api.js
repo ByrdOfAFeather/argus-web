@@ -312,17 +312,17 @@ class Video {
         this.epipolarCanvasContext.restore();
     }
 
-    drawEpipolarLine(points) {
+    drawEpipolarLines(points) {
         this.epipolarCanvasContext.strokeStyle = "#99badd";
-        for (let i = 0; i < points.length - 1; i++) {
+        for (let i = 0; i < points.length; i++) {
             this.drawLine(
                 {
-                    "x": points[i][0],
-                    "y": points[i][1]
+                    "x": points[i][0][0],
+                    "y": points[i][0][1]
                 },
                 {
-                    "x": points[i + 1][0],
-                    "y": points[i + 1][1]
+                    "x": points[i][1][0],
+                    "y": points[i][1][1]
                 }, this.epipolarCanvasContext);
         }
     }

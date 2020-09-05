@@ -5,7 +5,9 @@ function getVideosWithTheSameFrame(video) {
 
 function getPointsInFrame(videosWithTheSameFrame, frameNumber, currentTrack, videosToSizes, pointHelper) {
     let points = [];
-    let lines = [];
+    let linesRelToAllVideos = [];
+    let videosToLines = {};
+    let videosWithPointsInFrame = {};
     for (let videoIndex = 0; videoIndex < videosWithTheSameFrame.length; videoIndex++) {
         let curVideoIndex = videosWithTheSameFrame[videoIndex];
         let localPoints = pointHelper(curVideoIndex, currentTrack);
@@ -22,10 +24,26 @@ function getPointsInFrame(videosWithTheSameFrame, frameNumber, currentTrack, vid
                 videoIndex: videosWithTheSameFrame[videoIndex],
                 pointIndex: indexOfPoints
             });
-            lines.push(getEpipolarLines(curVideoIndex, DLT_COEFFICIENTS, indexOfPoints, currentTrack, videosToSizes, pointHelper));
+            videosWithPointsInFrame[videoIndex] = true;
+            linesRelToAllVideos.push(getEpipolarLines(curVideoIndex, DLT_COEFFICIENTS, indexOfPoints, currentTrack, videosToSizes, pointHelper));
         }
     }
-    return [points, lines];
+
+    for (let i = 0; i < linesRelToAllVideos.length; i++) {
+        for (let j = 0; j < linesRelToAllVideos[i].length; j++) {
+            let currentRef = linesRelToAllVideos[i][j];
+            let currentVideo = currentRef["videoIndex"];
+            if (videosToLines[currentVideo] === undefined) {
+                videosToLines[currentVideo] = [];
+            }
+            if (videosWithPointsInFrame[currentVideo] !== undefined) {
+                /// Don't draw a line in a video with a point
+            } else {
+                videosToLines[currentVideo].push(currentRef["line"]);
+            }
+        }
+    }
+    return [points, videosToLines];
 }
 
 
@@ -39,7 +57,7 @@ async function getEpipolarLinesOrUnifiedCoord(videoCalledFrom, frameNumber, curr
         let points = pointsAndLines[0];
         let lines = pointsAndLines[1];
 
-        if (points.length >= 2) {
+        if (points.length >= NUMBER_OF_CAMERAS) {
             let pointsToReconstruct = [];
             for (let i = 0; i < points.length; i++) {
                 let currentVideoIndex = points[i].videoIndex;
@@ -74,7 +92,7 @@ async function getEpipolarLinesOrUnifiedCoord(videoCalledFrom, frameNumber, curr
             // let callback = (i) => {
             //     drawEpipolarLineCallback(lineInformation)
             // };
-            // let message = messageCreator("drawEpipolarLine", {
+            // let message = messageCreator("drawEpipolarLines", {
             //     "tmp": lineInformation
             // });
             //
@@ -270,7 +288,6 @@ function checkCoordintes(x, y, height, width) {
 
 function getEpipolarLines(videoIndex, DLTCoefficients, pointsIndex, currentTrack, videosToSizes, pointHelper) {
     let coords = [];
-    let tmp = [];
     let dlcCoeff1 = DLTCoefficients[videoIndex];
 
     let localPoints = pointHelper(videoIndex, currentTrack);
@@ -290,12 +307,12 @@ function getEpipolarLines(videoIndex, DLTCoefficients, pointsIndex, currentTrack
         ) - Math.max(
             ...[coordsB[0], coordsB[1][0], coordsB[1][1]]
         ));
-    let returnObjects = [];
+    let points = [];
     for (let i = 0; i < coords.length; i++) {
+        let tmp = [];
         let coord = coords[i];
         if (coord[0] !== parseInt(videoIndex, 10)) {
             let dltCoeff2 = DLTCoefficients[coord[0]];
-
             let xCoord = coord[1][0];
             let yCoord = coord[1][1];
 
@@ -309,6 +326,7 @@ function getEpipolarLines(videoIndex, DLTCoefficients, pointsIndex, currentTrack
                 let intercept = slopeAndIntercept[1];
 
                 tmp = getBezierCurve(slope, intercept, CAMERA_PROFILE[coord[0]]);
+                points.push([coord[0], tmp]);
             } else {
                 let slopeAndIntercept = getDLTLine(xCoord, yCoord, dlcCoeff1, dltCoeff2);
                 let slope = slopeAndIntercept[0];
@@ -335,12 +353,16 @@ function getEpipolarLines(videoIndex, DLTCoefficients, pointsIndex, currentTrack
                     return CAMERA_PROFILE;
                 }
 
-                tmp.push([originalWidth, numeric.add(numeric.mul(slope, originalWidth), intercept)])
+                tmp.push([originalWidth, numeric.add(numeric.mul(slope, originalWidth), intercept)]);
+                points.push({
+                        'videoIndex': coord[0],
+                        'line': tmp
+                    }
+                );
             }
-            returnObjects.push([tmp, i]);
         }
     }
-    return returnObjects;
+    return points;
 }
 
 async function uvToXyz(points, profiles, dltCoefficents) {

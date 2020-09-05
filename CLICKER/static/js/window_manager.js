@@ -526,14 +526,23 @@ class WindowManager {
         this.videos[currentIndex].goToFrame(0.001);
     }
 
-    clearEpipolarCanvases() {
+    clearEpipolarCanvases(popOutIndex=null) {
+        if (popOutIndex !== null) {
+            this.videos[popOutIndex].epipolarCanvasContext.clearRect(
+                0,
+                0,
+                this.videos[popOutIndex].epipolarCanvas.width,
+                this.videos[popOutIndex].epipolarCanvas.width
+            );
+            return;
+        }
         for (let cameraIndex = 0; cameraIndex < NUMBER_OF_CAMERAS; cameraIndex++) {
             let curVideo = this.videos[cameraIndex];
             if (curVideo === undefined) {
                 continue;
             }
 
-            this.videos[cameraIndex].epipolarCanvasContext.clearRect(
+            curVideo.epipolarCanvasContext.clearRect(
                 0,
                 0,
                 curVideo.epipolarCanvas.width,
@@ -654,6 +663,8 @@ class MainWindowManager extends WindowManager {
             newVideo.contrast = this.videos[i].currentContrastFilter;
             newVideo.saturation = this.videos[i].currentSaturateFilter;
 
+            newVideo.orgSize = this.videosToSizes[i];
+
             videoObjects.push(newVideo);
         }
         let date = new Date();
@@ -685,6 +696,7 @@ class MainWindowManager extends WindowManager {
 
         let videosThatNeedPopOut = [];
         for (let i = 0; i < videos.length; i++) {
+            this.videosToSizes[videos[i].index] = videos[i].orgSize;
             this.videoFiles[videos[i].index] = videos[i].file;
             let memoryLocation = URL.createObjectURL(this.videoFiles[videos[i].index]);
             this.videoFilesMemLocations[videos[i].index] = memoryLocation;
@@ -693,10 +705,6 @@ class MainWindowManager extends WindowManager {
             this.createClickerWidget(videos[i].index, videos[i]);
             this.createPopoutWidget(videos[i].index);
             this.videos.push(new Video(videos[i].index, videos[i].name, videos[i].offset));
-            this.videosToSizes[videos[i].index] = {
-                'height': this.videos[videos[i].index].video.videoHeight,
-                'width': this.videos[videos[i].index].video.videoWidth
-            };
             this.videos[videos[i].index].currentBrightnessFilter = videos[videos[i].index].brightness;
             this.videos[videos[i].index].currentContrastFilter = videos[videos[i].index].contrast;
             this.videos[videos[i].index].currentSaturateFilter = videos[videos[i].index].saturation;
@@ -1055,17 +1063,19 @@ class MainWindowManager extends WindowManager {
                     return;
                 }
                 if (result.type === 'epipolar') {
-                    let lines = result.result;
-                    for (let i = 0; i < lines.length; i++) {
-                        let lineInformation = lines[i][0][0];
-                        let videoIndex = lines[i][0][1];
+                    let videosToLines = result.result;
+                    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                        let linePoints = videosToLines[i];
+                        if (linePoints === undefined) {
+                            continue;
+                        }
                         let callback = (index) => {
-                            this.videos[index].drawEpipolarLine(lineInformation)
+                            this.videos[index].drawEpipolarLines(linePoints)
                         };
                         let message = messageCreator("drawEpipolarLine", {
-                            "lineInfo": lineInformation
+                            "lineInfo": linePoints
                         });
-                        this.communicatorsManager.updateLocalOrCommunicator(videoIndex, callback, message);
+                        this.communicatorsManager.updateLocalOrCommunicator(i, callback, message);
                     }
                 } else if (result.type === 'unified') {
                     let points = result.result[1];
@@ -1312,17 +1322,18 @@ class PopOutWindowManager extends WindowManager {
         this.clickedPointsManager = new ClickedPointsManager(numberOfVideos, null, clickedPoints);
         this.trackManager = new TrackManager(tracks);
         this.settings = settings;
+        this.absoluteIndex = currentVideo;
 
         let callbacks = {
             "goToFrame": (frame) => {
                 this.videos[currentVideo].goToFrame(frame);
-                this.clearEpipolarCanvases();
+                this.clearEpipolarCanvases(this.absoluteIndex);
             },
             "changeTrack": (newTrackAbsoluteIndex) => {
                 this.trackManager.changeCurrentTrack(newTrackAbsoluteIndex);
                 let points = this.clickedPointsManager.getClickedPoints(currentVideo, newTrackAbsoluteIndex);
                 let color = this.trackManager.currentTrack.color;
-                this.clearEpipolarCanvases();
+                this.clearEpipolarCanvases(this.absoluteIndex);
                 this.videos[currentVideo].changeTracks(points, color);
             },
             "addNewTrack": (newTrackName) => {
@@ -1331,7 +1342,7 @@ class PopOutWindowManager extends WindowManager {
                 let newTrackIndex = this.trackManager.nextUnusedIndex - 1;
                 this.trackManager.changeCurrentTrack(newTrackIndex);
                 this.clickedPointsManager.addTrack(newTrackIndex);
-                this.clearEpipolarCanvases();
+                this.clearEpipolarCanvases(this.absoluteIndex);
                 this.videos[currentVideo].changeTracks(newTrackIndex);
             },
             "addSubTrack": (subTrackID) => {
@@ -1346,11 +1357,11 @@ class PopOutWindowManager extends WindowManager {
                 this.videos[currentVideo].removeSubTrack(infos);
             },
             "drawEpipolarLine": (lineInfo) => {
-                this.clearEpipolarCanvases();
-                this.videos[currentVideo].drawEpipolarLine(lineInfo);
+                this.clearEpipolarCanvases(this.absoluteIndex);
+                this.videos[currentVideo].drawEpipolarLines(lineInfo);
             },
             "drawDiamond": (x, y) => {
-                this.clearEpipolarCanvases();
+                this.clearEpipolarCanvases(this.absoluteIndex);
                 this.videos[currentVideo].drawDiamond(x, y, 10, 10);
             },
             "loadPoints": () => {
@@ -1371,18 +1382,18 @@ class PopOutWindowManager extends WindowManager {
     }
 
     goForwardFrames(id) {
-        this.clearEpipolarCanvases();
-        let frame = frameTracker[id];
-        this.videos[id].goToFrame(frame + this.settings["forwardMove"]);
+        this.clearEpipolarCanvases(this.absoluteIndex);
+        let frame = frameTracker[id] + this.settings["forwardMove"];
+        this.videos[id].goToFrame(frame);
         let message = messageCreator("goToFrame", {frame: frame, index: id});
         this.communicatorsManager.updateCommunicators(message);
     }
 
     goBackwardsAFrame(id) {
-        if (frameTracker[id] < 2) {
+        if (frameTracker[id] < 0) {
             return;
         }
-        this.clearEpipolarCanvases();
+        this.clearEpipolarCanvases(this.absoluteIndex);
         let frame = frameTracker[id] - this.settings["backwardsMove"];
         this.videos[id].goToFrame(frame);
         frameTracker[id] = frame;
@@ -1401,18 +1412,17 @@ class PopOutWindowManager extends WindowManager {
         this.videos[parsedInputs.index].goToFrame(parsedInputs.frame);
         $(`#video-${parsedInputs.index}`).one("canplay", () => {
             this.drawAllPoints(parsedInputs.index);
+            this.getEpipolarInfo(parsedInputs.index, parsedInputs.frame);
         });
         this.keepCanvasAspectRatio(true);
         $(window).on("resize", () => this.keepCanvasAspectRatio(false));
     }
 
     addNewPoint(event) {
-        console.log("hi I'm adding a new point");
         let point = super.addNewPoint(event);
         if (point.point === null) {
             return;
         }
-        console.log("Made and drew new point - sending to end now");
         let index = event.target.id.split('-')[1];
         let message = messageCreator("newPoint", {
             "point": point.point,
@@ -1422,7 +1432,6 @@ class PopOutWindowManager extends WindowManager {
         });
 
         this.communicatorsManager.updateCommunicators(message);
-        console.log("SENT!")
     }
 
     deletePoint() {
