@@ -656,16 +656,16 @@ function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, save
     }
 
     // The margin: 0 lets animation smoothly transition from one modal-state to the next ( if there are multiple ).
-    return genericDivWidget("columns is-centered is-multiline").css("margin", "0").append(
+    return genericDivWidget("columns is-centered is-multiline is-mobile").css("margin", "0").append(
         genericDivWidget("column is-12 has-text-centered").append(
             $("<h1>", {class: "has-julius has-text-white title"}).text(`Video Properties for ${videoTitle}`)
         ),
 
         genericDivWidget("column").append(
-            genericDivWidget("columns is-multiline").append(
+            genericDivWidget("columns is-multiline is-mobile").append(
                 genericDivWidget("column").append(
-                    genericDivWidget("columns is-multiline").append(
-                        genericDivWidget("column is-12").append(
+                    genericDivWidget("columns is-multiline is-mobile").append(
+                        genericDivWidget("column").append(
                             genericDivWidget("field", "offset-field").append(
                                 tooltipLabelWidget("Offset", LABEL_STYLES.LIGHT,
                                     "Your videos may start at different places, " +
@@ -680,16 +680,16 @@ function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, save
 
 
                 genericDivWidget("column").append(
-                    genericDivWidget("columns is-multiline is-vcentered").append(
-                        genericDivWidget("column is-12").append(
+                    genericDivWidget("columns is-multiline is-vcentered is-mobile").append(
+                        genericDivWidget("column").append(
                             tooltipLabelWidget("Colorspace", LABEL_STYLES.LIGHT,
                                 "Your videos may be easier to see by swaping colorspace",
                                 "left"),
                             colorSpaceDropDown,
                         ),
-                        genericDivWidget("column is-narrow").append(
-                            genericDivWidget("columns").append(
-                                genericDivWidget("column is-narrow").append(
+                        genericDivWidget("column").append(
+                            genericDivWidget("columns is-mobile").append(
+                                genericDivWidget("column").append(
                                     tooltipLabelWidget("Point Size", LABEL_STYLES.LIGHT,
                                         "This controls the radius of your points, the larger it is, the easier it" +
                                         " will be to see. However, this will cause overlap with other points",
@@ -707,18 +707,15 @@ function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, save
                                         }
                                     )
                                 ),
-                                genericDivWidget("column is-narrow").append(
-                                    // TODO: Dropdown for color options for points
-                                )
                             )
                         ),
                     )),
 
-                genericDivWidget("column is-12").append(
-                    genericDivWidget("columns is-multiline").append(
+                genericDivWidget("column").append(
+                    genericDivWidget("columns is-multiline is-mobile").append(
                         genericDivWidget("column").append(
-                            genericDivWidget("columns").append(
-                                genericDivWidget("column is-narrow").append(
+                            genericDivWidget("columns is-mobile").append(
+                                genericDivWidget("column").append(
                                     $("<label>", {class: "label has-text-white"}).text("Preview:"),
                                     $("<canvas>", {
                                         // style: "height: 100%; width: 100%;",
@@ -726,7 +723,7 @@ function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, save
                                     }).attr("height", 300).attr("width", 400)
                                 ),
                                 genericDivWidget("column").append(
-                                    genericDivWidget("columns is-multiline").append(
+                                    genericDivWidget("columns is-multiline is-mobile").append(
                                         videoPropertySlidersWidget(
                                             "preview-brightness",
                                             "preview-contrast",
@@ -743,17 +740,14 @@ function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, save
                                 ),
                             )
                         ),
-
-
-                        genericDivWidget("column is-12").append(
-                            genericDivWidget("level").append(
-                                genericDivWidget("level-left").append(
+                        genericDivWidget("column").append(
+                            genericDivWidget("columns is-mobile").append(
+                                genericDivWidget("column").append(
                                     previousButton,
                                 ),
-                                genericDivWidget("level-right").append(
+                                genericDivWidget("column").append(
                                     nextButton,
-                                )
-                            )
+                                )),
                         )
                     ),
                 ),
@@ -1169,10 +1163,6 @@ function settingsInputWidget(settingsBindings) {
     );
 }
 
-function trackWidget(name, onDelete, onSelect, onCheck) {
-
-}
-
 function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEvent, bindings) {
     let mod = (track, display) => {
         track.display = display;
@@ -1304,8 +1294,8 @@ function trackManagementWidgets(bindings) {
 }
 
 function frameMovementSettingsWidget(bindings) {
-    let auto = bindings.get("auto-advance") ? "checked": "";
-    let sync = bindings.get("sync") ? "checked": "";
+    let auto = bindings.get("auto-advance") ? "checked" : "";
+    let sync = bindings.get("sync") ? "checked" : "";
     return genericDivWidget("column  is-three-fifths").append(
         genericDivWidget("box").append(
             // Auto Advance Checkbox
@@ -1335,31 +1325,25 @@ function changeForwardBackwardOffsetWidget(bindings) {
     return genericDivWidget("column is-three-fifths").append(
         genericDivWidget("box").append(
             genericDivWidget("columns is-multiline").append(
-                genericDivWidget("column is-12").append(
-                    genericDivWidget("columns").append(
-                        genericDivWidget("column").append(
-                            $("<label>", {class: 'label'}).text("Forward Movement (f): ")
-                        ),
-                        genericDivWidget("column").append(
-                            $("<input>", {
-                                class: "input",
-                                id: "forward-frame-input"
-                            }).val(bindings["get"]("forwardMove")).on("change", (event) => bindings["onChange"](event))
-                        )
-                    )
+                genericDivWidget("column").append(
+                    $("<label>", {class: 'label'}).text("Forward Movement (f): ")
                 ),
-                genericDivWidget("column is-12").append(
-                    genericDivWidget("columns").append(
-                        genericDivWidget("column").append(
-                            $("<label>", {class: 'label'}).text("Backwards Movement (f): ")
-                        ),
-                        genericDivWidget("column").append(
-                            $("<input>", {
-                                class: "input",
-                                id: "backward-frame-input"
-                            }).val(bindings["get"]("backwardsMove")).on("change", (event) => bindings["onChange"](event))
-                        )
-                    )
+                genericDivWidget("column").append(
+                    $("<input>", {
+                        class: "input",
+                        id: "forward-frame-input"
+                    }).val(bindings["get"]("forwardMove")).on("change", (event) => bindings["onChange"](event))
+                ),
+
+
+                genericDivWidget("column").append(
+                    $("<label>", {class: 'label'}).text("Backwards Movement (f): ")
+                ),
+                genericDivWidget("column").append(
+                    $("<input>", {
+                        class: "input",
+                        id: "backward-frame-input"
+                    }).val(bindings["get"]("backwardsMove")).on("change", (event) => bindings["onChange"](event))
                 )
             )
         )
@@ -1367,9 +1351,21 @@ function changeForwardBackwardOffsetWidget(bindings) {
 }
 
 function saveProjectWidget(saveCallback) {
-    return genericDivWidget("column has-text-centered box is-three-fifths").append(
-        $("<button class='button'>Save Project</button>").on("click", saveCallback),
-        $("<p>", {id: "auto-save-placeholder"})
+    return genericDivWidget("column has-text-centered is-three-fifths").append(
+        genericDivWidget("box").append(
+            genericDivWidget("columns is-multiline").append(
+                genericDivWidget("column").append(
+                            $("<button>", {
+                                class: "button",
+                            }).append(
+                                $("<i>", {class: "fas fa-save"})
+                            ).on("click", saveCallback)
+                ),
+                genericDivWidget("column").append(
+                    $("<p>", {id: "auto-save-placeholder"})
+                )
+            )
+        )
     );
 }
 

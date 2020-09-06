@@ -4,46 +4,41 @@ function getVideosWithTheSameFrame(video) {
 }
 
 function getPointsInFrame(videosWithTheSameFrame, frameNumber, currentTrack, videosToSizes, pointHelper) {
-    let points = [];
-    let linesRelToAllVideos = [];
+    let videosWithoutPoint = {};
+    let relVideoIndexToPointIndex = {};
     let videosToLines = {};
-    let videosWithPointsInFrame = {};
-    for (let videoIndex = 0; videoIndex < videosWithTheSameFrame.length; videoIndex++) {
-        let curVideoIndex = videosWithTheSameFrame[videoIndex];
-        let localPoints = pointHelper(curVideoIndex, currentTrack);
-        let indexOfPoints = 0;
-        if (localPoints.filter(function (point, index) {
-            if (Math.floor(point.frame) === Math.floor(frameNumber)) {
-                indexOfPoints = index;
+    let possiblePoints = videosWithTheSameFrame.map((videoIndex) => {
+        return {absoluteIndex: videoIndex, points: pointHelper(videoIndex, currentTrack)}
+    });
+    let points = possiblePoints.filter((pointList) => {
+            let index = pointList.points.findIndex((point) => Math.floor(point.frame) === Math.floor(frameNumber));
+            if (index !== -1) {
+                relVideoIndexToPointIndex[pointList.absoluteIndex] = index;
                 return true;
             } else {
+                videosWithoutPoint[pointList.absoluteIndex] = true;
                 return false;
             }
-        }).length !== 0) {
-            points.push({
-                videoIndex: videosWithTheSameFrame[videoIndex],
-                pointIndex: indexOfPoints
-            });
-            videosWithPointsInFrame[videoIndex] = true;
-            linesRelToAllVideos.push(getEpipolarLines(curVideoIndex, DLT_COEFFICIENTS, indexOfPoints, currentTrack, videosToSizes, pointHelper));
         }
-    }
-
-    for (let i = 0; i < linesRelToAllVideos.length; i++) {
-        for (let j = 0; j < linesRelToAllVideos[i].length; j++) {
-            let currentRef = linesRelToAllVideos[i][j];
-            let currentVideo = currentRef["videoIndex"];
-            if (videosToLines[currentVideo] === undefined) {
-                videosToLines[currentVideo] = [];
-            }
-            if (videosWithPointsInFrame[currentVideo] !== undefined) {
-                /// Don't draw a line in a video with a point
-            } else {
-                videosToLines[currentVideo].push(currentRef["line"]);
-            }
+    ).map((pointList) => {
+        return {
+            videoIndex: videosWithTheSameFrame[pointList.absoluteIndex],
+            pointIndex: relVideoIndexToPointIndex[pointList.absoluteIndex]
         }
+    });
+    if (points.length === videosWithTheSameFrame.length) {
+        return [points, null];
+    } else {
+        for (const videosWithoutPointKey in videosWithoutPoint) {
+            videosToLines[videosWithoutPointKey] = [];
+        }
+        for (let i = 0; i < points.length; i++) {
+            let curRelPoint = points[i];
+            let localLines = getEpipolarLines(curRelPoint.videoIndex, DLT_COEFFICIENTS, curRelPoint.pointIndex, currentTrack, videosToSizes, pointHelper, videosWithoutPoint);
+            localLines.forEach((line) => videosToLines[line.videoIndex].push(line.line));
+        }
+        return [points, videosToLines];
     }
-    return [points, videosToLines];
 }
 
 
@@ -286,7 +281,7 @@ function checkCoordintes(x, y, height, width) {
     return 0 <= x <= width && 0 <= y <= height;
 }
 
-function getEpipolarLines(videoIndex, DLTCoefficients, pointsIndex, currentTrack, videosToSizes, pointHelper) {
+function getEpipolarLines(videoIndex, DLTCoefficients, pointsIndex, currentTrack, videosToSizes, pointHelper, videosWithoutPoint) {
     let coords = [];
     let dlcCoeff1 = DLTCoefficients[videoIndex];
 
@@ -311,7 +306,7 @@ function getEpipolarLines(videoIndex, DLTCoefficients, pointsIndex, currentTrack
     for (let i = 0; i < coords.length; i++) {
         let tmp = [];
         let coord = coords[i];
-        if (coord[0] !== parseInt(videoIndex, 10)) {
+        if (coord[0] !== parseInt(videoIndex, 10) && videosWithoutPoint[coord[0]] !== undefined) {
             let dltCoeff2 = DLTCoefficients[coord[0]];
             let xCoord = coord[1][0];
             let yCoord = coord[1][1];

@@ -961,7 +961,7 @@ class MainWindowManager extends WindowManager {
         allSettings.append(changeForwardBackwardOffsetWidget(forwardBackwardsBindings))
         allSettings.append(saveWidget);
 
-        let TEMP = fileInputWidget("temp", "a", "any", (file)=>loadDLTCoefficients(Array.from($("#a").prop("files"))));
+        let TEMP = fileInputWidget("dltcoeff temp", "a", "any", (file)=>loadDLTCoefficients(Array.from($("#a").prop("files"))));
         allSettings.append(TEMP);
         $("#settings").append(allSettings);
     }
@@ -1088,9 +1088,7 @@ class MainWindowManager extends WindowManager {
             });
     }
 
-    // Keyboard Inputs \\
-    goForwardFrames(id) {
-        let frame = frameTracker[id] + this.settings["forwardMove"];
+    goToFrame(id, frame) {
         if (this.settings["sync"] === true) {
             let callback = (i) => {
                 this.videos[i].goToFrame(frame);
@@ -1108,28 +1106,19 @@ class MainWindowManager extends WindowManager {
         this.getEpipolarInfo(id, frame);
     }
 
+    // Keyboard Inputs \\
+    goForwardFrames(id) {
+        let frame = frameTracker[id] + this.settings["forwardMove"];
+        this.goToFrame(id, frame);
+    }
+
     goBackwardsAFrame(id) {
         if (frameTracker[id] - this.settings["backwardsMove"] < 0) {
             return;
         }
 
         let frame = frameTracker[id] - this.settings["backwardsMove"];
-        if (this.settings["sync"] === true) {
-            let callback = (i) => {
-                this.videos[i].goToFrame(frame);
-            };
-            let message = messageCreator("goToFrame", {frame: frame});
-
-            this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
-            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                frameTracker[i] = frame;
-            }
-
-        } else {
-            this.videos[id].goToFrame(frame);
-        }
-        this.clearEpipolarCanvases();
-        this.getEpipolarInfo(id, frame);
+       this.goToFrame(id, frame);
     }
 
     // Keyboard Inputs End \\
