@@ -327,8 +327,8 @@ function getEpipolarLines(videoIndex, DLTCoefficients, pointsIndex, currentTrack
                 let slope = slopeAndIntercept[0];
                 let intercept = slopeAndIntercept[1];
 
-                let originalHeight = videosToSizes[videoIndex].height;
-                let originalWidth = videosToSizes[videoIndex].width;
+                let originalHeight = videosToSizes[coord[0]].height;
+                let originalWidth = videosToSizes[coord[0]].width;
 
                 if (!checkCoordintes(0, intercept, originalHeight, originalWidth)) {
                     generateError(

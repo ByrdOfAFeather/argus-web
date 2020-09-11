@@ -28,8 +28,9 @@ let initPost = false;
 
 
 function setup(message) {
-    console.log(message)
     message = message.data;
+    console.log(message)
+
     index = message.index;
     initCommunicator.close();
 
@@ -50,10 +51,10 @@ function setup(message) {
     clickedPoints = message["clickedPoints"];
     message.videoSettings.frame = message.initFrame;
     loadHiddenVideo(videoSource, message.index, () => {
+        // Step 3: Load Video
+        message.videoSettings.epipolarInfo = message.epipolarInfo;
+        windowManager.loadVideoIntoDOM(message.videoSettings);
     });
-
-    // Step 3: Load Video
-    windowManager.loadVideoIntoDOM(message.videoSettings);
 }
 
 function sendDeathNotification() {

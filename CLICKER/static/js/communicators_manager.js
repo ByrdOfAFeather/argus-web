@@ -107,7 +107,9 @@ class CommunicatorsManager {
             this.callbacks['changeTrack'](messageContent.data.track);
         } else if (messageContent.type === "addNewTrack") {
             this.callbacks['addNewTrack'](messageContent.data.name)
-        } else if (messageContent.type === "addSubTrack") {
+        } else if (messageContent.type === "removeTrack") {
+            this.callbacks["removeTrack"](messageContent.data.track);
+        }else if (messageContent.type === "addSubTrack") {
             this.callbacks["addSubTrack"](messageContent.data.track);
         } else if (messageContent.type === "removeSubTrack") {
             this.callbacks["removeSubTrack"](messageContent.data.track);
@@ -116,7 +118,6 @@ class CommunicatorsManager {
         } else if (messageContent.type === "drawDiamond") {
             this.callbacks['drawDiamond'](messageContent.data.x, messageContent.data.y);
         } else if (messageContent.type === "loadPoints") {
-        } else if (messageContent.type === "changeColorSpace") {
         } else if (messageContent.type === "mainWindowDeath") {
             this.callbacks['mainWindowDeath']();
         } else if (messageContent.type === "updateSettings") {

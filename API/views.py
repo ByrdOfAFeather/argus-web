@@ -2,6 +2,7 @@ import json
 
 from django.http import JsonResponse
 from django.utils.timezone import now
+from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -100,7 +101,7 @@ def saved_states(request):
             return response
 
 
-@api_view(["GET"])
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def saved_projects(request):
     if request.method == "GET":
@@ -112,22 +113,24 @@ def saved_projects(request):
         response.status_code = 200
         return response
 
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def new_project(request):
-    # files = request.FILES.getlist('files')
-    # TODO: The server will just have a 500 moment if something in the form is not there
-    # TODO: Security concerns & Re-enable this feature
-    # https://docs.djangoproject.com/en/2.2/topics/security/#user-uploaded-content-security
-    # public = True if request.data["public"] == "true" else False
-    project = Project(name=request.data["title"], description=request.data["description"], owner=request.user,
-                      public=False)
-    project.save()
-    # for file in files:
-    #     instance = Videos(video=file)
-    #     instance.save()
-    #     ProjectToVideos(project=project, video=instance).save()
-    response = JsonResponse({"success": {"data": {"id": f"{project.id}"}}})
-    response.status_code = 200
-    return response
+    if request.method == "POST":
+        # files = request.FILES.getlist('files')
+        # TODO: The server will just have a 500 moment if something in the form is not there
+        # TODO: Security concerns & Re-enable this feature
+        # https://docs.djangoproject.com/en/2.2/topics/security/#user-uploaded-content-security
+        # public = True if request.data["public"] == "true" else False
+        try:
+            project = Project(name=request.data["title"], description=request.data["description"], owner=request.user,
+                              public=False)
+            project.save()
+            # for file in files:
+            #     instance = Videos(video=file)
+            #     instance.save()
+            #     ProjectToVideos(project=project, video=instance).save()
+            response = JsonResponse({"success": {"data": {"id": f"{project.id}"}}})
+            response.status_code = 200
+            return response
+        except IntegrityError:
+            response = JsonResponse({"failure": {"data": "unique_name_required"}})
+            response.status_code = 401
+            return response

@@ -116,7 +116,7 @@
                 {#formData.append("public", publicInput);#}
 
                 $.ajax({
-                    url: "{% url 'api:new-project' %}",
+                    url: "{% url 'api:saved-projects' %}",
                     method: "POST",
                     async: true,
                     data: formData,
@@ -137,7 +137,7 @@
                             genericInputCleanUp($("#modal-content-container"), $("#generic-input-modal"));
                             loadNewlyCreatedProject(title, description, 'none', parsedInputs.selectedFiles);
                         } else {
-                            console.log(error);
+                            generateError("Project name must match other projects!");
                         }
                     }
                 });

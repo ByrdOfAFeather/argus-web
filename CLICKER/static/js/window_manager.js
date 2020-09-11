@@ -72,14 +72,16 @@ class WindowManager {
 
     emptyInputModal() {
         $("#modal-content-container").empty();
+        $("#generic-input-modal").off();
     }
 
-    slideInputModalIn(animationTime, direction = "right") {
+    slideInputModalIn(animationTime, direction = "right", onCompleteCallback = () => {
+    }) {
         // This slides the modal in from the right, typically used in conjuction with
         // slideInputModalOut
         let modalContentContainer = $("#modal-content-container");
         modalContentContainer.hide();
-        modalContentContainer.show("slide", {direction: direction}, animationTime);
+        modalContentContainer.show("slide", {"direction": direction}, animationTime, onCompleteCallback);
     }
 
     fadeInputModalIn(animationTime, postAnimationCallback) {
@@ -203,11 +205,20 @@ class WindowManager {
         );
 
         $("#generic-input-modal").addClass('is-active');
+        $("#generic-input-modal").on("keydown", (e) => {
+            if (e.keyCode === 13) {
+                $("#save-init-settings-button").click();
+            }
+        })
 
         if (context.index === 0 || !context.initialization) {
-            this.fadeInputModalIn(700)
+            this.fadeInputModalIn(700, () => {
+                $("#offset-input").focus()
+            });
         } else {
-            this.slideInputModalIn();
+            this.slideInputModalIn(400, "right", () => {
+                $("#offset-input").focus()
+            });
         }
 
         if (context.loadVideo) {
@@ -456,6 +467,8 @@ class WindowManager {
         }
         let currentClickerWidget = clickerWidget(
             currentVideoIndex,
+            this.videosToSizes[currentVideoIndex].width,
+            this.videosToSizes[currentVideoIndex].height,
             updateVideoPropertyCallback,
             loadPreviewFrameFunction,
             (event) => this.handleKeyboardInput(event),
@@ -510,13 +523,17 @@ class WindowManager {
         parsedInputs.contrast = parsedFilter.contrast;
         parsedInputs.saturation = parsedFilter.saturateBar;
         parsedInputs.name = parsedInputs.videoName; // TODO: done to line up with savedstate, need more consisting naming
+        this.videosToSizes[currentIndex] = {
+            'height': document.getElementById(`video-${currentIndex}`).videoHeight,
+            'width': document.getElementById(`video-${currentIndex}`).videoWidth
+        }; // This comes from the hidden video that should be created before this point.
+        console.log(this.videosToSizes);
+        console.log(document.getElementById(`video-${currentIndex}`));
+        console.log(document.getElementById(`video-${currentIndex}`).videoWidth);
+
         this.createClickerWidget(parsedInputs.index, parsedInputs)
 
         this.videos[currentIndex] = new Video(currentIndex, parsedInputs.videoName, parsedInputs.offset);
-        this.videosToSizes[currentIndex] = {
-            'height': this.videos[currentIndex].video.videoHeight,
-            'width': this.videos[currentIndex].video.videoWidth
-        };
         this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.brightnessFilter;
         this.videos[currentIndex].currentContrastFilter = parsedInputs.filter.contrastFilter;
         this.videos[currentIndex].currentSaturateFilter = parsedInputs.filter.saturationFilter;
@@ -526,7 +543,7 @@ class WindowManager {
         this.videos[currentIndex].goToFrame(0.001);
     }
 
-    clearEpipolarCanvases(popOutIndex=null) {
+    clearEpipolarCanvases(popOutIndex = null) {
         if (popOutIndex !== null) {
             this.videos[popOutIndex].epipolarCanvasContext.clearRect(
                 0,
@@ -601,7 +618,7 @@ class MainWindowManager extends WindowManager {
             'newPoint': (context) => {
                 let point = context.point;
                 // TODO: Shouldn't this information already be known?
-                let track = context.absoluteTrackIndex;
+                let track = context.absoluteIndex;
                 // END TODO
                 let pointIndex = context.pointIndex;
                 let videoIndex = context.index;
@@ -627,7 +644,9 @@ class MainWindowManager extends WindowManager {
     saveSettings(parsedInputs, previous) {
 
         if (!previous) { // Previous gets used as the cancel button in this context!
-            FRAME_RATE = parsedInputs.frameRate;
+            if (parsedInputs.index === 0) {
+                FRAME_RATE = parsedInputs.frameRate;
+            }
             VIDEO_TO_COLORSPACE[parsedInputs.index] = parsedInputs.filter.colorspace;
             this.videosToSettings[parsedInputs.index] = parsedInputs;
             this.updateVideoObject(parsedInputs);
@@ -828,6 +847,7 @@ class MainWindowManager extends WindowManager {
         };
         let message = messageCreator("changeTrack", {track: trackID});
         this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
+        this.getEpipolarInfo(0, frameTracker[0]);
     };
 
     onTrackDisplay(event) {
@@ -961,8 +981,8 @@ class MainWindowManager extends WindowManager {
         allSettings.append(changeForwardBackwardOffsetWidget(forwardBackwardsBindings))
         allSettings.append(saveWidget);
 
-        let TEMP = fileInputWidget("dltcoeff temp", "a", "any", (file)=>loadDLTCoefficients(Array.from($("#a").prop("files"))));
-        allSettings.append(TEMP);
+        let loadCameraInfo = loadCameraInfoWidget();
+        allSettings.append(loadCameraInfo);
         $("#settings").append(allSettings);
     }
 
@@ -1118,7 +1138,7 @@ class MainWindowManager extends WindowManager {
         }
 
         let frame = frameTracker[id] - this.settings["backwardsMove"];
-       this.goToFrame(id, frame);
+        this.goToFrame(id, frame);
     }
 
     // Keyboard Inputs End \\
@@ -1162,10 +1182,29 @@ class MainWindowManager extends WindowManager {
     }
 
 
-    popOutVideo(videoIndex, videoURL) {
+    async popOutVideo(videoIndex, videoURL) {
         // Pops a video into a new window for easier viewing.
         // videoIndex: integer, index of the current video
         // videoURL: a data url that is used as the src= attribute of the video tag in the popout.
+        let pointHelper = (vI, tI) => {
+            return this.clickedPointsManager.getClickedPoints(vI, tI);
+        };
+        let curEpipolarInfo = await getEpipolarLinesOrUnifiedCoord(videoIndex, frameTracker[videoIndex],
+            this.trackManager.currentTrack.absoluteIndex, this.videosToSizes, pointHelper);
+        let currentInfo = undefined;
+        let currentInfoType = undefined;
+        if (curEpipolarInfo !== null) {
+            if (curEpipolarInfo.type === "unified") {
+                let xyz = curEpipolarInfo.result[0];
+                let currentPoint = reconstructUV(DLT_COEFFICIENTS[videoIndex], xyz[xyz.length - 1]);
+                currentInfo = {x: currentPoint[0][0], y: currentPoint[1][0]};
+                currentInfoType = "unified";
+            } else {
+                currentInfo = curEpipolarInfo.result[videoIndex];
+                currentInfoType = "epipolar";
+            }
+        }
+
 
         let message = {
             "dataURL": videoURL,
@@ -1180,7 +1219,12 @@ class MainWindowManager extends WindowManager {
             "frameRate": FRAME_RATE,
             "pointRadius": VIDEO_TO_POINT_SIZE,
             "videoSettings": this.videosToSettings[videoIndex],
-            "settings": this.settings
+            "settings": this.settings,
+            "epipolarInfo": {
+                isEpipolar: currentInfo !== undefined,
+                info: currentInfo,
+                infoType: currentInfoType
+            }
         };
 
         // Hide Videos
@@ -1334,6 +1378,27 @@ class PopOutWindowManager extends WindowManager {
                 this.clearEpipolarCanvases(this.absoluteIndex);
                 this.videos[currentVideo].changeTracks(newTrackIndex);
             },
+            "removeTrack": (trackIndex) => {
+                if (this.trackManager.currentTrack.absoluteIndex == trackIndex) {
+                    this.trackManager.changeCurrentTrack(0);
+                }
+                this.trackManager.removeTrack(trackIndex);
+                let track = this.trackManager.currentTrack;
+                let points = this.clickedPointsManager.getClickedPoints(this.absoluteIndex, track.absoluteIndex);
+                this.videos[this.absoluteIndex].changeTracks(points, track.color);
+                this.videos[this.absoluteIndex].clearPoints(this.videos[this.absoluteIndex].subTrackCanvasContext);
+                for (let j = 0; j < this.trackManager.subTracks.length(); j++) {
+                    let absoluteSubTrackIndex = this.trackManager.subTracks.trackIndicies[j];
+                    let subTrack = this.trackManager.findTrack(absoluteSubTrackIndex);
+                    let subTrackPoints = this.clickedPointsManager.getClickedPoints(this.absoluteIndex, subTrack.absoluteIndex);
+                    this.videos[this.absoluteIndex].redrawPoints(
+                        subTrackPoints,
+                        subTrack.color,
+                        this.videos[this.absoluteIndex].subTrackCanvasContext,
+                        false
+                    );
+                }
+            },
             "addSubTrack": (subTrackID) => {
                 this.trackManager.addSubTrack(subTrackID);
                 let track = this.trackManager.findTrack(subTrackID);
@@ -1401,7 +1466,21 @@ class PopOutWindowManager extends WindowManager {
         this.videos[parsedInputs.index].goToFrame(parsedInputs.frame);
         $(`#video-${parsedInputs.index}`).one("canplay", () => {
             this.drawAllPoints(parsedInputs.index);
-            this.getEpipolarInfo(parsedInputs.index, parsedInputs.frame);
+            if (parsedInputs.epipolarInfo.isEpipolar) {
+                if (parsedInputs.epipolarInfo.infoType === "epipolar") {
+                    this.clearEpipolarCanvases(this.absoluteIndex);
+                    this.videos[parsedInputs.index].drawEpipolarLines(parsedInputs.epipolarInfo.info);
+                } else {
+                    this.clearEpipolarCanvases(this.absoluteIndex);
+                    this.videos[parsedInputs.index].drawDiamond(
+                        parsedInputs.epipolarInfo.info.x,
+                        parsedInputs.epipolarInfo.info.y,
+                        10,
+                        10
+                    );
+                }
+            }
+            // this.getEpipolarInfo(parsedInputs.index, parsedInputs.frame);
         });
         this.keepCanvasAspectRatio(true);
         $(window).on("resize", () => this.keepCanvasAspectRatio(false));
@@ -1415,7 +1494,7 @@ class PopOutWindowManager extends WindowManager {
         let index = event.target.id.split('-')[1];
         let message = messageCreator("newPoint", {
             "point": point.point,
-            "absoluteTrackIndex": this.trackManager.currentTrack.absoluteIndex,
+            "absoluteIndex": this.trackManager.currentTrack.absoluteIndex,
             "index": index,
             "pointIndex": point.pointIndexInfo.index
         });

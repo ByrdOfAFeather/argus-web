@@ -8,6 +8,9 @@ class Project(models.Model):
 	owner = models.ForeignKey(User, on_delete=models.CASCADE)
 	public = models.BooleanField()
 
+	class Meta:
+		unique_together = ("owner", "name")
+
 
 class SavedState(models.Model):
 	user = models.ForeignKey(User, on_delete=models.CASCADE)

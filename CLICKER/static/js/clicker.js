@@ -21,6 +21,7 @@ let previewSaturation = "saturate(100%)";
 let previewCOLORSPACE = RGB;
 let previewFRAMERATE = 30;
 let previewPOINT_SIZE = 1;
+let hasContinued = false;
 
 // DEBUGGING CONSTANTS
 const PINHOLE = 1;
@@ -94,8 +95,6 @@ let PROJECT_ID = null;
 let windowManager = null;
 
 
-
-
 function loadPoints(text) {
     // TODO : rework
     colorIndex = 0;
@@ -167,7 +166,6 @@ function loadPoints(text) {
 }
 
 
-
 function loadSavedState(config) {
     PROJECT_NAME = config.title;
     PROJECT_DESCRIPTION = config.description;
@@ -181,9 +179,6 @@ function loadSavedState(config) {
     windowManager = new MainWindowManager(PROJECT_NAME, PROJECT_DESCRIPTION, PROJECT_ID);
     windowManager.loadSavedState(config);
 }
-
-
-
 
 
 /// LOAD FILE FUNCTIONS ///
@@ -341,8 +336,6 @@ function exportPoints() {
 
     download("clickedpoints.csv", exportablePoints.join(""));
 }
-
-
 
 
 function mainWindowAddNewPoint(event) {
@@ -547,7 +540,12 @@ $(document).ready(async function () {
         createNewProject();
     });
     $("#continue-working-button").on("click", function (_) {
-        displaySavedStates(0);
+        if (hasContinued) {
+            return;
+        } else {
+            displaySavedStates(0);
+            hasContinued = true;
+        }
     });
 
     $(window).on('beforeunload', sendKillNotification);

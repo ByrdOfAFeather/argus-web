@@ -313,10 +313,10 @@ function popOutButtonWidget(videoIndex, videoURL, popOutFunction) {
 }
 
 function _canvasWidthAndHeightManager(canvas, width, height) {
-    return canvas.css("width", "100%").css("height", "100%").attr("height", 600).attr("width", 800);
+    return canvas.css("width", "100%").css("height", "100%").attr("height", height).attr("width", width);
 }
 
-function clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick, setMousePos) {
+function clickerCanvasWidget(videoIndex, videoWidth, videoHeight, onKeyboardInput, onClick, onRightClick, setMousePos) {
     /*
     videoIndex: integer value representing the index of the video
 
@@ -337,18 +337,18 @@ function clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick,
      */
 
     let clickableCanvas = canvas(`canvas-${videoIndex}`, "clickable-canvas absolute", "z-index: 4;");
-    clickableCanvas = _canvasWidthAndHeightManager(clickableCanvas, "100%", 600);
+    clickableCanvas = _canvasWidthAndHeightManager(clickableCanvas, videoWidth, videoHeight);
     clickableCanvas.prop('tabindex', 1000);
     clickableCanvas.on('keydown', onKeyboardInput);
 
     let epipolarCanvas = canvas(`epipolarCanvas-${videoIndex}`, "epipolar-canvas absolute", "z-index: 2;");
-    epipolarCanvas = _canvasWidthAndHeightManager(epipolarCanvas, "100%", 600);
+    epipolarCanvas = _canvasWidthAndHeightManager(epipolarCanvas, videoWidth, videoHeight);
 
     let videoCanvas = canvas(`videoCanvas-${videoIndex}`, "video-canvas absolute", "z-index: 1;");
-    videoCanvas = _canvasWidthAndHeightManager(videoCanvas, "100%", 600);
+    videoCanvas = _canvasWidthAndHeightManager(videoCanvas, videoWidth, videoHeight);
 
     let subTrackCanvas = canvas(`subtrackCanvas-${videoIndex}`, 'sub-track absolute', 'z-index: 3;');
-    subTrackCanvas = _canvasWidthAndHeightManager(subTrackCanvas, "100%", 600);
+    subTrackCanvas = _canvasWidthAndHeightManager(subTrackCanvas, videoWidth, videoHeight);
 
     return genericDivWidget("container", `container-for-canvas-${videoIndex}`).append(
         clickableCanvas.on("click", onClick).on("contextmenu", onRightClick).on("mousemove", setMousePos),
@@ -358,7 +358,7 @@ function clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick,
     ).css("height", "100%");
 }
 
-function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrameFunction,
+function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyCallback, loadPreviewFrameFunction,
                        onKeyboardInput, onClick, onRightClick, setMousePos, initStyleValues, displaySettings) {
     /*
     videoIndex: Integer representing the video that this widget is being rendered for. There should be one
@@ -419,7 +419,7 @@ function clickerWidget(videoIndex, updateVideoPropertyCallback, loadPreviewFrame
             genericDivWidget("column").append(
                 genericDivWidget("columns", `misc-settings-${videoIndex}`).append(
                     genericDivWidget("column is-7").append(
-                        clickerCanvasWidget(videoIndex, onKeyboardInput, onClick, onRightClick, setMousePos)
+                        clickerCanvasWidget(videoIndex, videoWidth, videoHeight, onKeyboardInput, onClick, onRightClick, setMousePos)
                     ),
                     genericDivWidget("column").append(
                         genericDivWidget("container", `zoom-text-${videoIndex}`).append(
@@ -1355,11 +1355,11 @@ function saveProjectWidget(saveCallback) {
         genericDivWidget("box").append(
             genericDivWidget("columns is-multiline").append(
                 genericDivWidget("column").append(
-                            $("<button>", {
-                                class: "button",
-                            }).append(
-                                $("<i>", {class: "fas fa-save"})
-                            ).on("click", saveCallback)
+                    $("<button>", {
+                        class: "button",
+                    }).append(
+                        $("<i>", {class: "fas fa-save"})
+                    ).on("click", saveCallback)
                 ),
                 genericDivWidget("column").append(
                     $("<p>", {id: "auto-save-placeholder"})
@@ -1498,4 +1498,17 @@ function loadSavedStateWidget(videos, onValidSubmit) {
             $("<button>").text("Next").on("click", (event) => onValidSubmit(videos))
         )
     ).css("overflow", "scroll")
+}
+
+function loadCameraInfoWidget(bindings) {
+    // TODO: Make this more inline with how everything else works. Right now it calls a global variable
+    return genericDivWidget("column is-three-fifths").append(
+        genericDivWidget("box").append(
+            genericDivWidget("columns is-multiline").append(
+                genericDivWidget("column").append(
+                    fileInputWidget("Load DLT Coefficents", "loadDLTCoefficients", "any", (file) => loadDLTCoefficients(Array.from($("#loadDLTCoefficients").prop("files"))))
+                )
+            )
+        )
+    )
 }
