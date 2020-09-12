@@ -1,5 +1,6 @@
 import json
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.utils.timezone import now
 from django.db import IntegrityError
@@ -9,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from CLICKER.helpers import create_saved_state_and_project_link
-from CLICKER.models import SavedState, Project
+from CLICKER.models import SavedState, Project, ProjectToMostRecentState
 
 
 # TODO SERIALIZATION
@@ -41,9 +42,9 @@ def saved_states(request):
         for state in user_states:
             json_objects.append(
                 {
-                    "state_data": json.loads(state.json),
-                    "project_id": state.project.id,
-                    "state_id": state.id
+                    "stateData": json.loads(state.json),
+                    "projectID": state.project.id,
+                    "stateID": state.id
                 }
             )
 
@@ -74,9 +75,22 @@ def saved_states(request):
         # TODO: SERIALIZATION
         if auto_save:
             try:
-                auto_saved_for_this_state = SavedState.objects.get(user=request.user, autosaved=auto_save)
+                auto_saved_for_this_state = SavedState.objects.get(user=request.user, autosaved=auto_save,
+                                                                   project=project)
                 auto_saved_for_this_state.json = json.dumps(data)
                 auto_saved_for_this_state.save()
+
+                try:
+                    most_recent_state = ProjectToMostRecentState.objects.get(project=project)
+                    if most_recent_state.saved_state.date_created < auto_saved_for_this_state.date_created:
+                        most_recent_state.saved_state = auto_saved_for_this_state
+                        most_recent_state.save()
+                except ObjectDoesNotExist:
+                    recent_state = ProjectToMostRecentState.objects.create(
+                        project=project,
+                        saved_state=auto_saved_for_this_state
+                    )
+                    recent_state.save()
             except SavedState.DoesNotExist:
                 create_saved_state_and_project_link(request.user, data, auto_save, project, date_created)
         else:
@@ -105,13 +119,29 @@ def saved_states(request):
 @permission_classes([IsAuthenticated])
 def saved_projects(request):
     if request.method == "GET":
-        projects = Project.objects.filter(owner=request.user)
-        return_json = {
-            "projects": [(project.name, project.description, project.id) for project in projects]
-        }
-        response = JsonResponse(return_json)
-        response.status_code = 200
-        return response
+        try:
+            pagination_index = int(request.GET.get("pagination_idx", 0))
+        except ValueError:
+            pagination_index = 0
+            print("Received a oppsie doopsie")  # TODO: mostly debugging, remove later
+
+        projects = ProjectToMostRecentState.objects.filter(project__owner=request.user).order_by(
+            "-saved_state__date_created")
+
+        end_idx = pagination_index + 5
+        paginated_projects = projects[pagination_index: end_idx]
+        end_of_pagination = False
+        if end_idx >= len(projects): end_of_pagination = True
+        json_objects = [{
+            "projectID": project.project.id,
+            "projectName": project.project.name,
+            "savedStates": [{
+                "saveData": json.loads(state.json),
+                "autosave": state.autosaved
+            } for state in SavedState.objects.filter(user=request.user, project=project.project)]
+        } for project in paginated_projects]
+
+        return JsonResponse({"projects": json_objects, "endOfPagination": end_of_pagination}, status=200)
 
     if request.method == "POST":
         # files = request.FILES.getlist('files')

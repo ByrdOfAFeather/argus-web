@@ -1,6 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <title>Clicker</title>
     {% load static %}
     <script
@@ -172,6 +174,9 @@
                 let results = await $.ajax({
                         url: "{% url 'api:saved-projects' %}",
                         method: "GET",
+                        data: {
+                            "pagination_idx": pagination
+                        },
                         error: (error) => {
                             if (error.status === 403) {
                                 generateError("You have to login before you can access this feature!",
@@ -182,7 +187,7 @@
                     }
                 );
 
-                return results.projects;
+                return results;
             }
 
             function createNewSavedState(outputJson, autoSaved, projectID) {
@@ -204,7 +209,9 @@
                         let successText = $("#auto-save-placeholder");
                         let now = new Date();
                         let auto = "";
-                        if (autoSaved) { auto = "(Auto)"; }
+                        if (autoSaved) {
+                            auto = "(Auto)";
+                        }
                         successText.text(`Last saved : ${now.toString()} ${auto}`);
                     },
                     error: function (error) {
@@ -244,8 +251,6 @@
         </script>
 
         <div id="saved-states-section" class="container no-display">
-            <div id="saved-states-columns" class="columns is-centered">
-            </div>
         </div>
     </section>
 
@@ -255,9 +260,9 @@
         <div id="settings" class="column is-3">
         </div>
         <div id="canvasesBuffer" class="column">
-{#            <div class="container">#}
-                <div id="canvases" class="columns is-multiline is-centered"></div>
-{#            </div>#}
+            {#            <div class="container">#}
+            <div id="canvases" class="columns is-multiline is-centered"></div>
+            {#            </div>#}
         </div>
     </div>
 </div>

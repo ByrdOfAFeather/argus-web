@@ -1370,9 +1370,8 @@ function saveProjectWidget(saveCallback) {
 }
 
 function savedStateWidget(savedState, loadProjectCallback) {
-    let savedStateInfo = JSON.parse(savedState.state_data);
-    savedStateInfo.projectID = savedState.project_id
-    let dateObj = new Date(savedStateInfo.dateSaved);
+    savedState.data.projectID = savedState.projectID;
+    let dateObj = new Date(savedState.data.dateSaved);
     let am = "AM";
     if (dateObj.getHours() >= 12) {
         am = "PM";
@@ -1394,6 +1393,9 @@ function savedStateWidget(savedState, loadProjectCallback) {
                             $("<p>",).text(`${dateObj.getMonth()}/${dateObj.getDay()}/${dateObj.getFullYear()}`)
                         ),
                         genericDivWidget("column is-12").append(
+                            $("<p>").text(`${savedState.autosave}`)
+                        ),
+                        genericDivWidget("column is-12").append(
                             $("<p>",).text(`${dateObj.getHours() - 12}:${minutes}:${seconds} ${am}`)
                         )
                     )
@@ -1401,20 +1403,27 @@ function savedStateWidget(savedState, loadProjectCallback) {
                 genericDivWidget("column is-narrow").append(
                     $("<button>", {class: "button"}).append(
                         $("<i>", {class: "fas fa-save"})
-                    ).on("click", (event) => loadProjectCallback(savedStateInfo))
+                    ).on("click", (event) => loadProjectCallback(savedState.data))
                 )
             )
         )
     )
 }
 
-async function savedProjectWidget(projectName, projectID, getSavedStates, loadProjectCallback) {
-    let projectStateInfo = await getSavedStates();
-    // TODO: come back and add pagination and make sure auto save is always on top
-    let projectStateWidgets = projectStateInfo.states.map((state) => savedStateWidget(state, loadProjectCallback));
-
+function savedProjectWidget(projectObject, loadProjectCallback) {
+    let projectStateWidgets = projectObject.savedStates.map((state) => {
+        return {
+            "data": JSON.parse(state.saveData),
+            "autosave": state.autosave,
+            "projectID": projectObject.projectID
+        }
+    }).sort((state) => {
+        if (state.autosave) {
+            return -1;
+        }
+    }).map((state) => savedStateWidget(state, loadProjectCallback));
     let projectStates = genericDivWidget("column is-12").append(
-        genericDivWidget("columns is-multiline is-centered is-vcentered no-display", `projectstates-${projectID}`).append(
+        genericDivWidget("columns is-multiline is-centered is-vcentered no-display", `projectstates-${projectObject.projectID}`).append(
             projectStateWidgets
         ));
 
@@ -1423,7 +1432,7 @@ async function savedProjectWidget(projectName, projectID, getSavedStates, loadPr
         let id = event.target.id.split("-")[1];
         let icon = $("#" + "projecticon-" + id);
         if (icon.hasClass("fa-arrow-down")) {
-            if (projectStateInfo.states.length !== 0) {
+            if (projectObject.savedStates.length !== 0) {
                 $("#" + "projectstates-" + id).removeClass("no-display"); // TODO: animate?
             }
             icon.removeClass("fa-arrow-down").addClass("fa-arrow-up");
@@ -1433,27 +1442,90 @@ async function savedProjectWidget(projectName, projectID, getSavedStates, loadPr
         }
     }
 
-    let projectButton = genericDivWidget("column",).append(
+    return genericDivWidget("column",).append(
         genericDivWidget("box").append(
-            genericDivWidget("columns is-multiline", `${projectID}`).append(
+            genericDivWidget("columns is-multiline", `${projectObject.projectID}`).append(
                 genericDivWidget("column is-12").append(
                     genericDivWidget("level flexable-level").append(
                         genericDivWidget("level-left").append(
-                            $("<p>").text(projectName)
+                            $("<p>").text(projectObject.projectName)
                         ),
                         genericDivWidget("level-right").append(
                             $("<button>", {
                                 class: "button",
-                                id: `projectbutton-${projectID}`
+                                id: `projectbutton-${projectObject.projectID}`
                             }).append(
-                                $("<i>", {class: "fas fa-arrow-down", id: `projecticon-${projectID}`})
+                                $("<i>", {class: "fas fa-arrow-down", id: `projecticon-${projectObject.projectID}`})
                             ).on("click", projectClickCallback)
                         )
                     )
                 ),
                 projectStates
             )));
-    return projectButton;
+}
+
+function paginatedProjectsWidget(projects, paginateProjects, loadProjectCallback, paginationIndex) {
+    let projectInfos = projects.projects;
+    let endOfPagination = projects.endOfPagination;
+    let localColumns = genericDivWidget("columns is-multiline is-mobile is-centered is-vcentered", "saved-state-columns");
+    let paginateForward = async () => {
+        let masterContainer = $("#saved-states-section");
+        let nextProjects = await paginateProjects(paginationIndex + 5);
+        masterContainer.hide("slide", {direction: "left"}, 400, () => {
+            masterContainer.empty();
+            masterContainer.append(paginatedProjectsWidget(nextProjects, paginateProjects,
+                loadProjectCallback, paginationIndex + 5));
+            masterContainer.show("slide", {direction: "right"}, 400);
+        });
+    };
+    let paginateBackward = async () => {
+        let masterContainer = $("#saved-states-section");
+        let nextProjects = await paginateProjects(paginationIndex - 5);
+        masterContainer.hide("slide", {direction: "right"}, 400, () => {
+            masterContainer.empty();
+            masterContainer.append(paginatedProjectsWidget(nextProjects, paginateProjects,
+                loadProjectCallback, paginationIndex - 5));
+            masterContainer.show("slide", {direction: "left"}, 400);
+        });
+    };
+
+
+    localColumns.append(
+        genericDivWidget("column is-12").append(
+            // TODO: This is where a search bar might go
+        )
+    )
+    let projectCards = [];
+    let nextButton = null;
+    let prevButton = null;
+    if (!(paginationIndex === 0)) {
+        prevButton = genericDivWidget("column is-narrow",).append(
+            $("<button>", {id: "pagination-button", class: "rounded-button"}).append(
+                $("<i>", {class: "fas fa-arrow-left"})
+            ).on("click", () => {
+                paginateBackward();
+            })
+        )
+    }
+    if (!endOfPagination) {
+        nextButton = genericDivWidget("column is-narrow",).append(
+            $("<button>", {id: "pagination-button", class: "rounded-button"}).append(
+                $("<i>", {class: "fas fa-arrow-right"})
+            ).on("click", () => {
+                paginateForward();
+            })
+        )
+    }
+    for (let i = 0; i < projectInfos.length; i++) {
+        let cur_project = projectInfos[i];
+        projectCards.push(
+            savedProjectWidget(cur_project, loadProjectCallback)
+        );
+    }
+    localColumns.append(prevButton);
+    localColumns.append(projectCards);
+    localColumns.append(nextButton);
+    return localColumns
 }
 
 function loadSavedStateWidget(videos, onValidSubmit) {

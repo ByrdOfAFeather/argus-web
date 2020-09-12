@@ -38,7 +38,6 @@ class WindowManager {
         this.videoFiles = [];
         this.videoFilesMemLocations = {};
         this.videosToSettings = {};
-        this.videosToAspectRatios = {};
     }
 
     updateVideoObject(newSettings) {
@@ -713,7 +712,6 @@ class MainWindowManager extends WindowManager {
         $("#footer").remove();
         $("#blurrable").css("filter", "");
 
-        let videosThatNeedPopOut = [];
         for (let i = 0; i < videos.length; i++) {
             this.videosToSizes[videos[i].index] = videos[i].orgSize;
             this.videoFiles[videos[i].index] = videos[i].file;
@@ -735,14 +733,15 @@ class MainWindowManager extends WindowManager {
             if (videos[i].poppedOut) {
                 setTimeout(() => {
                     this.popOutVideo(videos[i].index, memoryLocation);
-                }, 400 * (videos[i].index + 1))
+                }, 900 * (videos[i].index + 1))
             } else {
                 this.drawAllPoints(i);
             }
         }
-
+        this.getEpipolarInfo(0, frameTracker[0]);
         this.keepCanvasAspectRatio(true); // A little wasteful as I resize previous videos that don't need it
         $(window).on("resize", () => this.keepCanvasAspectRatio(false));
+        setInterval(() => this.saveProject(true), 60000);
         this.loadSettings();
     }
 

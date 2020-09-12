@@ -20,6 +20,11 @@ class SavedState(models.Model):
 	project = models.ForeignKey(Project, on_delete=models.CASCADE)
 
 
+class ProjectToMostRecentState(models.Model):
+	project = models.ForeignKey(Project, null=False, on_delete=models.CASCADE)
+	saved_state = models.ForeignKey(SavedState, null=True, on_delete=models.CASCADE)
+
+
 class Videos(models.Model):
 	video = models.FileField()
 
