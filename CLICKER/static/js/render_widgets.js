@@ -426,7 +426,7 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
                             genericDivWidget("container", `zoom-canvas-${videoIndex}`).append(
                                 canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas", "z-index: 2;").css("height", "100%").css("width", "100%"),
                             ),
-                            $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In</p>")
+                            $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In<br>L = Lock To Epipolar<br>P = Enter Precision Mode</p>")
                         )
                     ),
                 ),

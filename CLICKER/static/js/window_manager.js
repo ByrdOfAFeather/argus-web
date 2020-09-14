@@ -1,3 +1,9 @@
+let EPIPOLAR_TYPES = {
+    LINE: 0,
+    POINT: 1,
+    NONE: 2
+};
+
 class WindowManager {
     /*ABSTRACT CLASS representing a manager for a window
     This will be the base class for a MainWindowManager and a PopoutWindowManager
@@ -38,6 +44,86 @@ class WindowManager {
         this.videoFiles = [];
         this.videoFilesMemLocations = {};
         this.videosToSettings = {};
+        this.curEpipolarInfo = {};
+        this.communicatorsManager = null;
+        this.epipolarLocked = {} // TODO: Merge with Video Settings
+    }
+
+    drawDiamonds(videoIndex, result) {
+        let currentPoint = reconstructUV(DLT_COEFFICIENTS[videoIndex], result[result.length - 1]);
+
+        if (!checkCoordintes(currentPoint[0][0], currentPoint[0][1],
+            this.videos[videoIndex].epipolarCanvas.height, this.videos[videoIndex].epipolarCanvas.width)) {
+            generateError("Points that did not exist were calculated when locating the " +
+                "point in 2D space, please check your DLT coefficients and camera profiles");
+        }
+
+
+        let callback = (i) => {
+            this.videos[i].drawDiamond(
+                currentPoint[0][0],
+                currentPoint[1][0], 10, 10,
+            );
+        };
+        let message = messageCreator("drawDiamond", {
+            x: currentPoint[0][0],
+            y: currentPoint[1][0],
+        });
+        this.communicatorsManager.updateLocalOrCommunicator(parseInt(videoIndex, 10), callback, message);
+    }
+
+
+    getEpipolarInfo(referenceVideo, frame) {
+        let currentTrack = this.trackManager.currentTrack.absoluteIndex;
+        let pointHelper = (videoIndex, track) => {
+            return this.clickedPointsManager.getClickedPoints(videoIndex, track);
+        };
+
+        getEpipolarLinesOrUnifiedCoord(referenceVideo, frame, currentTrack, this.videosToSizes, pointHelper).then(
+            (result) => {
+                if (result === null) {
+                    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                        this.curEpipolarInfo[i] = {
+                            type: EPIPOLAR_TYPES.NONE,
+                        }
+                    }
+                    return;
+                }
+                if (result.type === 'epipolar') {
+                    let videosToLines = result.result;
+                    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                        let linePoints = videosToLines[i];
+                        if (linePoints === undefined || linePoints.length === 0) {
+                            this.curEpipolarInfo[i] = {
+                                type: EPIPOLAR_TYPES.NONE
+                            };
+                            continue;
+                        }
+                        this.curEpipolarInfo[i] = {
+                            type: EPIPOLAR_TYPES.LINE,
+                            data: linePoints
+                        };
+                        let callback = (index) => {
+                            this.videos[index].drawEpipolarLines(linePoints)
+                        };
+                        let message = messageCreator("drawEpipolarLine", {
+                            "lineInfo": linePoints
+                        });
+                        this.communicatorsManager.updateLocalOrCommunicator(i, callback, message);
+                    }
+                } else if (result.type === 'unified') {
+                    let points = result.result[1];
+                    let xyz = result.result[0];
+                    for (let j = 0; j < points.length; j++) {
+                        let videoIndex = points[j].videoIndex;
+                        this.curEpipolarInfo[videoIndex] = {
+                            type: EPIPOLAR_TYPES.POINT,
+                            data: null
+                        };
+                        this.drawDiamonds(videoIndex, xyz);
+                    }
+                }
+            });
     }
 
     updateVideoObject(newSettings) {
@@ -267,64 +353,60 @@ class WindowManager {
     }
 
     setMousePos(e) {
-        if (ZOOM_WINDOW_MOVING) {
-            let zoom = ZOOM_BEING_MOVED;
-            zoom.css("position", "absolute");
-            mouseTracker.x = e.pageX - (parseInt(zoom.css("width"), 10) / 2);
-            mouseTracker.y = e.pageY - (parseInt(zoom.css("height"), 10) / 2);
+        if (!locks["resizing_mov"]) {
+            $(e.target).focus();
 
+            // Source : https://stackoverflow.com/a/17130415
+            let bounds = e.target.getBoundingClientRect();
+            let scaleX = e.target.width / bounds.width;   // relationship bitmap vs. element for X
+            let scaleY = e.target.height / bounds.height;
 
-            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                let voidArea = $(`#${videos[i].canvas.id}`);
-                let leftBorder = voidArea.offset().left;
-                let rightBorder = leftBorder + voidArea.width();
-                let heightStart = voidArea.offset().top;
-                let heightEnd = heightStart + voidArea.height();
-
-                if ((mouseTracker.x + 400 >= leftBorder && mouseTracker.x <= rightBorder) &&
-                    (mouseTracker.y + 400 >= heightStart && mouseTracker.y <= heightEnd)) {
-                    return;
+            let video = e.target.id.split("-")[1];
+            if (this.epipolarLocked[video] && this.curEpipolarInfo[video].type === EPIPOLAR_TYPES.LINE) {
+                if (this.curEpipolarInfo[video].data.length > 1) {
+                    let line_data_1 = this.curEpipolarInfo[video].data[0];
+                    let line_data_2 = this.curEpipolarInfo[video].data[1];
+                    let bias_1 = line_data_1[0][1];
+                    let slope_1 = (line_data_1[1][1] - line_data_1[0][1]) / (line_data_1[1][0]);
+                    let bias_2 = line_data_2[0][1];
+                    let slope_2 = (line_data_2[1][1] - line_data_2[0][1]) / (line_data_2[1][0])
+                    mouseTracker.x = (bias_1 - bias_2) / (slope_2 - slope_1);
+                    mouseTracker.y = (slope_1 * mouseTracker.x) + bias_1;
+                } else {
+                    let line_data = this.curEpipolarInfo[video].data[0];
+                    let bias = line_data[0][1];
+                    let slope = (line_data[1][1] - line_data[0][1]) / (line_data[1][0]);
+                    let xPos = (e.clientX - bounds.left) * scaleX;   // scale mouse coordinates after they have
+                    mouseTracker.x = xPos;
+                    let a = (-bias / slope);
+                    let b = (this.videosToSizes[video].height - bias) / slope;
+                    mouseTracker.x = a + ((xPos * (b - a)) / this.videosToSizes[video].width);
+                    mouseTracker.y = (slope * mouseTracker.x) + bias;
                 }
-            }
-
-            zoom.css("left", mouseTracker.x + "px");
-            zoom.css("top", mouseTracker.y + "px");
-
-
-        } else {
-
-            if (!locks["resizing_mov"]) {
-                $(e.target).focus();
-
-                // Source : https://stackoverflow.com/a/17130415
-                let bounds = e.target.getBoundingClientRect();
-                let scaleX = e.target.width / bounds.width;   // relationship bitmap vs. element for X
-                let scaleY = e.target.height / bounds.height;
-
+            } else {
                 mouseTracker.x = (e.clientX - bounds.left) * scaleX;   // scale mouse coordinates after they have
                 mouseTracker.y = (e.clientY - bounds.top) * scaleY;
-
-                let currentColor = this.trackManager.currentTrack.color;
-                this.videos[e.target.id.split("-")[1]].drawZoomWindow(currentColor);
-            } else {
-                let bounds = e.target.getBoundingClientRect();
-
-                mouseTracker.x = e.clientX - bounds.left;
-                mouseTracker.y = e.clientY - bounds.top;
-                let currentClickCanvas = $(e.target);
-
-                currentClickCanvas.css("height", mouseTracker.y);
-                currentClickCanvas.css("width", mouseTracker.x);
-
-                let currentVideoCanvas = $(`#videoCanvas-${e.target.id.split("-")[1]}`);
-
-                currentVideoCanvas.css("height", mouseTracker.y);
-                currentVideoCanvas.css("width", mouseTracker.x);
-
-                let currentEpipolarCanvas = $(`#epipolarCanvas-${e.target.id.split("-")[1]}`);
-                currentEpipolarCanvas.css("height", mouseTracker.y);
-                currentEpipolarCanvas.css("width", mouseTracker.x);
             }
+            let currentColor = this.trackManager.currentTrack.color;
+            this.videos[video].drawZoomWindow(currentColor);
+        } else {
+            let bounds = e.target.getBoundingClientRect();
+
+            mouseTracker.x = e.clientX - bounds.left;
+            mouseTracker.y = e.clientY - bounds.top;
+            let currentClickCanvas = $(e.target);
+
+            currentClickCanvas.css("height", mouseTracker.y);
+            currentClickCanvas.css("width", mouseTracker.x);
+
+            let currentVideoCanvas = $(`#videoCanvas-${e.target.id.split("-")[1]}`);
+
+            currentVideoCanvas.css("height", mouseTracker.y);
+            currentVideoCanvas.css("width", mouseTracker.x);
+
+            let currentEpipolarCanvas = $(`#epipolarCanvas-${e.target.id.split("-")[1]}`);
+            currentEpipolarCanvas.css("height", mouseTracker.y);
+            currentEpipolarCanvas.css("width", mouseTracker.x);
         }
     }
 
@@ -392,9 +474,34 @@ class WindowManager {
             return;
         }
 
-        if (String.fromCharCode(e.which) === "Q") {
-            triggerResizeMode();
-        } else if (String.fromCharCode(e.which) === "F") {
+        if (this.settings["precisionMode"]) {
+            if (e.keyCode === 38) {
+                // Up
+                e.preventDefault();
+                mouseTracker.y -= 1;
+                this.videos[id].drawZoomWindow();
+            } else if (e.keyCode === 39) {
+                // Right
+                e.preventDefault();
+                mouseTracker.x += 1;
+                this.videos[id].drawZoomWindow();
+            } else if (e.keyCode === 40) {
+                // Down
+                e.preventDefault();
+                mouseTracker.y += 1;
+                this.videos[id].drawZoomWindow();
+            } else if (e.keyCode === 37) {
+                // Left
+                e.preventDefault();
+                mouseTracker.x -= 1;
+                this.videos[id].drawZoomWindow();
+            } else if (e.keyCode === 13) {
+                e.preventDefault();
+                $(`#canvas-${id}`).click();
+            }
+        }
+
+        if (String.fromCharCode(e.which) === "F") {
             this.goForwardFrames(id);
         } else if (String.fromCharCode(e.which) === "B") {
             this.goBackwardsAFrame(id);
@@ -404,6 +511,18 @@ class WindowManager {
             this.videos[id].zoomInZoomWindow();
         } else if (String.fromCharCode(e.which) === "X") {
             this.videos[id].zoomOutZoomWindow();
+        } else if (String.fromCharCode(e.which) === "L") {
+            if (this.epipolarLocked[id] !== undefined) {
+                this.epipolarLocked[id] = !this.epipolarLocked[id];
+            } else {
+                this.epipolarLocked[id] = true;
+            }
+        } else if (String.fromCharCode(e.which) === "P") {
+            if (this.settings["precisionMode"] !== undefined) {
+                this.settings["precisionMode"] = !this.settings["precisionMode"];
+            } else {
+                this.settings["precisionMode"] = true;
+            }
         }
     }
 
@@ -583,6 +702,7 @@ class MainWindowManager extends WindowManager {
         this.videoFilesMemLocations = {};
         this.videosToSettings = {}; // Used to save to the cloud / allows "previous" in setup
         this.poppedWindows = [];
+        this.curEpipolarInfo = {};
 
         let communicationsCallbacks = {
             'newFrame': (context) => {
@@ -1042,69 +1162,6 @@ class MainWindowManager extends WindowManager {
         this.communicatorsManager.updateAllLocalOrCommunicator(callback, message, doNotUpdate);
         this.clearEpipolarCanvases();
         this.getEpipolarInfo(context.index, frameTracker[context.index]);
-    }
-
-
-    drawDiamonds(videoIndex, result) {
-        // Video.clearEpipolarCanvases();
-        let currentPoint = reconstructUV(DLT_COEFFICIENTS[videoIndex], result[result.length - 1]);
-
-        if (!checkCoordintes(currentPoint[0][0], currentPoint[0][1],
-            this.videos[videoIndex].epipolarCanvas.height, this.videos[videoIndex].epipolarCanvas.width)) {
-            generateError("Points that did not exist were calculated when locating the " +
-                "point in 2D space, please check your DLT coefficients and camera profiles");
-        }
-
-
-        let callback = (i) => {
-            this.videos[i].drawDiamond(
-                currentPoint[0][0],
-                currentPoint[1][0], 10, 10,
-            );
-        };
-        let message = messageCreator("drawDiamond", {
-            x: currentPoint[0][0],
-            y: currentPoint[1][0],
-        });
-        this.communicatorsManager.updateLocalOrCommunicator(parseInt(videoIndex, 10), callback, message);
-    }
-
-
-    getEpipolarInfo(referenceVideo, frame) {
-        let currentTrack = this.trackManager.currentTrack.absoluteIndex;
-        let pointHelper = (videoIndex, track) => {
-            return this.clickedPointsManager.getClickedPoints(videoIndex, track);
-        };
-
-        getEpipolarLinesOrUnifiedCoord(referenceVideo, frame, currentTrack, this.videosToSizes, pointHelper).then(
-            (result) => {
-                if (result === null) {
-                    return;
-                }
-                if (result.type === 'epipolar') {
-                    let videosToLines = result.result;
-                    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                        let linePoints = videosToLines[i];
-                        if (linePoints === undefined) {
-                            continue;
-                        }
-                        let callback = (index) => {
-                            this.videos[index].drawEpipolarLines(linePoints)
-                        };
-                        let message = messageCreator("drawEpipolarLine", {
-                            "lineInfo": linePoints
-                        });
-                        this.communicatorsManager.updateLocalOrCommunicator(i, callback, message);
-                    }
-                } else if (result.type === 'unified') {
-                    let points = result.result[1];
-                    let xyz = result.result[0];
-                    for (let j = 0; j < points.length; j++) {
-                        let videoIndex = points[j].videoIndex;
-                        this.drawDiamonds(videoIndex, xyz);
-                    }
-                }
-            });
     }
 
     goToFrame(id, frame) {

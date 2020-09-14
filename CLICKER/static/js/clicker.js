@@ -517,17 +517,20 @@ function savedStatePaginationHandler(newPagination, type) {
 async function displaySavedStates(currentPagination, direction = null) {
     let projects = await getSavedProjects();
     let section = $("#saved-states-section");
-    if (projects.length === 0) {
-        $("#saved-states-columns").append(`<h3 class="notification has-text-weight-bold is-warning">You don't have any saved projects! Try creating some!</h3>`);
+    section.removeClass("no-display");
+    section.hide();
+    if (projects.projects.length === 0) {
+        section.append(`<h3 class="notification has-text-centered has-text-weight-bold is-warning">You don't have any saved projects! Try creating some!</h3>`);
         $('#new-project-button').addClass("float");
+        section.show("slide", {"direction": "up"}, 750);
+        // return
     }
     section.append(paginatedProjectsWidget(projects, async (pagination) => {
         return await getSavedProjects(pagination);
     }, (config) => {
         loadSavedState(config)
     }, 0));
-    section.removeClass("no-display");
-    // slideSavedStates(parsedResults.length, direction);
+    section.show("slide", {"direction": "up"}, 750);
 }
 
 

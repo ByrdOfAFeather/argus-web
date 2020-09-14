@@ -57,7 +57,7 @@ class Video {
         };
     }
 
-    redrawPoints(points, color=this.currentStrokeStyle, canvasContext=this.canvasContext, clearPoints=true) {
+    redrawPoints(points, color = this.currentStrokeStyle, canvasContext = this.canvasContext, clearPoints = true) {
         if (clearPoints) {
             this.clearPoints(canvasContext);
         }
@@ -74,6 +74,7 @@ class Video {
         let width = parseFloat(this.zoomCanvas.css("width"));
         let height = parseFloat(this.zoomCanvas.css("height"));
 
+        // Draw Video
         this.zoomCanvasContext.clearRect(0, 0, width, height);
         this.zoomCanvasContext.drawImage(
             this.videoCanvas,
@@ -81,6 +82,16 @@ class Video {
             startY - this.zoomOffset,
             this.zoomOffset * 2,
             this.zoomOffset * 2, 0, 0, width, height); // startX, startY, endX, endY, 0, 0, endY, endX);
+
+        this.zoomCanvasContext.globalAlpha = 0.4;
+        // Draw Epipolar lines
+        this.zoomCanvasContext.drawImage(
+            this.epipolarCanvas,
+            startX - this.zoomOffset,
+            startY - this.zoomOffset,
+            this.zoomOffset * 2,
+            this.zoomOffset * 2, 0, 0, width, height); // startX, startY, endX, endY, 0, 0, endY, endX);
+        this.zoomCanvasContext.globalAlpha = 1;
 
         this.zoomCanvasContext.beginPath();
         this.zoomCanvasContext.moveTo(width / 2, 0);
@@ -313,7 +324,7 @@ class Video {
     }
 
     drawEpipolarLines(points) {
-        this.epipolarCanvasContext.strokeStyle = "#99badd";
+        this.epipolarCanvasContext.strokeStyle = "#4B9CD3";
         for (let i = 0; i < points.length; i++) {
             this.drawLine(
                 {
@@ -352,7 +363,7 @@ class Video {
         this.drawLines(newPoints);
     }
 
-    clearPoints(context=this.canvasContext) {
+    clearPoints(context = this.canvasContext) {
         context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
