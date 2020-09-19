@@ -2,8 +2,27 @@ let FRAME_RATE = null;
 const COLORS = ["rgb(228, 26, 28)", "rgb(55, 126, 184)", "rgb(77, 175, 74)", "rgb(152, 78, 163)",
     "rgb(255, 127, 0)", "rgb(255, 255, 51)", "rgb(166, 86, 40)", "rgb(247, 129, 191)"];
 
-let VIDEO_TO_COLORSPACE = {};
 let frameTracker = {};
+let previewBrightness = "brightness(100%)";
+let previewContrast = "contrast(100%)";
+let previewSaturation = "saturate(100%)";
+let previewCOLORSPACE = RGB;
+let previewFRAMERATE = 30;
+let previewPOINT_SIZE = 1;
+let hasContinued = false;
+// COLORSPACE MANAGER
+let VIDEO_TO_COLORSPACE = {};
+let colorspaceToText = (space) => {
+    if (space === RGB) {
+        return "RGB";
+    } else if (space === GREYSCALE) {
+        return "Grayscale";
+    }
+}
+
+// Point Radius Manager
+let VIDEO_TO_POINT_SIZE = {};
+
 
 let locks = {
     "can_click": true,
@@ -45,6 +64,7 @@ function setup(message) {
     VIDEO_TO_POINT_SIZE = message["pointRadius"];
     clickedPoints = message["clickedPoints"];
     message.videoSettings.frame = message.initFrame;
+    message.videoSettings.isEpipolarLocked = message.isEpipolarLocked;
     loadHiddenVideo(videoSource, message.index, () => {
         // Step 3: Load Video
         message.videoSettings.epipolarInfo = message.epipolarInfo;

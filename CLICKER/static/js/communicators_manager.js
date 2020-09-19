@@ -95,6 +95,10 @@ class CommunicatorsManager {
             this.callbacks['newPoint'](context.data);
         } else if (context.type === 'initLoadFinished') {
             this.callbacks['initLoadFinished'](context.data);
+        } else if (context.type === "updateSettings") {
+            this.callbacks["updateSettings"](context.data.settings);
+        } else if (context.type === "updateVideoSettings") {
+            this.callbacks["updateVideoSettings"](context.data.videoSettings);
         }
     }
 

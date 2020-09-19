@@ -303,9 +303,10 @@ function popOutButtonWidget(videoIndex, videoURL, popOutFunction) {
     popOutFunction: (event: jquery event object, videoURL: str same as above) { handles popping a video into a new
     tab and adding it to the current communicators }
     */
-    let popOutButton = $("<button>", {class: "button", id: `popVideo-${videoIndex}`}).append(
-        $("<i>", {class: "fa fa-window-restore"}).attr("aria-hidden", "true")
-    );
+    let
+        popOutButton = $("<button>", {class: "button", id: `popVideo-${videoIndex}`}).append(
+            $("<i>", {class: "fa fa-window-restore"}).attr("aria-hidden", "true")
+        );
     popOutButton.on("click", function (_) {
         popOutFunction(videoIndex, videoURL)
     });
@@ -482,10 +483,13 @@ function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, upda
 }
 
 function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, saveCallback, currentSettings) {
-    // TODO : Clean Up
     previewCOLORSPACE = currentSettings.filter.colorspace; // Default to RGB, also will just reassign
     previewFRAMERATE = currentSettings.frameRate;
     previewPOINT_SIZE = currentSettings.pointSize;
+    let genericContainer = $("#generic-input-modal-content");
+    genericContainer.css("width", "100%");
+    genericContainer.css("max-height", "none");
+    genericContainer.css("height", "100%");
 
     let colorSpaceDropDown = colorSpaceDropDownWidget(1, loadPreviewFrameFunction, context.index, currentSettings.filter.colorspace);
 
@@ -721,7 +725,7 @@ function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, save
                                     $("<canvas>", {
                                         // style: "height: 100%; width: 100%;",
                                         id: "current-settings-preview-canvas"
-                                    }).attr("height", 300).attr("width", 400)
+                                    }).attr("height", 300).attr("width", 300)
                                 ),
                                 genericDivWidget("column").append(
                                     genericDivWidget("columns is-multiline is-mobile").append(
@@ -1363,7 +1367,7 @@ function saveProjectWidget(saveCallback) {
                     ).on("click", saveCallback)
                 ),
                 genericDivWidget("column").append(
-                    $("<p>", {id: "auto-save-placeholder"})
+                    $("<p>", {id: "auto-save-placeholder"}).text("Last Saved: Never!")
                 )
             )
         )
@@ -1385,6 +1389,8 @@ function savedStateWidget(savedState, loadProjectCallback) {
     if (seconds.toString().length === 1) {
         seconds = `0${seconds}`;
     }
+
+    let autosaved = savedState.autosave ? "Autosaved" : "Manual Save"
     return genericDivWidget("column is-12").append(
         genericDivWidget("box").append(
             genericDivWidget("columns").append(
@@ -1394,7 +1400,7 @@ function savedStateWidget(savedState, loadProjectCallback) {
                             $("<p>",).text(`${dateObj.getMonth()}/${dateObj.getDay()}/${dateObj.getFullYear()}`)
                         ),
                         genericDivWidget("column is-12").append(
-                            $("<p>").text(`${savedState.autosave}`)
+                            $("<p>").text(`${autosaved}`)
                         ),
                         genericDivWidget("column is-12").append(
                             $("<p>",).text(`${dateObj.getHours() - 12}:${minutes}:${seconds} ${am}`)
@@ -1530,6 +1536,10 @@ function paginatedProjectsWidget(projects, paginateProjects, loadProjectCallback
 }
 
 function loadSavedStateWidget(videos, onValidSubmit) {
+    let genericContainer = $("#generic-input-modal-content");
+    genericContainer.css("width", "100%");
+    genericContainer.css("max-height", "none");
+    genericContainer.css("height", "100%");
     let onVideoChange = (event) => {
         let id = event.target.id;
         let selectedFiles = Array.from($(event.target).prop("files"));
@@ -1544,6 +1554,18 @@ function loadSavedStateWidget(videos, onValidSubmit) {
         }
         $(`#video-file-${id}`).text(`Current File: ${name}`);
     }
+
+    let cleanUpModel = () => {
+        $("#modal-content-container").empty();
+        $("#generic-input-modal").off();
+        $("#generic-input-modal").removeClass("is-active");
+        $("#blurrable").css("filter", "");
+        genericContainer.css("width", "");
+        genericContainer.css("max-height", "");
+        genericContainer.css("height", "");
+    };
+
+
     let videoWidgets = videos.map((video) => {
         return genericDivWidget("column").append(
             genericDivWidget("box").append(
@@ -1568,9 +1590,16 @@ function loadSavedStateWidget(videos, onValidSubmit) {
         ),
         videoWidgets,
         genericDivWidget("column is-12").append(
-            $("<button>").text("Next").on("click", (event) => onValidSubmit(videos))
+            genericDivWidget("level").append(
+                genericDivWidget("level-left").append(
+                    $("<button>", {class: "button"}).text("Cancel").on("click", (event) => cleanUpModel())
+                ),
+                genericDivWidget("level-right").append(
+                    $("<button>", {class: "button"}).text("Next").on("click", (event) => onValidSubmit(videos))
+                )
+            )
         )
-    ).css("overflow", "scroll")
+    );
 }
 
 function loadCameraInfoWidget(bindings) {

@@ -32,7 +32,7 @@ let CAMERA_PROFILE = null;
 let DLT_COEFFICIENTS = null;
 let AUTO_SAVE_INTERVAL_ID = null;
 
-// COLORSPACE MANAGER
+// COLORSPACE MANEGEMENT
 let VIDEO_TO_COLORSPACE = {};
 let colorspaceToText = (space) => {
     if (space === RGB) {
@@ -44,6 +44,7 @@ let colorspaceToText = (space) => {
 
 // Point Radius Manager
 let VIDEO_TO_POINT_SIZE = {};
+
 
 // MANAGER FOR POP OUT WINDOWS
 let communicators = [];

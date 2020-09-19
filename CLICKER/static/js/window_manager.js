@@ -46,7 +46,6 @@ class WindowManager {
         this.videosToSettings = {};
         this.curEpipolarInfo = {};
         this.communicatorsManager = null;
-        this.epipolarLocked = {} // TODO: Merge with Video Settings
     }
 
     drawDiamonds(videoIndex, result) {
@@ -251,7 +250,7 @@ class WindowManager {
             canvas.filter += " " + previewContrast;
             canvas.filter += " " + previewSaturation;
 
-            canvas.drawImage(document.getElementById(`video-${context.index}`), 0, 0, 400, 300);
+            canvas.drawImage(document.getElementById(`video-${context.index}`), 0, 0, 300, 300);
 
             // draw nearby points
             drawPreviewPoint(canvas, 200, 150);
@@ -370,7 +369,7 @@ class WindowManager {
         let lines = this.curEpipolarInfo[videoID].data;
         if (lines === undefined || this.curEpipolarInfo[videoID].type === EPIPOLAR_TYPES.NONE ||
             this.curEpipolarInfo[videoID].type === EPIPOLAR_TYPES.POINT) {
-            return {x: this.videos[videoID].mouseTracker.x, y: this.videos[videoID].mouseTracker.y};
+            return {x: this.videos[videoID].mouseTracker.orgX, y: this.videos[videoID].mouseTracker.orgY};
         }
         let lineData1 = lines[0];
         if (lines[1] !== undefined) {
@@ -453,6 +452,7 @@ class WindowManager {
                 this.videos[index].goToFrame(parsedInput);
             }
             // TODO this will eventually prevent this from being used twice and that would be sad :[
+            this.clearEpipolarCanvases();
             this.getEpipolarInfo(index, parsedInput);
             $("#canvas-0").focus();
         };
@@ -486,30 +486,34 @@ class WindowManager {
         }
 
         if (this.settings["precisionMode"]) {
+            let typeX = this.videos[id].isEpipolarLocked ? "orgX" : "x";
+            let typeY = this.videos[id].isEpipolarLocked ? "orgY" : "y";
             if (e.keyCode === 38) {
                 // Up
                 e.preventDefault();
-                this.videos[id].mouseTracker.y -= 1;
-                this.videos[id].drawZoomWindow();
+                this.videos[id].mouseTracker[typeY] -= 1;
             } else if (e.keyCode === 39) {
                 // Right
                 e.preventDefault();
-                this.videos[id].mouseTracker.x += 1;
-                this.videos[id].drawZoomWindow();
+                this.videos[id].mouseTracker[typeX] += 1;
             } else if (e.keyCode === 40) {
                 // Down
                 e.preventDefault();
-                this.videos[id].mouseTracker.y += 1;
-                this.videos[id].drawZoomWindow();
+                this.videos[id].mouseTracker[typeY] += 1;
             } else if (e.keyCode === 37) {
                 // Left
                 e.preventDefault();
-                this.videos[id].mouseTracker.x -= 1;
-                this.videos[id].drawZoomWindow();
+                this.videos[id].mouseTracker[typeX] -= 1;
             } else if (e.keyCode === 13) {
                 e.preventDefault();
                 $(`#canvas-${id}`).click();
             }
+            if (this.videos[id].isEpipolarLocked) {
+                let proj = this.projectMouseToEpipolar(id, this.videos[id].mouseTracker.orgX);
+                this.videos[id].mouseTracker.x = proj.x;
+                this.videos[id].mouseTracker.y = proj.y;
+            }
+            this.videos[id].drawZoomWindows(this.trackManager.currentTrack.color);
         }
 
         if (String.fromCharCode(e.which) === "F") {
@@ -523,13 +527,14 @@ class WindowManager {
         } else if (String.fromCharCode(e.which) === "X") {
             this.videos[id].zoomOutZoomWindow();
         } else if (String.fromCharCode(e.which) === "L") {
-            this.videos[id].isEpipolarLocked = !this.videos[id].isEpipolarLocked
+            this.videos[id].inverseEpipolarLocked(this.trackManager.currentTrack.color);
         } else if (String.fromCharCode(e.which) === "P") {
             if (this.settings["precisionMode"] !== undefined) {
                 this.settings["precisionMode"] = !this.settings["precisionMode"];
             } else {
                 this.settings["precisionMode"] = true;
             }
+            this.communicatorsManager.updateCommunicators(messageCreator("updateSettings", {settings: this.settings}));
         }
     }
 
@@ -567,9 +572,51 @@ class WindowManager {
 
     }
 
-    createSettingsContext(initialization, index) {
-        // implemented in subclasses
+    saveSettings(parsedInputs, previous) {
+
+        if (!previous) { // Previous gets used as the cancel button in this context!
+            if (parsedInputs.index === 0) {
+                FRAME_RATE = parsedInputs.frameRate;
+            }
+            VIDEO_TO_COLORSPACE[parsedInputs.index] = parsedInputs.filter.colorspace;
+            this.videosToSettings[parsedInputs.index] = parsedInputs;
+            this.updateVideoObject(parsedInputs);
+            this.redrawWindow(parsedInputs.index);
+        }
+        this.emptyInputModal();
+        $("#generic-input-modal").removeClass("is-active");
+        $("#blurrable").css("filter", "");
+    }
+
+    createSettingsContext(initialization, saveSettings, index) {
+        // These booleans strike me as poorly thought out. A rewrite may come one day..... TODO
         let context = {};
+        context.loadVideo = initialization; // This gets changed depending on user input
+        context.initialization = initialization; // This is constant after being set
+        context.saveSettings = saveSettings
+        if (!initialization) {
+            context.nextButtonText = "Save";
+            context.nextButton = true;
+            context.previousButton = true;
+            context.previousButtonText = "Cancel";
+        }
+        if (index === 0 && initialization) {
+            context.previousButton = false;
+            context.nextButtonText = "Next";
+            context.nextButton = true;
+        }
+        if (index + 1 === NUMBER_OF_CAMERAS && initialization) {
+            context.previousButton = true;
+            context.previousButtonText = "Previous"
+            context.nextButton = true;
+            context.nextButtonText = "Finish";
+        } else if (index !== 0 && initialization) {
+            context.previousButton = true;
+            context.previousButtonText = "Previous"
+            context.nextButton = true;
+            context.nextButtonText = "Next";
+        }
+        context.index = index;
         return context;
     }
 
@@ -587,7 +634,10 @@ class WindowManager {
         };
 
         let getSettings = () => {
-            let context = this.createSettingsContext(false, currentVideoIndex);
+            let saveSettings = (parsedInputs, previous) => {
+                this.saveSettings(parsedInputs, previous)
+            }
+            let context = this.createSettingsContext(false, saveSettings, currentVideoIndex);
             this.getVideoSettings(context, this.videosToSettings[currentVideoIndex]);
         }
         let currentClickerWidget = clickerWidget(
@@ -658,7 +708,7 @@ class WindowManager {
 
         this.createClickerWidget(parsedInputs.index, parsedInputs)
 
-        this.videos[currentIndex] = new Video(currentIndex, parsedInputs.videoName, parsedInputs.offset, (videoID, baseX) => this.projectMouseToEpipolar(videoID, baseX));
+        this.videos[currentIndex] = new Video(currentIndex, parsedInputs.videoName, parsedInputs.offset, false, (videoID, baseX) => this.projectMouseToEpipolar(videoID, baseX));
         this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.brightnessFilter;
         this.videos[currentIndex].currentContrastFilter = parsedInputs.filter.contrastFilter;
         this.videos[currentIndex].currentSaturateFilter = parsedInputs.filter.saturationFilter;
@@ -762,26 +812,17 @@ class MainWindowManager extends WindowManager {
             },
             'initLoadFinished': () => {
 
+            },
+            "updateSettings": (settings) => {
+                this.settings = settings;
+            },
+            "updateVideoSettings": (settings) => {
+                this.saveSettings(settings, false);
             }
         };
         this.communicatorsManager = new CommunicatorsManager(STATES.MAIN_WINDOW, communicationsCallbacks);
     }
 
-    saveSettings(parsedInputs, previous) {
-
-        if (!previous) { // Previous gets used as the cancel button in this context!
-            if (parsedInputs.index === 0) {
-                FRAME_RATE = parsedInputs.frameRate;
-            }
-            VIDEO_TO_COLORSPACE[parsedInputs.index] = parsedInputs.filter.colorspace;
-            this.videosToSettings[parsedInputs.index] = parsedInputs;
-            this.updateVideoObject(parsedInputs);
-            this.redrawWindow(parsedInputs.index);
-        }
-        this.emptyInputModal();
-        $("#generic-input-modal").removeClass("is-active");
-        $("#blurrable").css("filter", "");
-    }
 
     saveProject(autoSaved) {
         let videoObjects = [];
@@ -807,6 +848,7 @@ class MainWindowManager extends WindowManager {
             newVideo.brightness = this.videos[i].currentBrightnessFilter;
             newVideo.contrast = this.videos[i].currentContrastFilter;
             newVideo.saturation = this.videos[i].currentSaturateFilter;
+            newVideo.isEpipolarLocked = this.videos[i].isEpipolarLocked;
 
             newVideo.orgSize = this.videosToSizes[i];
 
@@ -848,7 +890,7 @@ class MainWindowManager extends WindowManager {
             });
             this.createClickerWidget(videos[i].index, videos[i]);
             this.createPopoutWidget(videos[i].index);
-            this.videos.push(new Video(videos[i].index, videos[i].name, videos[i].offset, (videoID, baseX) => this.projectMouseToEpipolar(videoID, baseX)));
+            this.videos.push(new Video(videos[i].index, videos[i].name, videos[i].offset, videos[i].isEpipolarLocked, (videoID, baseX) => this.projectMouseToEpipolar(videoID, baseX)));
             this.videos[videos[i].index].currentBrightnessFilter = videos[videos[i].index].brightness;
             this.videos[videos[i].index].currentContrastFilter = videos[videos[i].index].contrast;
             this.videos[videos[i].index].currentSaturateFilter = videos[videos[i].index].saturation;
@@ -887,41 +929,6 @@ class MainWindowManager extends WindowManager {
         $("#blurrable").css("filter", "blur(10px)");
         this.fadeInputModalIn(700);
         modal.addClass("is-active");
-    }
-
-
-    createSettingsContext(initialization, index) {
-        // These booleans strike me as poorly thought out. A rewrite may come one day..... TODO
-        let context = {};
-        context.loadVideo = initialization; // This gets changed depending on user input
-        context.initialization = initialization; // This is constant after being set
-        context.saveSettings = initialization ?
-            (parsedInputs, previous) => this.initializationSaveSettings(parsedInputs, previous) :
-            (parsedInputs, previous) => this.saveSettings(parsedInputs, previous);
-        if (!initialization) {
-            context.nextButtonText = "Save";
-            context.nextButton = true;
-            context.previousButton = true;
-            context.previousButtonText = "Cancel";
-        }
-        if (index === 0 && initialization) {
-            context.previousButton = false;
-            context.nextButtonText = "Next";
-            context.nextButton = true;
-        }
-        if (index + 1 === NUMBER_OF_CAMERAS && initialization) {
-            context.previousButton = true;
-            context.previousButtonText = "Previous"
-            context.nextButton = true;
-            context.nextButtonText = "Finish";
-        } else if (index !== 0 && initialization) {
-            context.previousButton = true;
-            context.previousButtonText = "Previous"
-            context.nextButton = true;
-            context.nextButtonText = "Next";
-        }
-        context.index = index;
-        return context;
     }
 
 
@@ -1241,7 +1248,8 @@ class MainWindowManager extends WindowManager {
     loadNewProject() {
         $("#starter-menu").remove();
         $("#footer").remove();
-        let context = this.createSettingsContext(true, 0);
+        let saveSettings = (parsedInputs, previous) => this.initializationSaveSettings(parsedInputs, previous);
+        let context = this.createSettingsContext(true, saveSettings, 0);
         this.getVideoSettings(context, this.defaultVideoSettings);
     }
 
@@ -1264,11 +1272,20 @@ class MainWindowManager extends WindowManager {
                 currentInfo = {x: currentPoint[0][0], y: currentPoint[1][0]};
                 currentInfoType = "unified";
             } else {
-                currentInfo = curEpipolarInfo.result[videoIndex];
-                currentInfoType = "epipolar";
+                // TODO: Okay so obviously this function returns to many different things.
+                // Someone fix this : {
+                if (curEpipolarInfo.result[videoIndex] === undefined) {
+                    currentInfo = undefined;
+                    currentInfoType = undefined;
+                } else if (curEpipolarInfo.result[videoIndex].length === 0) {
+                    currentInfo = undefined;
+                    currentInfoType = undefined;
+                } else {
+                    currentInfo = curEpipolarInfo.result[videoIndex];
+                    currentInfoType = "epipolar";
+                }
             }
         }
-
 
         let message = {
             "dataURL": videoURL,
@@ -1284,6 +1301,7 @@ class MainWindowManager extends WindowManager {
             "pointRadius": VIDEO_TO_POINT_SIZE,
             "videoSettings": this.videosToSettings[videoIndex],
             "settings": this.settings,
+            "isEpipolarLocked": this.videos[videoIndex].isEpipolarLocked,
             "epipolarInfo": {
                 isEpipolar: currentInfo !== undefined,
                 info: currentInfo,
@@ -1340,16 +1358,19 @@ class MainWindowManager extends WindowManager {
 
         // TODO: separate this out probably so it's easier to update
         // videos[index].filter = parsedInputs.filter;
+        let saveSettings = (parsedInputs, previous) => this.initializationSaveSettings(
+            parsedInputs, previous
+        );
         if (previous === true) {
             index -= 1;
-            let context = this.createSettingsContext(true, index)
+            let context = this.createSettingsContext(true, saveSettings, index);
             this.removeVideoFromDOM(parsedInputs);
             context.loadVideo = false;
             this.loadVideoIntoDOM(parsedInputs);
             this.slideInputModalOut(700, () => this.getVideoSettings(context, this.videosToSettings[index]));
         } else {
             index += 1;
-            let context = this.createSettingsContext(true, index);
+            let context = this.createSettingsContext(true, saveSettings, index);
             if ($(`#masterColumn-${parsedInputs.index}`).get(0) !== undefined) {
                 context.loadVideo = false;
                 this.removeVideoFromDOM(parsedInputs);
@@ -1420,9 +1441,12 @@ class PopOutWindowManager extends WindowManager {
         this.trackManager = new TrackManager(tracks);
         this.settings = settings;
         this.absoluteIndex = currentVideo;
+        this.curEpipolarInfo = [];
+        this.curEpipolarInfo[this.absoluteIndex] = {type: EPIPOLAR_TYPES.NONE};
 
         let callbacks = {
             "goToFrame": (frame) => {
+                this.curEpipolarInfo[this.absoluteIndex] = {type: EPIPOLAR_TYPES.NONE};
                 this.videos[currentVideo].goToFrame(frame);
                 this.clearEpipolarCanvases(this.absoluteIndex);
             },
@@ -1476,16 +1500,15 @@ class PopOutWindowManager extends WindowManager {
             },
             "drawEpipolarLine": (lineInfo) => {
                 this.clearEpipolarCanvases(this.absoluteIndex);
+                this.curEpipolarInfo[this.absoluteIndex] = {type: EPIPOLAR_TYPES.LINE, data: lineInfo};
                 this.videos[currentVideo].drawEpipolarLines(lineInfo);
             },
             "drawDiamond": (x, y) => {
                 this.clearEpipolarCanvases(this.absoluteIndex);
+                this.curEpipolarInfo[this.absoluteIndex] = {type: EPIPOLAR_TYPES.POINT};
                 this.videos[currentVideo].drawDiamond(x, y, 10, 10);
             },
             "loadPoints": () => {
-                // TODO
-            },
-            "changeColorSpace": () => {
                 // TODO
             },
             "mainWindowDeath": () => {
@@ -1493,26 +1516,42 @@ class PopOutWindowManager extends WindowManager {
             },
             "updateSettings": (settings) => {
                 this.settings = settings;
-            }
+            },
         };
         this.communicatorsManager = new CommunicatorsManager(STATES.POP_OUT, callbacks);
         this.communicatorsManager.registerCommunicator(currentVideo);
     }
 
+    goToInputFrame(index) {
+        this.curEpipolarInfo[index] = {type: EPIPOLAR_TYPES.NONE};
+        return super.goToInputFrame(index);
+    }
+
+    saveSettings(parsedInputs, previous) {
+        super.saveSettings(parsedInputs, previous);
+        if (previous) {
+            return;
+        }
+        let message = messageCreator("updateVideoSettings", {videoSettings: parsedInputs});
+        this.communicatorsManager.updateCommunicators(message);
+    }
+
     goForwardFrames(id) {
         this.clearEpipolarCanvases(this.absoluteIndex);
         let frame = frameTracker[id] + this.settings["forwardMove"];
+        this.curEpipolarInfo[id] = {type: EPIPOLAR_TYPES.NONE};
         this.videos[id].goToFrame(frame);
         let message = messageCreator("goToFrame", {frame: frame, index: id});
         this.communicatorsManager.updateCommunicators(message);
     }
 
     goBackwardsAFrame(id) {
-        if (frameTracker[id] < 0) {
+        let frame = frameTracker[id] - this.settings["backwardsMove"];
+        if (frame < 0) {
             return;
         }
         this.clearEpipolarCanvases(this.absoluteIndex);
-        let frame = frameTracker[id] - this.settings["backwardsMove"];
+        this.curEpipolarInfo[id] = {type: EPIPOLAR_TYPES.NONE};
         this.videos[id].goToFrame(frame);
         frameTracker[id] = frame;
         let message = messageCreator("goToFrame", {frame: frame, index: id});
@@ -1527,15 +1566,23 @@ class PopOutWindowManager extends WindowManager {
          *   the frame the video should load to. (see: pop_out.js -> setup())
          */
         super.loadVideoIntoDOM(parsedInputs);
+        this.videos[parsedInputs.index].isEpipolarLocked = parsedInputs.isEpipolarLocked;
         this.videos[parsedInputs.index].goToFrame(parsedInputs.frame);
+        this.videosToSettings[parsedInputs.index] = parsedInputs; // TODO: A lot of extra information is now stored in this, but it doesn't really matter that much, would be nice to clean up one day
+        this.videoFiles[this.absoluteIndex] = {name: parsedInputs.name};
         $(`#video-${parsedInputs.index}`).one("canplay", () => {
             this.drawAllPoints(parsedInputs.index);
             if (parsedInputs.epipolarInfo.isEpipolar) {
                 if (parsedInputs.epipolarInfo.infoType === "epipolar") {
                     this.clearEpipolarCanvases(this.absoluteIndex);
+                    this.curEpipolarInfo[this.absoluteIndex] = {
+                        type: EPIPOLAR_TYPES.LINE,
+                        data: parsedInputs.epipolarInfo.info
+                    };
                     this.videos[parsedInputs.index].drawEpipolarLines(parsedInputs.epipolarInfo.info);
                 } else {
                     this.clearEpipolarCanvases(this.absoluteIndex);
+                    this.curEpipolarInfo[this.absoluteIndex] = {type: EPIPOLAR_TYPES.POINT};
                     this.videos[parsedInputs.index].drawDiamond(
                         parsedInputs.epipolarInfo.info.x,
                         parsedInputs.epipolarInfo.info.y,

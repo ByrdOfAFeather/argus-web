@@ -4,7 +4,7 @@ let RGB = "grayscale(0%)";
 let GREYSCALE = "grayscale(100%)";
 
 class Video {
-    constructor(videosIndex, videoName, offset, epipolarProjection) {
+    constructor(videosIndex, videoName, offset, isEpipolarLocked, epipolarProjection) {
         this.index = videosIndex;
         this.name = videoName;
         this.offset = offset;
@@ -47,7 +47,7 @@ class Video {
         this.lastFrame = (FRAME_RATE * this.video.duration);
         this.isDisplayingFocusedPoint = false;
 
-        this.isEpipolarLocked = false;
+        this.isEpipolarLocked = isEpipolarLocked;
         this.epipolarProjection = epipolarProjection;
     }
 
@@ -204,6 +204,23 @@ class Video {
     moveToNextFrame() {
         let newFrame = frameTracker[this.index] + 1;
         this.goToFrame(newFrame);
+    }
+
+    drawZoomWindows(color) {
+        this.drawZoomWindow(color);
+        this.drawEpipolarZoomWindow();
+    }
+
+    inverseEpipolarLocked(color) {
+        if (!this.isEpipolarLocked) {
+            let proj = this.epipolarProjection(this.index, this.mouseTracker.orgX);
+            this.mouseTracker.x = proj.x;
+            this.mouseTracker.y = proj.y;
+            this.drawZoomWindows(color);
+            this.isEpipolarLocked = true;
+        } else {
+            this.isEpipolarLocked = false;
+        }
     }
 
 
