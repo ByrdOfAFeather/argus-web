@@ -86,6 +86,7 @@ class WindowManager {
                         this.curEpipolarInfo[i] = {
                             type: EPIPOLAR_TYPES.NONE,
                         }
+                        this.videos[i].drawEpipolarZoomWindow();
                     }
                     return;
                 }
@@ -97,6 +98,7 @@ class WindowManager {
                             this.curEpipolarInfo[i] = {
                                 type: EPIPOLAR_TYPES.NONE
                             };
+                            this.videos[i].drawEpipolarZoomWindow();
                             continue;
                         }
                         this.curEpipolarInfo[i] = {
@@ -212,7 +214,14 @@ class WindowManager {
             $(this.parentElement).css("height", `${height}px`);
             $(this).attr("width", width);
             $(this).attr("height", height);
-        })
+        });
+        $(".zoom-epipolar-canvas").each(function () {
+            let width = parseFloat($(this).css("width"));
+            let height = width;
+            $(this.parentElement).css("height", `${height}px`);
+            $(this).attr("width", width);
+            $(this).attr("height", height);
+        });
     }
 
     getVideoSettings(context, initSettings) {
@@ -329,7 +338,7 @@ class WindowManager {
         // Synchronize and auto-advance if necessary
         if (this.locks["can_click"]) {
             let index = event.target.id.split("-")[1];
-            let point = Video.createPointObject(index);
+            let point = this.videos[index].createPointObject();
 
             let pointIndexInfo = this.clickedPointsManager.addPoint(
                 point,
@@ -352,62 +361,64 @@ class WindowManager {
         return {'point': null, 'pointIndexInfo': null};
     }
 
-    setMousePos(e) {
-        if (!locks["resizing_mov"]) {
-            $(e.target).focus();
+    projectMouseToEpipolar(videoID, baseX) {
+        /*
+         * Accepts either two lines, or the current bounds, scaleX, and video index of the reference video
+         */
+        let mouseTracker = this.videos[videoID].mouseTracker;
 
-            // Source : https://stackoverflow.com/a/17130415
-            let bounds = e.target.getBoundingClientRect();
-            let scaleX = e.target.width / bounds.width;   // relationship bitmap vs. element for X
-            let scaleY = e.target.height / bounds.height;
-
-            let video = e.target.id.split("-")[1];
-            if (this.epipolarLocked[video] && this.curEpipolarInfo[video].type === EPIPOLAR_TYPES.LINE) {
-                if (this.curEpipolarInfo[video].data.length > 1) {
-                    let line_data_1 = this.curEpipolarInfo[video].data[0];
-                    let line_data_2 = this.curEpipolarInfo[video].data[1];
-                    let bias_1 = line_data_1[0][1];
-                    let slope_1 = (line_data_1[1][1] - line_data_1[0][1]) / (line_data_1[1][0]);
-                    let bias_2 = line_data_2[0][1];
-                    let slope_2 = (line_data_2[1][1] - line_data_2[0][1]) / (line_data_2[1][0])
-                    mouseTracker.x = (bias_1 - bias_2) / (slope_2 - slope_1);
-                    mouseTracker.y = (slope_1 * mouseTracker.x) + bias_1;
-                } else {
-                    let line_data = this.curEpipolarInfo[video].data[0];
-                    let bias = line_data[0][1];
-                    let slope = (line_data[1][1] - line_data[0][1]) / (line_data[1][0]);
-                    let xPos = (e.clientX - bounds.left) * scaleX;   // scale mouse coordinates after they have
-                    mouseTracker.x = xPos;
-                    let a = (-bias / slope);
-                    let b = (this.videosToSizes[video].height - bias) / slope;
-                    mouseTracker.x = a + ((xPos * (b - a)) / this.videosToSizes[video].width);
-                    mouseTracker.y = (slope * mouseTracker.x) + bias;
-                }
-            } else {
-                mouseTracker.x = (e.clientX - bounds.left) * scaleX;   // scale mouse coordinates after they have
-                mouseTracker.y = (e.clientY - bounds.top) * scaleY;
-            }
-            let currentColor = this.trackManager.currentTrack.color;
-            this.videos[video].drawZoomWindow(currentColor);
-        } else {
-            let bounds = e.target.getBoundingClientRect();
-
-            mouseTracker.x = e.clientX - bounds.left;
-            mouseTracker.y = e.clientY - bounds.top;
-            let currentClickCanvas = $(e.target);
-
-            currentClickCanvas.css("height", mouseTracker.y);
-            currentClickCanvas.css("width", mouseTracker.x);
-
-            let currentVideoCanvas = $(`#videoCanvas-${e.target.id.split("-")[1]}`);
-
-            currentVideoCanvas.css("height", mouseTracker.y);
-            currentVideoCanvas.css("width", mouseTracker.x);
-
-            let currentEpipolarCanvas = $(`#epipolarCanvas-${e.target.id.split("-")[1]}`);
-            currentEpipolarCanvas.css("height", mouseTracker.y);
-            currentEpipolarCanvas.css("width", mouseTracker.x);
+        let lines = this.curEpipolarInfo[videoID].data;
+        if (lines === undefined || this.curEpipolarInfo[videoID].type === EPIPOLAR_TYPES.NONE ||
+            this.curEpipolarInfo[videoID].type === EPIPOLAR_TYPES.POINT) {
+            return {x: this.videos[videoID].mouseTracker.x, y: this.videos[videoID].mouseTracker.y};
         }
+        let lineData1 = lines[0];
+        if (lines[1] !== undefined) {
+            let lineData2 = lines[1];
+            let bias1 = lineData1[0][1];
+            let slope1 = (lineData1[1][1] - lineData1[0][1]) / (lineData1[1][0]);
+            let bias2 = lineData2[0][1];
+            let slope2 = (lineData2[1][1] - lineData2[0][1]) / (lineData2[1][0])
+            let x = (bias1 - bias2) / (slope2 - slope1);
+            return {x: x, y: (slope1 * x) + bias1}
+        } else if (lineData1 !== undefined) {
+            let bias = lineData1[0][1];
+            let slope = (lineData1[1][1] - lineData1[0][1]) / (lineData1[1][0]);
+            let a = (-bias / slope);
+            let b = (this.videosToSizes[videoID].height - bias) / slope;
+            let finalX = a + ((baseX * (b - a)) / this.videosToSizes[videoID].width);
+            return {
+                x: finalX,
+                y: (slope * finalX) + bias
+            }
+        }
+    }
+
+    setMousePos(e) {
+        $(e.target).focus();
+
+        // Source : https://stackoverflow.com/a/17130415
+        let bounds = e.target.getBoundingClientRect();
+        let scaleX = e.target.width / bounds.width;   // relationship bitmap vs. element for X
+        let scaleY = e.target.height / bounds.height;
+
+        let video = e.target.id.split("-")[1];
+        let baseX = (e.clientX - bounds.left) * scaleX;
+        let baseY = (e.clientY - bounds.top) * scaleY;
+        if (this.videos[video].isEpipolarLocked && this.curEpipolarInfo[video].type === EPIPOLAR_TYPES.LINE) {
+            let projectedMouseCoords = this.projectMouseToEpipolar(video, baseX);
+            this.videos[video].mouseTracker.x = projectedMouseCoords.x;
+            this.videos[video].mouseTracker.y = projectedMouseCoords.y;
+        } else {
+            this.videos[video].mouseTracker.x = baseX;   // scale coords
+            this.videos[video].mouseTracker.y = baseY;
+        }
+        this.videos[video].mouseTracker.orgX = baseX;
+        this.videos[video].mouseTracker.orgY = baseY;
+        let currentColor = this.trackManager.currentTrack.color;
+        this.videos[video].drawZoomWindow(currentColor);
+        this.videos[video].drawEpipolarZoomWindow();
+
     }
 
     goForwardFrames() {
@@ -478,22 +489,22 @@ class WindowManager {
             if (e.keyCode === 38) {
                 // Up
                 e.preventDefault();
-                mouseTracker.y -= 1;
+                this.videos[id].mouseTracker.y -= 1;
                 this.videos[id].drawZoomWindow();
             } else if (e.keyCode === 39) {
                 // Right
                 e.preventDefault();
-                mouseTracker.x += 1;
+                this.videos[id].mouseTracker.x += 1;
                 this.videos[id].drawZoomWindow();
             } else if (e.keyCode === 40) {
                 // Down
                 e.preventDefault();
-                mouseTracker.y += 1;
+                this.videos[id].mouseTracker.y += 1;
                 this.videos[id].drawZoomWindow();
             } else if (e.keyCode === 37) {
                 // Left
                 e.preventDefault();
-                mouseTracker.x -= 1;
+                this.videos[id].mouseTracker.x -= 1;
                 this.videos[id].drawZoomWindow();
             } else if (e.keyCode === 13) {
                 e.preventDefault();
@@ -512,11 +523,7 @@ class WindowManager {
         } else if (String.fromCharCode(e.which) === "X") {
             this.videos[id].zoomOutZoomWindow();
         } else if (String.fromCharCode(e.which) === "L") {
-            if (this.epipolarLocked[id] !== undefined) {
-                this.epipolarLocked[id] = !this.epipolarLocked[id];
-            } else {
-                this.epipolarLocked[id] = true;
-            }
+            this.videos[id].isEpipolarLocked = !this.videos[id].isEpipolarLocked
         } else if (String.fromCharCode(e.which) === "P") {
             if (this.settings["precisionMode"] !== undefined) {
                 this.settings["precisionMode"] = !this.settings["precisionMode"];
@@ -651,7 +658,7 @@ class WindowManager {
 
         this.createClickerWidget(parsedInputs.index, parsedInputs)
 
-        this.videos[currentIndex] = new Video(currentIndex, parsedInputs.videoName, parsedInputs.offset);
+        this.videos[currentIndex] = new Video(currentIndex, parsedInputs.videoName, parsedInputs.offset, (videoID, baseX) => this.projectMouseToEpipolar(videoID, baseX));
         this.videos[currentIndex].currentBrightnessFilter = parsedInputs.filter.brightnessFilter;
         this.videos[currentIndex].currentContrastFilter = parsedInputs.filter.contrastFilter;
         this.videos[currentIndex].currentSaturateFilter = parsedInputs.filter.saturationFilter;
@@ -841,7 +848,7 @@ class MainWindowManager extends WindowManager {
             });
             this.createClickerWidget(videos[i].index, videos[i]);
             this.createPopoutWidget(videos[i].index);
-            this.videos.push(new Video(videos[i].index, videos[i].name, videos[i].offset));
+            this.videos.push(new Video(videos[i].index, videos[i].name, videos[i].offset, (videoID, baseX) => this.projectMouseToEpipolar(videoID, baseX)));
             this.videos[videos[i].index].currentBrightnessFilter = videos[videos[i].index].brightness;
             this.videos[videos[i].index].currentContrastFilter = videos[videos[i].index].contrast;
             this.videos[videos[i].index].currentSaturateFilter = videos[videos[i].index].saturation;
@@ -1025,6 +1032,7 @@ class MainWindowManager extends WindowManager {
         };
         let message = messageCreator("removeTrack", {track: trackID});
         this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
+        this.getEpipolarInfo(0, frameTracker[0]);
     }
 
     onTrackAdd(_) {

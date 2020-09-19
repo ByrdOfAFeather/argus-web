@@ -424,7 +424,8 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
                     genericDivWidget("column").append(
                         genericDivWidget("container", `zoom-text-${videoIndex}`).append(
                             genericDivWidget("container", `zoom-canvas-${videoIndex}`).append(
-                                canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas", "z-index: 2;").css("height", "100%").css("width", "100%"),
+                                canvas(`zoomEpipolarCanvas-${videoIndex}`, "zoom-epipolar-canvas absolute", "z-index: 3;").css("height", "100%").css("width", "100%"),
+                                canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas absolute", "z-index: 2;").css("height", "100%").css("width", "100%"),
                             ),
                             $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In<br>L = Lock To Epipolar<br>P = Enter Precision Mode</p>")
                         )
@@ -1581,6 +1582,6 @@ function loadCameraInfoWidget(bindings) {
                     fileInputWidget("Load DLT Coefficents", "loadDLTCoefficients", "any", (file) => loadDLTCoefficients(Array.from($("#loadDLTCoefficients").prop("files"))))
                 )
             )
-        )
+        ).css("overflow", "hidden") // TODO: This is dumb. I'm not sure how to make the button work though.
     )
 }

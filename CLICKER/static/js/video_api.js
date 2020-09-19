@@ -1,26 +1,23 @@
-let videoObjects = [];
-
-let LINETYPE_EPIPOLAR = 1;
-let LINETYPE_POINT_TO_POINT = 2;
-let ZOOM_WINDOW_MOVING = false;
-let ZOOM_BEING_MOVED = null;
-
 let videos = [];
 
 let RGB = "grayscale(0%)";
 let GREYSCALE = "grayscale(100%)";
 
 class Video {
-    constructor(videosIndex, videoName, offset) {
+    constructor(videosIndex, videoName, offset, epipolarProjection) {
         this.index = videosIndex;
         this.name = videoName;
         this.offset = offset;
         this.video = document.getElementById(`video-${videosIndex}`);
+        this.mouseTracker = {
+            x: 0,
+            y: 0,
+            orgX: 0,
+            orgY: 0,
+        };
 
         this.canvas = document.getElementById(`canvas-${videosIndex}`);
         this.canvasContext = this.canvas.getContext("2d");
-        // this.currentStrokeStyle = trackTracker.tracks[trackTracker.currentTrack].color;
-
         this.videoCanvas = document.getElementById(`videoCanvas-${videosIndex}`);
         this.videoCanvasContext = this.videoCanvas.getContext("2d");
 
@@ -33,6 +30,11 @@ class Video {
         this.zoomCanvas = document.getElementById(`zoomCanvas-${videosIndex}`);
         this.zoomCanvasContext = this.zoomCanvas.getContext("2d");
         this.zoomCanvas = $(this.zoomCanvas);
+
+        this.zoomEpipolarCanvas = document.getElementById(`zoomEpipolarCanvas-${videosIndex}`);
+        this.zoomEpipolarCanvasContext = this.zoomEpipolarCanvas.getContext("2d");
+        this.zoomEpipolarCanvas = $(this.zoomEpipolarCanvas);
+
         this.zoomOffset = 10;
 
         this.currentBrightnessFilter = '';
@@ -42,18 +44,18 @@ class Video {
 
         this.videoLabelID = `videoLabel-${videosIndex}`;
 
-        this.popVideoID = `popVideo-${videosIndex}`;
-
         this.lastFrame = (FRAME_RATE * this.video.duration);
-
         this.isDisplayingFocusedPoint = false;
+
+        this.isEpipolarLocked = false;
+        this.epipolarProjection = epipolarProjection;
     }
 
-    static createPointObject(index) {
+    createPointObject() {
         return {
-            x: mouseTracker.x,
-            y: mouseTracker.y,
-            frame: frameTracker[index],
+            x: this.mouseTracker.x,
+            y: this.mouseTracker.y,
+            frame: frameTracker[this.index],
         };
     }
 
@@ -65,9 +67,28 @@ class Video {
         this.drawLines(points, canvasContext, color);
     }
 
+    drawEpipolarZoomWindow() {
+        let startX = this.mouseTracker.x;
+        let startY = this.mouseTracker.y;
+        let width = parseFloat(this.zoomEpipolarCanvas.css("width"));
+        let height = parseFloat(this.zoomEpipolarCanvas.css("height"));
+        this.zoomEpipolarCanvasContext.clearRect(0, 0, width, height);
+
+        this.zoomEpipolarCanvasContext.globalAlpha = 0.4;
+        // Draw Epipolar lines
+        this.zoomEpipolarCanvasContext.drawImage(
+            this.epipolarCanvas,
+            startX - this.zoomOffset,
+            startY - this.zoomOffset,
+            this.zoomOffset * 2,
+            this.zoomOffset * 2, 0, 0, width, height); // startX, startY, endX, endY, 0, 0, endY, endX);
+        this.zoomEpipolarCanvasContext.globalAlpha = 1;
+
+    }
+
     drawZoomWindow(color) {
-        let startX = mouseTracker.x;
-        let startY = mouseTracker.y;
+        let startX = this.mouseTracker.x;
+        let startY = this.mouseTracker.y;
 
         this.zoomCanvasContext.strokeStyle = color;
 
@@ -76,22 +97,13 @@ class Video {
 
         // Draw Video
         this.zoomCanvasContext.clearRect(0, 0, width, height);
+        // this.zoomEpipolarCanvasContext.clearRect(0, 0, width, height);
         this.zoomCanvasContext.drawImage(
             this.videoCanvas,
             startX - this.zoomOffset,
             startY - this.zoomOffset,
             this.zoomOffset * 2,
             this.zoomOffset * 2, 0, 0, width, height); // startX, startY, endX, endY, 0, 0, endY, endX);
-
-        this.zoomCanvasContext.globalAlpha = 0.4;
-        // Draw Epipolar lines
-        this.zoomCanvasContext.drawImage(
-            this.epipolarCanvas,
-            startX - this.zoomOffset,
-            startY - this.zoomOffset,
-            this.zoomOffset * 2,
-            this.zoomOffset * 2, 0, 0, width, height); // startX, startY, endX, endY, 0, 0, endY, endX);
-        this.zoomCanvasContext.globalAlpha = 1;
 
         this.zoomCanvasContext.beginPath();
         this.zoomCanvasContext.moveTo(width / 2, 0);
@@ -181,8 +193,7 @@ class Video {
             this.videoCanvasContext.clearRect(0, 0, this.videoCanvas.width, this.videoCanvas.height);
         }
 
-        let estimatedTime = frameNumber / FRAME_RATE;
-        this.video.currentTime = estimatedTime;
+        this.video.currentTime = frameNumber / FRAME_RATE;
 
         frameTracker[this.index] = orgFrame;
         let parsedLabel = Video.parseVideoLabel(document.getElementById(this.videoLabelID).innerText);
@@ -207,7 +218,6 @@ class Video {
         this.videoCanvasContext.fillRect(0, 0, canvasWidth, canvasHeight);
         this.videoCanvasContext.drawImage(this.video, 0, 0, canvasWidth, canvasHeight);
         this.currentStrokeStyle = mainTrackInfo.color;
-        // this.drawZoomWindow();
         if (!locks["can_click"]) {
             locks["can_click"] = true;
         }
@@ -227,7 +237,13 @@ class Video {
             this.isDisplayingFocusedPoint = false;
         }
 
+        if (this.isEpipolarLocked) {
+            let projectedCoords = this.epipolarProjection(this.index, this.mouseTracker.orgX);
+            this.mouseTracker.x = projectedCoords.x;
+            this.mouseTracker.y = projectedCoords.y;
+        }
         this.drawZoomWindow(mainTrackInfo.color);
+        this.drawEpipolarZoomWindow();
     }
 
     addSubTrack(subTrackInfo) {
@@ -321,10 +337,12 @@ class Video {
         this.epipolarCanvasContext.strokeStyle = "rgb(0,255,0)";
         this.epipolarCanvasContext.stroke();
         this.epipolarCanvasContext.restore();
+
+        this.drawEpipolarZoomWindow();
     }
 
+
     drawEpipolarLines(points) {
-        this.epipolarCanvasContext.strokeStyle = "#4B9CD3";
         for (let i = 0; i < points.length; i++) {
             this.drawLine(
                 {
@@ -334,8 +352,9 @@ class Video {
                 {
                     "x": points[i][1][0],
                     "y": points[i][1][1]
-                }, this.epipolarCanvasContext);
+                }, this.epipolarCanvasContext, "rgb(75, 156, 211)");
         }
+        this.drawEpipolarZoomWindow();
     }
 
     drawSubTrack(points, color) {
@@ -376,6 +395,7 @@ class Video {
         } else {
             this.zoomOffset -= 10;
             this.drawZoomWindow();
+            this.drawEpipolarZoomWindow();
         }
 
     }
@@ -383,28 +403,8 @@ class Video {
     zoomOutZoomWindow() {
         this.zoomOffset += 10;
         this.drawZoomWindow();
+        this.drawEpipolarZoomWindow();
     }
-
-}
-
-
-/** @namespace */
-function changeTracks(trackIndex, cameras) {
-    /**
-     * Changes the track based on the passed trackIndex
-     * @param {Number} trackIndex The index of the requested track
-     * @returns {undefined}
-     */
-    trackTracker["currentTrack"] = trackIndex;
-
-    // Changes all cameras to the requested track
-    for (let index = 0; index < cameras.length; index++) {
-        if (videos[cameras[index]] !== undefined) {
-            videos[cameras[index]].changeTracks(trackIndex);
-        }
-    }
-
-    secondaryTracksTracker.drawTracks();
 }
 
 
@@ -465,18 +465,6 @@ function messageCreator(type, data) {
 }
 
 
-// TODO This might be way to inefficient for the benefit in modifying string data
-function parseVideoLabel(videoLabelText) {
-    let parsedData = {};
-    let splicedData = videoLabelText.split(" ");
-    for (let i = 0; i < splicedData.length; i++) {
-        let localSplice = splicedData[i].split(":");
-        parsedData[localSplice[0]] = localSplice[1];
-    }
-    return parsedData;
-}
-
-
 function videoLabelDataToString(videoLabelObject) {
     let keys = Object.keys(videoLabelObject);
     let returnString = "";
@@ -486,18 +474,6 @@ function videoLabelDataToString(videoLabelObject) {
     return returnString;
 }
 
-
-function setCanvasSizes(canvas, video, index) {
-    canvas.height = video.videoHeight;
-    canvas.width = video.videoWidth;
-    if (video.videoWidth > 800 || video.videoHeight > 600) {
-        canvas.style.height = "600px";
-        canvas.style.width = "800px";
-    } else {
-        canvas.style.height = video.videoHeight + "px";
-        canvas.style.width = video.videoWidth + "px";
-    }
-}
 
 function sortByFrame(aPoint, bPoint) {
     return aPoint.frame - bPoint.frame;
@@ -551,7 +527,7 @@ function getGenericStringLikeInput(validate, callback, label, errorText, hasCanc
         input.focus();
     });
 
-    let validateAndCallback = (e) => {
+    let validateAndCallback = (_) => {
         let input = $("#generic-modal-input").val();
         let parsedInput = validate(input);
         if (parsedInput.valid === true) {
@@ -580,81 +556,6 @@ function getGenericStringLikeInput(validate, callback, label, errorText, hasCanc
     });
 }
 
-function getGenericFileInput(inputLabel, callBackOkay, callBackCancel) {
-    let modalContent = $("#modal-content-container");
-    let restorePoint = $(modalContent.children()[0]).clone();
-    let modal = $("#generic-input-modal");
-    modal.addClass("is-active");
-
-    modalContent.empty();
-
-    let fileInput = $(
-        `                    
-        <div class="file centered-file-input">
-            <label class="file-label">
-                <input
-                        id="generic-file-input"
-                        class="file-input is-expanded"
-                        accept="video/*" type=file
-                >
-                <span class="file-cta has-background-dark has-text-white is-size-4">
-                      <span class="file-label">
-                        ${inputLabel}
-                      </span>
-                </span>
-            </label>
-        </div>`
-    );
-
-    fileInput.find("#generic-file-input").on("change",
-        function (_) {
-            callBackOkay(restorePoint)
-        });
-    modalContent.append(fileInput);
-
-}
-
-
-function startMovingZoomWindow(zoomCanvas) {
-    $('.render-unselectable').addClass('unselectable');
-
-    let index = zoomCanvas.id.split("-")[1];
-
-    let rect = zoomCanvas.getBoundingClientRect();
-    zoomCanvas = $(zoomCanvas);
-
-    let x = rect.left + window.pageXOffset;
-    let y = rect.top + window.pageYOffset;
-
-    let newZoom = zoomCanvas.clone();
-    newZoom.css("position", "absolute");
-    newZoom.css("left", x);
-    newZoom.css("top", y);
-    zoomCanvas.css('visibility', 'hidden');
-    zoomCanvas.attr('id', '');
-    $(document.body).append(newZoom);
-    newZoom.on("mousedown", function () {
-        startMovingZoomWindow(document.getElementById(newZoom.attr("id")));
-    });
-
-    videos[index].zoomCanvas = document.getElementById(newZoom.attr("id"));
-    videos[index].zoomCanvasContext = videos[index].zoomCanvas.getContext("2d");
-
-    ZOOM_WINDOW_MOVING = true;
-    $(document).on("mousemove", setMousePos);
-    $(document).on("mouseup", function () {
-        stopMovingZoomWindow(zoomCanvas);
-        $('.render-unselectable').removeClass('unselectable');
-
-    });
-    ZOOM_BEING_MOVED = newZoom;
-
-}
-
-function stopMovingZoomWindow(zoomCanvas) {
-    ZOOM_WINDOW_MOVING = false;
-    $(document).off();
-}
 
 function loadHiddenVideo(objectURL, index, onCanPlay) {
     // Adds a video into the DOM that is hidden (0 width, 0 height, not able to mess up anything)

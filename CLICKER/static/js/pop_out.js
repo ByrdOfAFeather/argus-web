@@ -3,11 +3,6 @@ const COLORS = ["rgb(228, 26, 28)", "rgb(55, 126, 184)", "rgb(77, 175, 74)", "rg
     "rgb(255, 127, 0)", "rgb(255, 255, 51)", "rgb(166, 86, 40)", "rgb(247, 129, 191)"];
 
 let VIDEO_TO_COLORSPACE = {};
-
-let mouseTracker = {
-    x: 0,
-    y: 0,
-};
 let frameTracker = {};
 
 let locks = {

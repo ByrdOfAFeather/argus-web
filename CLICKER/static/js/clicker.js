@@ -56,13 +56,6 @@ let settings = {
     "sync": true
 };
 
-// GLOBAL FOR TRACKING THE MOUSE FOR WHERE A POINT IS CLICKED
-let mouseTracker = {
-    x: 0,
-    y: 0,
-};
-
-
 // TRACKS WHICH VIDEOS ARE IN WHICH FRAMES
 // {videoIndex: frameNumber}
 let frameTracker = {};
@@ -338,35 +331,6 @@ function exportPoints() {
 }
 
 
-function mainWindowAddNewPoint(event) {
-    if (locks["can_click"]) {
-        let index = event.target.id.split("-")[1];
-        let point = Video.createPointObject(index);
-        videos[index].addNewPoint(point);
-
-        if (settings["auto-advance"]) {
-            if (settings["sync"]) {
-                for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                    frameTracker[i] = point.frame;
-                }
-
-                let localCallback = (index) => {
-                    videos[index].moveToNextFrame();
-                };
-
-                let message = messageCreator("goToFrame", {frame: point.frame + 1});
-
-                updateAllLocalOrCommunicator(localCallback, message);
-            } else {
-                videos[index].moveToNextFrame();
-            }
-        } else {
-            Video.clearEpipolarCanvases();
-            getEpipolarLinesOrUnifiedCoord(index, frameTracker[index]);
-        }
-    }
-}
-
 function fadeInputModalIn(animationTime, postAnimationCallback) {
     let modalContentContainer = $("#modal-content-container");
     modalContentContainer.hide();
@@ -403,50 +367,6 @@ function sendKillNotification(e) {
         windowManager.saveProject(true);
     } catch (e) {
     }
-}
-
-function handleSavedStateDelete(event) {
-    event.stopPropagation();
-    deleteSavedState(event.target.id.split("-")[1]);
-}
-
-
-function generateDOMSavedState(result, index) {
-    // TODO: RENDER WIDGETS .JS
-    let date = new Date(result.dateSaved);
-    let card = $(`
-            <div id="saved-states-${index}" class="column hidden">
-                <div id="saved-states-${index}-card" class="card">
-                    <header class="card-header">
-                        <div class="level">
-                            <div class="level-left">
-                                <p class="card-header-title level-left">
-                                    ${result.title}
-                                </p>
-                            </div>
-                            <div class="level-right">
-                                <button id='savedState-${index}-delete' class="delete"></button>
-                            </div>
-                        </div>
-                    </header>
-                    <div class="card-content">
-                        <div class="content">
-                            <p>${result.description}</p>
-                            <hr>
-                            <p>${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}</p>
-                            <p>${date.toLocaleTimeString()}</p>
-                            <hr>
-                            <p>Autosaved: ${result.autosaved === undefined ? "No" : "Yes"}</p>
-<!--                            <hr>-->
-<!--                            <button id="result-${index}" class="result button" id=result-${index}">Load</button>-->
-                        </div>
-                    </div>
-                </div>
-            </div>
-    `);
-
-    card.find(`#savedState-${index}-delete`).on('click', handleSavedStateDelete);
-    return card;
 }
 
 
