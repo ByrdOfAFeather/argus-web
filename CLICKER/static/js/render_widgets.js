@@ -209,6 +209,7 @@ function frameRateDropDownWidget(defaultValue = '30') {
         if (frameRateContainer.hasClass("is-not-display")) {
             frameRateContainer.removeClass("is-not-display");
             let frameRateInput = $("#frame-rate-input");
+            frameRateInput.focus();
             let saveButton = $("#frame-rate-save-button");
             saveButton.on("click", function () {
                 let input = frameRateInput.val();
@@ -225,6 +226,12 @@ function frameRateDropDownWidget(defaultValue = '30') {
                     if (warning.hasClass("is-not-display")) {
                         warning.removeClass("is-not-display");
                     }
+                }
+            });
+            frameRateContainer.on("keydown", (e) => {
+                e.stopPropagation();
+                if (e.keyCode === 13) {
+                    saveButton.click();
                 }
             });
         }
@@ -1449,6 +1456,12 @@ function savedProjectWidget(projectObject, loadProjectCallback) {
         }
     }
 
+    let deleteProjectCallback = (event) => {
+        event.stopPropagation();
+        let id = event.target.id.split("-")[1];
+        deleteSavedState(id); // TODO : basically this is correct except we want to delete projects not saved states
+    }
+
     return genericDivWidget("column",).append(
         genericDivWidget("box").append(
             genericDivWidget("columns is-multiline", `${projectObject.projectID}`).append(
@@ -1458,17 +1471,27 @@ function savedProjectWidget(projectObject, loadProjectCallback) {
                             $("<p>").text(projectObject.projectName)
                         ),
                         genericDivWidget("level-right").append(
-                            $("<button>", {
-                                class: "button",
-                                id: `projectbutton-${projectObject.projectID}`
-                            }).append(
-                                $("<i>", {class: "fas fa-arrow-down", id: `projecticon-${projectObject.projectID}`})
-                            ).on("click", projectClickCallback)
+                            genericDivWidget("columns is-gapless").append(
+                                genericDivWidget("column is-narrow").append($("<button>", {
+                                    class: "button",
+                                    id: `projectbutton-${projectObject.projectID}`
+                                }).append(
+                                    $("<i>", {class: "fas fa-arrow-down", id: `projecticon-${projectObject.projectID}`})
+                                ).on("click", projectClickCallback)),
+                                genericDivWidget("column is-narrow").append(
+                                    $("<button>", {
+                                    class: "button",
+                                    id: `projectbuttondelete-${projectObject.projectID}`
+                                }).append(
+                                    $("<i>", {class: "fas fa-trash-alt", id: `projecticon-${projectObject.projectID}`})
+                                ).on("click", deleteProjectCallback)),
+                                )
+                            ),
                         )
                     )
                 ),
                 projectStates
-            )));
+            ));
 }
 
 function paginatedProjectsWidget(projects, paginateProjects, loadProjectCallback, paginationIndex) {
@@ -1612,5 +1635,11 @@ function loadCameraInfoWidget(bindings) {
                 )
             )
         ).css("overflow", "hidden") // TODO: This is dumb. I'm not sure how to make the button work though.
+    )
+}
+
+function loginWidget(onLogin) {
+    return genericDivWidget("columns").append(
+
     )
 }

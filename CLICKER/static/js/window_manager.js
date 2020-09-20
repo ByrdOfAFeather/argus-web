@@ -46,6 +46,15 @@ class WindowManager {
         this.videosToSettings = {};
         this.curEpipolarInfo = {};
         this.communicatorsManager = null;
+
+        this.focused = true;
+        window.addEventListener('blur', () => {
+            this.focused = false;
+        })
+        window.addEventListener('focus', () => {
+            this.focused = true;
+        })
+
     }
 
     drawDiamonds(videoIndex, result) {
@@ -414,6 +423,10 @@ class WindowManager {
         }
         this.videos[video].mouseTracker.orgX = baseX;
         this.videos[video].mouseTracker.orgY = baseY;
+        if (!this.focused) {
+            // Keep the coordinates in mind, but don't update the zoom window
+            return;
+        }
         let currentColor = this.trackManager.currentTrack.color;
         this.videos[video].drawZoomWindow(currentColor);
         this.videos[video].drawEpipolarZoomWindow();
@@ -473,8 +486,14 @@ class WindowManager {
         return infos;
     }
 
-    deletePoint() {
-
+    removePoint(e) {
+        e.preventDefault();
+        let video = e.target.id.split("-")[1];
+        this.clickedPointsManager.removePoint(video, this.trackManager.currentTrack.absoluteIndex, frameTracker[video]);
+        let points = this.clickedPointsManager.getClickedPoints(video, this.trackManager.currentTrack.absoluteIndex);
+        this.videos[video].redrawPoints(points, this.trackManager.currentTrack.color);
+        this.clearEpipolarCanvases();
+        this.getEpipolarInfo(video, frameTracker[video]);
     }
 
     handleKeyboardInput(e) {
@@ -488,23 +507,26 @@ class WindowManager {
         if (this.settings["precisionMode"]) {
             let typeX = this.videos[id].isEpipolarLocked ? "orgX" : "x";
             let typeY = this.videos[id].isEpipolarLocked ? "orgY" : "y";
+            let movementAmount = e.ctrlKey ? 15 : 1;
+            movementAmount = e.altKey ? .05 : movementAmount;
             if (e.keyCode === 38) {
                 // Up
                 e.preventDefault();
-                this.videos[id].mouseTracker[typeY] -= 1;
+                this.videos[id].mouseTracker[typeY] -= movementAmount;
             } else if (e.keyCode === 39) {
                 // Right
                 e.preventDefault();
-                this.videos[id].mouseTracker[typeX] += 1;
+                this.videos[id].mouseTracker[typeX] += movementAmount;
             } else if (e.keyCode === 40) {
                 // Down
                 e.preventDefault();
-                this.videos[id].mouseTracker[typeY] += 1;
+                this.videos[id].mouseTracker[typeY] += movementAmount;
             } else if (e.keyCode === 37) {
                 // Left
                 e.preventDefault();
-                this.videos[id].mouseTracker[typeX] -= 1;
+                this.videos[id].mouseTracker[typeX] -= movementAmount;
             } else if (e.keyCode === 13) {
+                // Enter
                 e.preventDefault();
                 $(`#canvas-${id}`).click();
             }
@@ -648,7 +670,7 @@ class WindowManager {
             loadPreviewFrameFunction,
             (event) => this.handleKeyboardInput(event),
             (event) => this.addNewPoint(event),
-            (event) => this.deletePoint(event),
+            (event) => this.removePoint(event),
             (event) => this.setMousePos(event),
             {
                 "brightness": videoSettingsInfo.brightness,
@@ -910,7 +932,7 @@ class MainWindowManager extends WindowManager {
         this.getEpipolarInfo(0, frameTracker[0]);
         this.keepCanvasAspectRatio(true); // A little wasteful as I resize previous videos that don't need it
         $(window).on("resize", () => this.keepCanvasAspectRatio(false));
-        setInterval(() => this.saveProject(true), 60000);
+        AUTO_SAVE_INTERVAL_ID = setInterval(() => this.saveProject(true), 60000);
         this.loadSettings();
     }
 
@@ -1141,9 +1163,10 @@ class MainWindowManager extends WindowManager {
     loadDLTCoefficents(event) {
         let selectedFiles = Array.from($(`#${event.target.id}`).prop("files"));
         let reader = new FileReader();
-        reader.onload = function () {
+        reader.onload = () => {
             // TODO: Not sure why there is a separator here, was I supposed to ask the user what separator they use?
             DLT_COEFFICIENTS = parseDLTCoefficents(reader.result, ",");
+            this.getEpipolarInfo(0, frameTracker[0]);
         };
         reader.readAsText(selectedFiles[0]);
     }
@@ -1224,9 +1247,8 @@ class MainWindowManager extends WindowManager {
         this.communicatorsManager.updateAllLocalOrCommunicator(videoChangeTrack, message);
     }
 
-    removeVideoFromDOM(parsedInputs) {
-        let currentIndex = parsedInputs.index;
-        $(`#masterColumn-${currentIndex}`).remove();
+    removeVideoFromDOM(index) {
+        $(`#masterColumn-${index}`).remove();
     }
 
     createPopoutWidget(currentIndex) {
@@ -1364,16 +1386,16 @@ class MainWindowManager extends WindowManager {
         if (previous === true) {
             index -= 1;
             let context = this.createSettingsContext(true, saveSettings, index);
-            this.removeVideoFromDOM(parsedInputs);
+            this.removeVideoFromDOM(index);
             context.loadVideo = false;
             this.loadVideoIntoDOM(parsedInputs);
             this.slideInputModalOut(700, () => this.getVideoSettings(context, this.videosToSettings[index]));
         } else {
             index += 1;
             let context = this.createSettingsContext(true, saveSettings, index);
-            if ($(`#masterColumn-${parsedInputs.index}`).get(0) !== undefined) {
+            if ($(`#masterColumn-${index}`).get(0) !== undefined) {
                 context.loadVideo = false;
-                this.removeVideoFromDOM(parsedInputs);
+                this.removeVideoFromDOM(index);
             }
             if (index === NUMBER_OF_CAMERAS) {
                 this.loadSettings();

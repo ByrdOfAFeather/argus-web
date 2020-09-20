@@ -236,6 +236,7 @@ function loadDLTCoefficients(file) {
     let reader = new FileReader();
     reader.onload = function () {
         DLT_COEFFICIENTS = parseDLTCoefficents(reader.result, ",");
+        windowManager.getEpipolarInfo(0, frameTracker[0]);
     };
     reader.readAsText(file[0]);
 }

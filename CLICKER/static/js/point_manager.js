@@ -58,4 +58,14 @@ class ClickedPointsManager {
         //     return localPoints.length - 1;
         // }
     }
+
+    removePoint(video, track, frame) {
+        let localPoints = this.getClickedPoints(video, track);
+        let index = localPoints.findIndex((point) => Math.floor(point.frame) === Math.floor(frame));
+        if (index === -1) {
+            return;
+        } else {
+            localPoints.splice(index, 1);
+        }
+    }
 }

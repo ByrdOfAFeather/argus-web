@@ -216,7 +216,7 @@
                     },
                     error: function (error) {
                         // TODO: Allow a user to still save after creating an account / logging in
-                        if (error.statusCode === 403) {
+                        if (error.status === 403) {
                             if (!autoSaved) {
                                 generateError("You have to be logged in to use this feature!");
                             }
