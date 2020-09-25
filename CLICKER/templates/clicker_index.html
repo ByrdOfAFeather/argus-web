@@ -41,7 +41,7 @@
 
 </head>
 
-<body>
+<body class="flex-body">
 {% csrf_token %}
 <div id="generic-input-modal" class="modal">
     <div id="generic-input-modal-background" class="modal-background"></div>
@@ -50,7 +50,7 @@
         </div>
     </div>
 </div>
-<div id="blurrable" style="height: 100%">
+<div id="blurrable" class="flexable-div">
     <section id="starter-menu">
         <div id="title-section" class="section">
             <!-- title section -->
@@ -190,6 +190,22 @@
                 return results;
             }
 
+            async function search(queryText) {
+                let csrftoken = $("[name=csrfmiddlewaretoken]").val();
+                // TODO error management
+                let res = await $.ajax({
+                    url: "{% url 'api:search-projects' %}",
+                    method: "GET",
+                    data: {
+                        queryText: queryText
+                    },
+                    headers: {
+                        "X-CSRFToken": csrftoken
+                    },
+                });
+                return res;
+            }
+
             function createNewSavedState(outputJson, autoSaved, projectID) {
                 let csrftoken = $("[name=csrfmiddlewaretoken]").val();
 
@@ -227,10 +243,15 @@
                 });
             }
 
-            function autoHeightAnimate(element, time, callback) {
+            function autoHeightAnimate(element, time, callback, initHeight = null) {
                 // citation: https://codepen.io/JTParrett/pen/CAglw
                 let autoHeight = element.css('height', 'auto').height(); // Get Auto Height
-                element.height(0); // Reset to Default Height
+                if (initHeight === null) {
+                    element.height(0); // Reset to Default Height
+                } else {
+                    element.height(initHeight);
+                }
+
                 element.show(1, function () {
                     element.stop().animate({height: autoHeight, opacity: 1}, time, callback)
                 });
@@ -267,52 +288,53 @@
     </div>
 </div>
 
-<footer id="footer" class="footer">
-    <section class="section">
-        <!-- fun facts section -->
-        <div class="columns">
-            <!-- TODO: REMOVE INLINE STYLE -->
-            <div class="column is-4" style="border-right: 2px solid">
-                <div class="columns is-multiline">
-                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
-                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>
-                    </div>
-                    <div class="column is-narrow">
-                        <img class="image" src="{% static 'images/icon.gif' %}">
-                    </div>
-                    <div class="column is-narrow">
-                        ARGUS INFORMATION
-                    </div>
-                </div>
-            </div>
-            <div class="column is-4">
-                <div class="columns is-multiline" style="border-right: 2px solid">
-                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
-                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>
-                    </div>
-                    <div class="column is-narrow">
-                        <img class="image" src="{% static 'images/icon.gif' %}">
-                    </div>
-                    <div class="column is-narrow">
-                        ARGUS INFORMATION
-                    </div>
-                </div>
-            </div>
-            <div class="column is-4">
-                <div class="columns is-multiline">
-                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">
-                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>
-                    </div>
-                    <div class="column is-narrow">
-                        <img class="image" src="{% static 'images/icon.gif' %}">
-                    </div>
-                    <div class="column is-narrow">
-                        ARGUS INFORMATION
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-</footer>
+<!-- TODO: Figure out what you are going to do with this guy -->
+{#<footer id="footer" class="">#}
+{#    <section class="section">#}
+{#        <!-- fun facts section -->#}
+{#        <div class="columns">#}
+{#            <!-- TODO: REMOVE INLINE STYLE -->#}
+{#            <div class="column is-4" style="border-right: 2px solid">#}
+{#                <div class="columns is-multiline">#}
+{#                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">#}
+{#                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>#}
+{#                    </div>#}
+{#                    <div class="column is-narrow">#}
+{#                        <img class="image" src="{% static 'images/icon.gif' %}">#}
+{#                    </div>#}
+{#                    <div class="column is-narrow">#}
+{#                        ARGUS INFORMATION#}
+{#                    </div>#}
+{#                </div>#}
+{#            </div>#}
+{#            <div class="column is-4">#}
+{#                <div class="columns is-multiline" style="border-right: 2px solid">#}
+{#                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">#}
+{#                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>#}
+{#                    </div>#}
+{#                    <div class="column is-narrow">#}
+{#                        <img class="image" src="{% static 'images/icon.gif' %}">#}
+{#                    </div>#}
+{#                    <div class="column is-narrow">#}
+{#                        ARGUS INFORMATION#}
+{#                    </div>#}
+{#                </div>#}
+{#            </div>#}
+{#            <div class="column is-4">#}
+{#                <div class="columns is-multiline">#}
+{#                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">#}
+{#                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>#}
+{#                    </div>#}
+{#                    <div class="column is-narrow">#}
+{#                        <img class="image" src="{% static 'images/icon.gif' %}">#}
+{#                    </div>#}
+{#                    <div class="column is-narrow">#}
+{#                        ARGUS INFORMATION#}
+{#                    </div>#}
+{#                </div>#}
+{#            </div>#}
+{#        </div>#}
+{#    </section>#}
+{#</footer>#}
 </body>
 </html>

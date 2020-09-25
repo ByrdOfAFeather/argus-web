@@ -1384,9 +1384,15 @@ function saveProjectWidget(saveCallback) {
 function savedStateWidget(savedState, loadProjectCallback) {
     savedState.data.projectID = savedState.projectID;
     let dateObj = new Date(savedState.data.dateSaved);
+    console.log(dateObj);
     let am = "AM";
     if (dateObj.getHours() >= 12) {
         am = "PM";
+    }
+
+    let hour = dateObj.getHours();
+    if (am === "PM") {
+        hour = hour - 12;
     }
     let minutes = dateObj.getMinutes();
     if (minutes.toString().length === 1) {
@@ -1404,126 +1410,227 @@ function savedStateWidget(savedState, loadProjectCallback) {
                 genericDivWidget("column").append(
                     genericDivWidget("columns is-multiline").append(
                         genericDivWidget("column is-12").append(
-                            $("<p>",).text(`${dateObj.getMonth()}/${dateObj.getDay()}/${dateObj.getFullYear()}`)
+                            $("<p>",).text(`${dateObj.getMonth()}/${dateObj.getUTCDate()}/${dateObj.getFullYear()}`)
                         ),
                         genericDivWidget("column is-12").append(
                             $("<p>").text(`${autosaved}`)
                         ),
                         genericDivWidget("column is-12").append(
-                            $("<p>",).text(`${dateObj.getHours() - 12}:${minutes}:${seconds} ${am}`)
+                            $("<p>",).text(`${hour}:${minutes}:${seconds} ${am}`)
                         )
                     )
                 ),
                 genericDivWidget("column is-narrow").append(
                     $("<button>", {class: "button"}).append(
                         $("<i>", {class: "fas fa-save"})
-                    ).on("click", (event) => loadProjectCallback(savedState.data))
+                    ).on("click", (event) => {
+                        console.log("Got clicked but uh");
+                        loadProjectCallback(savedState.data)
+                    })
                 )
             )
         )
     )
 }
 
-function savedProjectWidget(projectObject, loadProjectCallback) {
-    let projectStateWidgets = projectObject.savedStates.map((state) => {
+function generateSavedStateWidgetsAndSort(projectObject, loadProjectCallback) {
+    return projectObject.savedStates.map((state) => {
         return {
             "data": JSON.parse(state.saveData),
             "autosave": state.autosave,
             "projectID": projectObject.projectID
         }
-    }).sort((state) => {
-        if (state.autosave) {
+    }).sort((statex, statey) => {
+        let datex = new Date(statex.data.dateSaved);
+        let datey = new Date(statey.data.dateSaved);
+        if (statex.autosave) {
             return -1;
+        } else {
+            if (datex > datey) {
+                return -1;
+            } else {
+                return 1;
+            }
         }
     }).map((state) => savedStateWidget(state, loadProjectCallback));
-    let projectStates = genericDivWidget("column is-12").append(
-        genericDivWidget("columns is-multiline is-centered is-vcentered no-display", `projectstates-${projectObject.projectID}`).append(
-            projectStateWidgets
-        ));
+}
+
+function savedProjectWidget(projectObject, loadProjectCallback) {
+    let projectStateWidgets = generateSavedStateWidgetsAndSort(projectObject, loadProjectCallback);
+    let state = false;
 
     let projectClickCallback = (event) => {
         event.stopPropagation();
+        let projectStates = genericDivWidget("column is-12").append(
+            genericDivWidget("columns is-multiline is-centered is-vcentered no-display", `projectstates-${projectObject.projectID}`).append(
+                projectStateWidgets,
+            ));
+
         let id = event.target.id.split("-")[1];
         let icon = $("#" + "projecticon-" + id);
-        if (icon.hasClass("fa-arrow-down")) {
+        let projectStatesDisplayColumn = projectStates.find(`#projectstates-${id}`);
+        let cardContent = $("#" + "cardContent-" + id);
+        if (!state) {
             if (projectObject.savedStates.length !== 0) {
-                $("#" + "projectstates-" + id).removeClass("no-display"); // TODO: animate?
+                projectStatesDisplayColumn.removeClass("no-display");
+                projectStatesDisplayColumn.hide();
+                cardContent.addClass("card-content").append(
+                    genericDivWidget("content").append(projectStates)
+                ); // TODO: animate? "slide", {"direction": "down"}, 750)
+                let initHeight = $(`#card-${id}`).css("height");
+                projectStatesDisplayColumn.show();
+                autoHeightAnimate($(`#card-${id}`), 200, () => {
+                }, initHeight);
+
             }
+            state = true;
             icon.removeClass("fa-arrow-down").addClass("fa-arrow-up");
         } else {
             icon.removeClass("fa-arrow-up").addClass("fa-arrow-down");
-            $("#" + "projectstates-" + id).addClass("no-display")
+            $("#" + "projectstates-" + id).addClass("no-display");
+            cardContent.removeClass("card-content").empty();
+            let initHeight = $(`#card-${id}`).css("height");
+
+            autoHeightAnimate($(`#card-${id}`), 200, () => {
+            }, initHeight);
+            state = false;
         }
     }
 
+
     let deleteProjectCallback = (event) => {
-        event.stopPropagation();
+        // event.stopPropagation();
         let id = event.target.id.split("-")[1];
         deleteSavedState(id); // TODO : basically this is correct except we want to delete projects not saved states
     }
 
     return genericDivWidget("column",).append(
-        genericDivWidget("box").append(
-            genericDivWidget("columns is-multiline", `${projectObject.projectID}`).append(
-                genericDivWidget("column is-12").append(
-                    genericDivWidget("level flexable-level").append(
-                        genericDivWidget("level-left").append(
-                            $("<p>").text(projectObject.projectName)
-                        ),
-                        genericDivWidget("level-right").append(
-                            genericDivWidget("columns is-gapless").append(
-                                genericDivWidget("column is-narrow").append($("<button>", {
-                                    class: "button",
-                                    id: `projectbutton-${projectObject.projectID}`
-                                }).append(
-                                    $("<i>", {class: "fas fa-arrow-down", id: `projecticon-${projectObject.projectID}`})
-                                ).on("click", projectClickCallback)),
-                                genericDivWidget("column is-narrow").append(
-                                    $("<button>", {
-                                    class: "button",
-                                    id: `projectbuttondelete-${projectObject.projectID}`
-                                }).append(
-                                    $("<i>", {class: "fas fa-trash-alt", id: `projecticon-${projectObject.projectID}`})
-                                ).on("click", deleteProjectCallback)),
-                                )
-                            ),
-                        )
-                    )
-                ),
-                projectStates
-            ));
+        genericDivWidget("card not-clickable", `card-${projectObject.projectID}`).append(
+            $("<header>", {class: "card-header"}).append(
+                $("<p>", {
+                    class: "card-header-title",
+                    id: `projectName-${projectObject.projectID}`
+                }).text(projectObject.projectName),
+
+                $("<a>", {class: "card-header-icon no-decoration"}).append(
+                    $("<span>", {
+                        id: `projectButton-${projectObject.projectID}`,
+                        class: "icon"
+                    }).append(
+                        $("<i>", {class: "fas fa-trash-alt", id: `projecticonDelete-${projectObject.projectID}`})
+                    ).on("click", deleteProjectCallback),
+                )
+            ),
+            genericDivWidget("", `cardContent-${projectObject.projectID}`).append(
+            ),
+            $("<footer>", {
+                class: "card-footer",
+                id: `cardFooter-${projectObject.projectID}`
+            }).append($("<a>", {
+                class: "card-footer-item has-text-centered no-decoration",
+                id: `test-${projectObject.projectID}`
+            }).append(
+                $("<span>", {
+                    class: "icon",
+                    id: `projectbutton-${projectObject.projectID}`
+                }).append(
+                    $("<i>", {class: "fas fa-arrow-down", id: `projecticon-${projectObject.projectID}`})
+                )
+            ).on("click", projectClickCallback))
+        )
+    );
 }
 
 function paginatedProjectsWidget(projects, paginateProjects, loadProjectCallback, paginationIndex) {
     let projectInfos = projects.projects;
     let endOfPagination = projects.endOfPagination;
     let localColumns = genericDivWidget("columns is-multiline is-mobile is-centered is-vcentered", "saved-state-columns");
+
+    let animationTime = 250;
+
     let paginateForward = async () => {
         let masterContainer = $("#saved-states-section");
         let nextProjects = await paginateProjects(paginationIndex + 5);
-        masterContainer.hide("slide", {direction: "left"}, 400, () => {
+        masterContainer.hide("slide", {direction: "left"}, animationTime, () => {
             masterContainer.empty();
             masterContainer.append(paginatedProjectsWidget(nextProjects, paginateProjects,
                 loadProjectCallback, paginationIndex + 5));
-            masterContainer.show("slide", {direction: "right"}, 400);
+            masterContainer.show("slide", {direction: "right"}, animationTime);
         });
     };
     let paginateBackward = async () => {
         let masterContainer = $("#saved-states-section");
         let nextProjects = await paginateProjects(paginationIndex - 5);
-        masterContainer.hide("slide", {direction: "right"}, 400, () => {
+        masterContainer.hide("slide", {direction: "right"}, animationTime, () => {
             masterContainer.empty();
             masterContainer.append(paginatedProjectsWidget(nextProjects, paginateProjects,
                 loadProjectCallback, paginationIndex - 5));
-            masterContainer.show("slide", {direction: "left"}, 400);
+            masterContainer.show("slide", {direction: "left"}, animationTime);
         });
     };
 
+    let displaySearchedProjects = (projects) => {
+        let localProjectCards = [];
+        for (let i = 0; i < projects.length; i++) {
+            let cur_project = projects[i];
+            localProjectCards.push(
+                savedProjectWidget(cur_project, loadProjectCallback)
+            );
+        }
+        let searchBar = genericDivWidget("column is-12").append(
+            genericDivWidget("field").append(
+                $("<p>", {class: "control has-icons-right"}).append(
+                    $("<input>", {
+                        class: "input",
+                        id: "project-search",
+                        placeholder: "Search Projects"
+                    }).on("keydown", async (e) => {
+                        if (e.keyCode === 13) {
+                            let value = $("#project-search").val();
+                            if (value != null) {
+                                let searchRes = await search(value);
+                                displaySearchedProjects(searchRes.projects);
+                            }
+                        }
+                    }),
+                    $("<span>", {class: "icon is-small is-right"}).append(
+                        $("<i>", {class: "fas fa-search fa-flip-horizontal"})
+                    )
+                )
+            )
+        );
+        localColumns.empty();
+        localColumns.append(searchBar);
+        localColumns.append(localProjectCards);
+    }
+
+    let searchBar = genericDivWidget("column is-12").append(
+        genericDivWidget("field").append(
+            $("<p>", {class: "control has-icons-right"}).append(
+                $("<input>", {
+                    class: "input",
+                    id: "project-search",
+                    placeholder: "Search Projects"
+                }).on("keydown", async (e) => {
+                    if (e.keyCode === 13) {
+                        let value = $("#project-search").val();
+                        if (value != null) {
+                            let searchRes = await search(value);
+                            console.log(searchRes.projects);
+                            displaySearchedProjects(searchRes.projects);
+                        }
+                    }
+                }),
+                $("<span>", {class: "icon is-small is-right"}).append(
+                    $("<i>", {class: "fas fa-search fa-flip-horizontal"})
+                )
+            )
+        )
+    );
+
 
     localColumns.append(
-        genericDivWidget("column is-12").append(
-            // TODO: This is where a search bar might go
-        )
+        searchBar
     )
     let projectCards = [];
     let nextButton = null;

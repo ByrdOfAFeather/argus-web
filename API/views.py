@@ -164,3 +164,25 @@ def saved_projects(request):
             response = JsonResponse({"failure": {"data": "unique_name_required"}})
             response.status_code = 401
             return response
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def search_projects(request):
+    if request.method == "GET":
+        search_text = request.GET.get("queryText", "")
+        if search_text == "":
+            return JsonResponse({"lol": "no"}, status=50)  # TODO: proper error
+        else:
+            projects = ProjectToMostRecentState.objects.filter(project__owner=request.user,
+                                                               project__name__istartswith=search_text)
+            json_objects = [{
+                "projectID": project.project.id,
+                "projectName": project.project.name,
+                "savedStates": [{
+                    "saveData": json.loads(state.json),
+                    "autosave": state.autosaved
+                } for state in SavedState.objects.filter(user=request.user, project=project.project)]
+            } for project in projects]
+            response = JsonResponse({"projects": json_objects}, status=200)
+            return response

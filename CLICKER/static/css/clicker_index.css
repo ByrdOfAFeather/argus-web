@@ -2,7 +2,7 @@ html, body {
     height: 100%;
     /*margin-top: 50px!important;*/
     /*margin-right: 50px!important;*/
-    // TODO: Note that important is bad
+/ / TODO: Note that important is bad
 }
 
 .delete-selected-file {
@@ -46,7 +46,7 @@ input.input.small-input {
     border: none;
     background: none;
     cursor: pointer;
-	outline: none;
+    outline: none;
 }
 
 .hidden-video {
@@ -64,6 +64,7 @@ input.input.small-input {
     background-color: transparent;
     outline: none;
 }
+
 .rounded-button:hover {
     opacity: .5;
     cursor: pointer;
@@ -95,11 +96,15 @@ input.input.small-input {
 }
 
 .flexable-level {
-    flex-shrink: 1!important;
+    flex-shrink: 1 !important;
 }
 
 .hidden {
     opacity: 0;
+}
+
+.not-clickable:hover {
+    cursor: default!important;
 }
 
 .is-not-display {
@@ -139,9 +144,22 @@ input.input.small-input {
     /*top: 0;*/
 }
 
+.flex-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.flexable-div {
+    flex: 1;
+}
+
 .title-has-julius {
     font-family: 'Julius Sans One', sans-serif;
     font-size: 3em;
+}
+
+.no-decoration {
+    color: black;
 }
 
 .subtitle-has-julius {
@@ -176,7 +194,7 @@ input.input.small-input {
 /*}*/
 
 .no-display {
-    display: none!important;
+    display: none !important;
 }
 
 .float {
