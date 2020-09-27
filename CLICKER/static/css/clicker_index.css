@@ -60,7 +60,7 @@ input.input.small-input {
     width: 50px;
     height: 50px;
     border-radius: 30px;
-    border: 1px black solid;
+    border: 2px black solid;
     background-color: transparent;
     outline: none;
 }

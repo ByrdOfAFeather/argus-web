@@ -107,6 +107,22 @@
                 });
             }
 
+            function deleteProject(id) {
+                let csrf_token = $("[name=csrfmiddlewaretoken]").val();
+
+                $.ajax({
+                    url: `{% url 'api:saved-projects' %}`,
+                    headers: {
+                        "X-CSRFToken": csrf_token
+                    },
+                    method: "DELETE",
+                    data: {"id": id},
+                    success: function (result) {
+                        $(`#card-${id}`).remove();
+                    }
+                });
+            }
+
             function postValidProject(parsedInputs) {
                 let description = $("#description-input").val();
                 let title = $("#project-name-input").val();

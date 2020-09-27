@@ -331,6 +331,14 @@ class Video {
         canvasContext.stroke();
     }
 
+    drawScalePoint(point, radius) {
+        this.canvasContext.strokeStyle = COLORS[5];
+
+        this.canvasContext.beginPath();
+        this.canvasContext.arc(point.x, point.y, radius, 0, 2 * Math.PI);
+        this.canvasContext.stroke();
+    }
+
     drawDiamond(x, y, width, height) {
         //SOURCE: http://www.java2s.com/Tutorials/Javascript/Canvas_How_to/Shape/Draw_Spade_Heart_Club_Diamond.htm
         this.epipolarCanvasContext.beginPath();

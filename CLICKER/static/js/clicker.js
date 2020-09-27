@@ -447,12 +447,12 @@ async function displaySavedStates(currentPagination, direction = null) {
         section.show("slide", {"direction": "up"}, 750);
         // return
     }
-    section.append(paginatedProjectsWidget(projects, async (pagination) => {
+    section.append(searchableProjectsWidget(projects, async (pagination) => {
         return await getSavedProjects(pagination);
     }, (config) => {
         loadSavedState(config)
     }, 0));
-    section.show("slide", {"direction": "up"}, 750);
+    section.show("slide", {"direction": "up"}, 750, ()=>{    $("#project-search").focus();});
 }
 
 

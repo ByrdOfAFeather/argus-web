@@ -287,7 +287,7 @@ function tooltipBuilder(helpText, multiline, style, direction) {
 }
 
 function tooltipLabelWidget(labelText, labelStyle, tooltipText, direction) {
-    return genericDivWidget("columns is-gapless").append(
+    return genericDivWidget("columns is-gapless is-vcentered").append(
         genericDivWidget("column is-narrow").append(
             $("<label>", {class: `label ${labelStyle}`}).text(labelText),
         ),
@@ -424,22 +424,18 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
                 )
             ),
 
+            genericDivWidget("column is-7").append(
+                clickerCanvasWidget(videoIndex, videoWidth, videoHeight, onKeyboardInput, onClick, onRightClick, setMousePos)
+            ),
             genericDivWidget("column").append(
-                genericDivWidget("columns", `misc-settings-${videoIndex}`).append(
-                    genericDivWidget("column is-7").append(
-                        clickerCanvasWidget(videoIndex, videoWidth, videoHeight, onKeyboardInput, onClick, onRightClick, setMousePos)
+                genericDivWidget("container", `zoom-text-${videoIndex}`).append(
+                    genericDivWidget("container", `zoom-canvas-${videoIndex}`).append(
+                        canvas(`zoomEpipolarCanvas-${videoIndex}`, "zoom-epipolar-canvas absolute", "z-index: 3;").css("height", "100%").css("width", "100%"),
+                        canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas absolute", "z-index: 2;").css("height", "100%").css("width", "100%"),
                     ),
-                    genericDivWidget("column").append(
-                        genericDivWidget("container", `zoom-text-${videoIndex}`).append(
-                            genericDivWidget("container", `zoom-canvas-${videoIndex}`).append(
-                                canvas(`zoomEpipolarCanvas-${videoIndex}`, "zoom-epipolar-canvas absolute", "z-index: 3;").css("height", "100%").css("width", "100%"),
-                                canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas absolute", "z-index: 2;").css("height", "100%").css("width", "100%"),
-                            ),
-                            $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In<br>L = Lock To Epipolar<br>P = Enter Precision Mode</p>")
-                        )
-                    ),
-                ),
-            )
+                    $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In<br>L = Lock To Epipolar<br>P = Enter Precision Mode</p>")
+                )
+            ),
         )
     );
 }
@@ -1149,32 +1145,6 @@ function pointSizeSelectorWidget(index) {
     return widget;
 }
 
-
-function settingsInputWidget(settingsBindings) {
-    // TODO: Settings needs a beautification
-    return $("<section>", {class: "section"}).append(
-        $("<hr>"),
-        genericDivWidget("columns is-multiline is-vcentered").append(
-            genericDivWidget("column is-12 has-text-centered").append(
-                $("<h1>", {class: "title"}).text("SETTINGS")
-            ),
-
-            genericDivWidget("column is-12").append(
-                firstRowOfSettingsWidget(settingsBindings)
-            ),
-
-            genericDivWidget("column is-12").append(
-                genericDivWidget("columns is-centered is-vcentered").append(
-                    genericDivWidget("column has-text-centered").append(
-                        $("<p id='auto-save-placeholder'>Last Saved: Never!</p>")
-                    ),
-                )
-            )
-        ),
-        $("<hr>"),
-    );
-}
-
 function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEvent, bindings) {
     let mod = (track, display) => {
         track.display = display;
@@ -1210,10 +1180,6 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
         if (i === 0) {
             disabledClass = "disabled";  // This is for the track currently being edited
         }
-        let deleteDisabled = "";
-        if (tracksDisplay[i].absoluteIndex === 0) {
-            deleteDisabled = "disabled";
-        }
         let currentTrack = genericDivWidget("column is-12").append(
             genericDivWidget("columns is-multiline").append(
                 genericDivWidget("column").append(
@@ -1240,7 +1206,7 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
                 ),
                 genericDivWidget("column").append(
                     $("<button>", {
-                        class: `button ${deleteDisabled}`,
+                        class: 'button',
                         id: `trackdelete-${tracksDisplay[i].absoluteIndex}`
                     }).append(
                         $("<i>", {
@@ -1284,7 +1250,11 @@ function trackManagementWidgets(bindings) {
                 genericDivWidget("control has-text-centered").append(
                     genericDivWidget("columns is-gapless").append(
                         genericDivWidget("column").append(
-                            $("<input>", {id: "new-track-input", type: "text", class: "input"}),
+                            $("<input>", {id: "new-track-input", type: "text", class: "input"}).on("keypress", (e) => {
+                                if (e.keyCode === 13) {
+                                    updateEvent(bindings.onTrackAdd, e);
+                                }
+                            }),
                         ),
                         genericDivWidget("column").append(
                             $("<button>", {class: "button"}).append($("<i>", {
@@ -1336,10 +1306,13 @@ function frameMovementSettingsWidget(bindings) {
 function changeForwardBackwardOffsetWidget(bindings) {
     return genericDivWidget("column is-three-fifths").append(
         genericDivWidget("box").append(
-            genericDivWidget("columns is-multiline").append(
+            genericDivWidget("columns is-multiline is-vcentered").append(
+                // tooltipLabelWidget(labelText, labelStyle, tooltipText, direction)
+
                 genericDivWidget("column").append(
-                    $("<label>", {class: 'label'}).text("Forward Movement (f): ")
+                    $("<label>", {class: "label"}).text("Forwards Offset")
                 ),
+
                 genericDivWidget("column").append(
                     $("<input>", {
                         class: "input",
@@ -1349,7 +1322,7 @@ function changeForwardBackwardOffsetWidget(bindings) {
 
 
                 genericDivWidget("column").append(
-                    $("<label>", {class: 'label'}).text("Backwards Movement (f): ")
+                    $("<label>", {class: "label"}).text("Backwards Offset")
                 ),
                 genericDivWidget("column").append(
                     $("<input>", {
@@ -1501,7 +1474,7 @@ function savedProjectWidget(projectObject, loadProjectCallback) {
     let deleteProjectCallback = (event) => {
         // event.stopPropagation();
         let id = event.target.id.split("-")[1];
-        deleteSavedState(id); // TODO : basically this is correct except we want to delete projects not saved states
+        deleteProject(id); // TODO : basically this is correct except we want to delete projects not saved states
     }
 
     return genericDivWidget("column",).append(
@@ -1541,35 +1514,24 @@ function savedProjectWidget(projectObject, loadProjectCallback) {
     );
 }
 
-function paginatedProjectsWidget(projects, paginateProjects, loadProjectCallback, paginationIndex) {
-    let projectInfos = projects.projects;
-    let endOfPagination = projects.endOfPagination;
-    let localColumns = genericDivWidget("columns is-multiline is-mobile is-centered is-vcentered", "saved-state-columns");
+let debouncer = (debouncee, debounceeArgs, time) => {
+    let currentCallbackID = null;
+    return function () {
+        console.log("her1e");
+        if (currentCallbackID === null) {
+            console.log("here")
+            debouncee(debounceeArgs);
+            console.log("here")
+            currentCallbackID = setTimeout(function () {
+                currentCallbackID = null;
+            }, time);
+        }
+    }
+}
 
-    let animationTime = 250;
-
-    let paginateForward = async () => {
-        let masterContainer = $("#saved-states-section");
-        let nextProjects = await paginateProjects(paginationIndex + 5);
-        masterContainer.hide("slide", {direction: "left"}, animationTime, () => {
-            masterContainer.empty();
-            masterContainer.append(paginatedProjectsWidget(nextProjects, paginateProjects,
-                loadProjectCallback, paginationIndex + 5));
-            masterContainer.show("slide", {direction: "right"}, animationTime);
-        });
-    };
-    let paginateBackward = async () => {
-        let masterContainer = $("#saved-states-section");
-        let nextProjects = await paginateProjects(paginationIndex - 5);
-        masterContainer.hide("slide", {direction: "right"}, animationTime, () => {
-            masterContainer.empty();
-            masterContainer.append(paginatedProjectsWidget(nextProjects, paginateProjects,
-                loadProjectCallback, paginationIndex - 5));
-            masterContainer.show("slide", {direction: "left"}, animationTime);
-        });
-    };
-
-    let displaySearchedProjects = (projects) => {
+function searchableProjectsWidget(projects, paginateProjects, loadProjectCallback, paginationIndex) {
+    let localColumns = genericDivWidget("columns is-multiline is-mobile is-centered is-vcentered", "searchable-projects-columns");
+    let localProjectsWidgets = (projects) => {
         let localProjectCards = [];
         for (let i = 0; i < projects.length; i++) {
             let cur_project = projects[i];
@@ -1577,33 +1539,8 @@ function paginatedProjectsWidget(projects, paginateProjects, loadProjectCallback
                 savedProjectWidget(cur_project, loadProjectCallback)
             );
         }
-        let searchBar = genericDivWidget("column is-12").append(
-            genericDivWidget("field").append(
-                $("<p>", {class: "control has-icons-right"}).append(
-                    $("<input>", {
-                        class: "input",
-                        id: "project-search",
-                        placeholder: "Search Projects"
-                    }).on("keydown", async (e) => {
-                        if (e.keyCode === 13) {
-                            let value = $("#project-search").val();
-                            if (value != null) {
-                                let searchRes = await search(value);
-                                displaySearchedProjects(searchRes.projects);
-                            }
-                        }
-                    }),
-                    $("<span>", {class: "icon is-small is-right"}).append(
-                        $("<i>", {class: "fas fa-search fa-flip-horizontal"})
-                    )
-                )
-            )
-        );
-        localColumns.empty();
-        localColumns.append(searchBar);
-        localColumns.append(localProjectCards);
+        return localProjectCards;
     }
-
     let searchBar = genericDivWidget("column is-12").append(
         genericDivWidget("field").append(
             $("<p>", {class: "control has-icons-right"}).append(
@@ -1614,31 +1551,80 @@ function paginatedProjectsWidget(projects, paginateProjects, loadProjectCallback
                 }).on("keydown", async (e) => {
                     if (e.keyCode === 13) {
                         let value = $("#project-search").val();
-                        if (value != null) {
+                        if (value === "") {
+                            localColumns.find("#project-columns-container").empty().append(
+                                paginatedProjectsWidget(projects, paginateProjects, loadProjectCallback, paginationIndex)
+                            );
+                        } else {
                             let searchRes = await search(value);
-                            console.log(searchRes.projects);
-                            displaySearchedProjects(searchRes.projects);
+                            localColumns.find("#project-columns").empty().append(
+                                localProjectsWidgets(searchRes.projects)
+                            );
+
                         }
                     }
-                }),
+                }).on("input", debouncer(async () => {
+                        let value = $("#project-search").val();
+                        if (value === "") {
+                            localColumns.find("#project-columns-container").empty().append(
+                                paginatedProjectsWidget(projects, paginateProjects, loadProjectCallback, paginationIndex)
+                            )
+                        }
+                        let searchRes = await search(value);
+                        localColumns.find("#project-columns").empty().append(localProjectsWidgets(searchRes.projects));
+                    }, null, 500)
+                ),
                 $("<span>", {class: "icon is-small is-right"}).append(
                     $("<i>", {class: "fas fa-search fa-flip-horizontal"})
                 )
             )
         )
     );
-
-
+    localColumns.append(searchBar);
     localColumns.append(
-        searchBar
-    )
+        genericDivWidget("column", "project-columns-container").append(
+            paginatedProjectsWidget(projects, paginateProjects, loadProjectCallback, paginationIndex)
+        )
+    );
+    return localColumns;
+}
+
+
+function paginatedProjectsWidget(projects, paginateProjects, loadProjectCallback, paginationIndex) {
+    let projectInfos = projects.projects;
+    let endOfPagination = projects.endOfPagination;
+    let localColumns = genericDivWidget("columns is-multiline is-mobile is-centered is-vcentered", "project-columns");
+
+    let animationTime = 250;
+
+    let paginateForward = async () => {
+        let masterContainer = $("#project-columns-container");
+        let nextProjects = await paginateProjects(paginationIndex + 5);
+        masterContainer.hide("slide", {direction: "left"}, animationTime, () => {
+            masterContainer.empty();
+            masterContainer.append(paginatedProjectsWidget(nextProjects, paginateProjects,
+                loadProjectCallback, paginationIndex + 5));
+            masterContainer.show("slide", {direction: "right"}, animationTime);
+        });
+    };
+    let paginateBackward = async () => {
+        let masterContainer = $("#project-columns-container");
+        let nextProjects = await paginateProjects(paginationIndex - 5);
+        masterContainer.hide("slide", {direction: "right"}, animationTime, () => {
+            masterContainer.empty();
+            masterContainer.append(paginatedProjectsWidget(nextProjects, paginateProjects,
+                loadProjectCallback, paginationIndex - 5));
+            masterContainer.show("slide", {direction: "left"}, animationTime);
+        });
+    };
+
     let projectCards = [];
     let nextButton = null;
     let prevButton = null;
     if (!(paginationIndex === 0)) {
         prevButton = genericDivWidget("column is-narrow",).append(
             $("<button>", {id: "pagination-button", class: "rounded-button"}).append(
-                $("<i>", {class: "fas fa-arrow-left"})
+                $("<i>", {class: "fas fa-arrow-left fa-2x"})
             ).on("click", () => {
                 paginateBackward();
             })
@@ -1647,7 +1633,7 @@ function paginatedProjectsWidget(projects, paginateProjects, loadProjectCallback
     if (!endOfPagination) {
         nextButton = genericDivWidget("column is-narrow",).append(
             $("<button>", {id: "pagination-button", class: "rounded-button"}).append(
-                $("<i>", {class: "fas fa-arrow-right"})
+                $("<i>", {class: "fas fa-arrow-right fa-2x"})
             ).on("click", () => {
                 paginateForward();
             })

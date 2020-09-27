@@ -21,6 +21,11 @@ class ClickedPointsManager {
     }
 
     removeTrack(absoluteTrackIndex) {
+        if (absoluteTrackIndex == 0) {
+            let removeTrack = (cameraIndex) => this.clickedPoints[cameraIndex][0] = [];
+            this.actionOnAllCameras(removeTrack);
+            return;
+        }
         absoluteTrackIndex = absoluteTrackIndex.toString();
         let removeTrack = (cameraIndex) => delete this.clickedPoints[cameraIndex][absoluteTrackIndex];
         this.actionOnAllCameras(removeTrack);

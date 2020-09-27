@@ -115,7 +115,7 @@ def saved_states(request):
             return response
 
 
-@api_view(["GET", "POST"])
+@api_view(["GET", "POST", "DELETE"])
 @permission_classes([IsAuthenticated])
 def saved_projects(request):
     if request.method == "GET":
@@ -143,7 +143,7 @@ def saved_projects(request):
 
         return JsonResponse({"projects": json_objects, "endOfPagination": end_of_pagination}, status=200)
 
-    if request.method == "POST":
+    elif request.method == "POST":
         # files = request.FILES.getlist('files')
         # TODO: The server will just have a 500 moment if something in the form is not there
         # TODO: Security concerns & Re-enable this feature
@@ -165,14 +165,24 @@ def saved_projects(request):
             response.status_code = 401
             return response
 
+    elif request.method == "DELETE":
+        project_id = request.POST.get("id", False)
+        if project_id:
+            try:
+                project_to_delete = Project.objects.get(id=project_id, owner=request.user)
+                project_to_delete.delete()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            except ObjectDoesNotExist:
+                return JsonResponse({"error": "No such project"}, status=404)
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def search_projects(request):
     if request.method == "GET":
-        search_text = request.GET.get("queryText", "")
-        if search_text == "":
-            return JsonResponse({"lol": "no"}, status=50)  # TODO: proper error
+        search_text = request.GET.get("queryText", False)
+        if not search_text:
+            return JsonResponse({"lol": "no"}, status=401)  # TODO: proper error
         else:
             projects = ProjectToMostRecentState.objects.filter(project__owner=request.user,
                                                                project__name__istartswith=search_text)

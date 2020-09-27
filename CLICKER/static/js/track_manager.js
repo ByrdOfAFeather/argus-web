@@ -103,6 +103,9 @@ class TrackManager {
     }
 
     removeTrack(index) {
+        if (index == 0) {
+            return;
+        }
         let indexToRemove = this.tracks.findIndex((track) => track.absoluteIndex == index);
         if (indexToRemove < 0) {
             return false;
