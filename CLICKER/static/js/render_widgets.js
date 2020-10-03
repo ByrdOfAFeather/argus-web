@@ -433,7 +433,15 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
                         canvas(`zoomEpipolarCanvas-${videoIndex}`, "zoom-epipolar-canvas absolute", "z-index: 3;").css("height", "100%").css("width", "100%"),
                         canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas absolute", "z-index: 2;").css("height", "100%").css("width", "100%"),
                     ),
-                    $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In<br>L = Lock To Epipolar<br>P = Enter Precision Mode</p>")
+                    $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In<br></p>"),
+                    $("<p>", {
+                        class: "render-unselectable",
+                        id: `epipolar-lock-${videoIndex}`
+                    }).text("L = Lock To Epipolar [Disabled]"),
+                    $("<p>", {
+                        class: "render-unselectable",
+                        id: `precision-mode-${videoIndex}`
+                    }).text("P = Enter Precision Mode [Disabled]")
                 )
             ),
         )
@@ -1009,141 +1017,6 @@ function createProjectWidget(onSubmit, cleanFunction) {
     );
 }
 
-
-function firstRowOfSettingsWidget(settingsBindings) {
-    /* Documentation updated March 4th 10:52 AM
-     * Creates the first row of settings. This row will include:
-     * Loading DLT coefficents
-     * Loading Camera Profiles
-     * Add tracks
-     * track dropdown to select and delete tracks
-     * colorspace dropdown to select colorspace globally TODO: This needs to be switched to per-video basis
-     * Save points
-     * Load points
-     *
-     * settingsBindings: A object containing functions that map to updating settings
-     *  REQUIRED:
-     *  onDLTCoeffChange (event) { Loads the DLT coefficients into the DLT_COEFF global variable }
-     *  onCameraProfileChange (event) { Loads the camera profile into the global CAMERA_PROFILE variable }
-     *  savePoints (event) { Generates a .csv file with options specified by the user }
-     *  onLoadPointsChange (event) { Loads points into the Clicked Points manager }
-     *  inverseSetting (setting) { settings[setting] = !settings[setting] }
-     *  TODO: these last three pieces of documentation could stand to be cleaned up
-     *  onTrackClick (event) { handles what happens when the user is changing to a new track }
-     *  onTrackDelete (event) { handles what happens when the user is deleteing a track }
-     *  onTrackDisplay (event) { handles what happens when the user whants to display at track }
-     *  onAddTrack (event) { handles what happens when the user adds a new track }
-     */
-    let widget = genericDivWidget("columns");
-    widget.append(
-        // Stacked DLT and Camera Profile Settings
-        genericDivWidget("column").append(
-            genericDivWidget("columns is-centered is-vcentered is-multiline").append(
-                // DLT Coeff Input
-                genericDivWidget("column is-12").append(
-                    fileInputWidget("Load DLT Coefficients", "dlt-coeff-input", "text/csv", settingsBindings.onDLTCoeffChange)
-                ),
-
-                // Camera Profile Input
-                genericDivWidget("column is-12").append(
-                    fileInputWidget("Load Camera Profile", "camera-profile-input", "*.txt", settingsBindings.onCameraProfileChange)
-                )
-            ),
-        ),
-
-        // Add new track
-        genericDivWidget("column").append(
-        ),
-
-        // Track Drop Down
-        genericDivWidget("column", "track-dropdown-container-column").append(
-            trackDropDownWidget(
-                settingsBindings.onTrackClick,
-                settingsBindings.onTrackDisplay,
-                settingsBindings.onTrackDelete
-            )
-        ),
-
-
-        // Save & load points
-        genericDivWidget("column").append(
-            genericDivWidget("columns is-multiline is-vcentered is-centered").append(
-                genericDivWidget("column is-12").append(
-                    genericDivWidget("column has-text-centered").append(
-                        $("<button>", {
-                            id: "save-points-button",
-                            class: "button"
-                        }).text("Save Points").on("click", settingsBindings.savePoints),
-                    )
-                ),
-
-                genericDivWidget("column is-12").append(
-                    fileInputWidget("Load Points", "load-points-button", "text/csv", settingsBindings.onLoadPointsChange)
-                ),
-            )
-        ),
-    );
-    return widget;
-}
-
-
-function pointSizeSelectorWidget(index) {
-    /*
-    Creates a widget that allows a user to set the size of points being clicked.
-    TODO: Currently only works at a global scale while the project initialization menus imply it works at a local scale
-
-    index: string or integer that uniquly identifies the pointSizeSelectorWidget
-    used to allow this to create multiple widgets of this type on the same page
-    */
-
-    let drawPreview = () => {
-        let pointPreviewCanvas = document.getElementById(`point-preview-canvas-${index}`);
-        let ctx = pointPreviewCanvas.getContext("2d");
-
-        let testRadius = $(`#point-size-input-${index}`).val();
-        ctx.clearRect(0, 0, 100, 100);
-        ctx.beginPath();
-        ctx.arc(50, 50, testRadius, 0, Math.PI);
-        ctx.arc(50, 50, testRadius, Math.PI, 2 * Math.PI);
-        ctx.stroke();
-    };
-
-    let updatePointRaidus = () => {
-        VIDEO_TO_POINT_SIZE[null] = $("#point-size-input").val() * videos[0].canvas.width / 800;
-    };
-
-
-    let widget = genericDivWidget("columns is-vcentered is-centered");
-    widget.append(
-        genericDivWidget("column is-narrow").append(
-            genericDivWidget("field").append(
-                $("<label>", {class: "label"}).text("Point Marker Size"),
-                genericDivWidget("control").append(
-                    $("<input>", {
-                        id: `point-size-input-${index}`,
-                        class: "input small-input"
-                    }).on("keyup", drawPreview),
-                    $("<input>", {
-                        id: `set-point-size-button-${index}`,
-                        type: "button",
-                        class: "button",
-                        value: "SET"
-                    }).on(
-                        "click", updatePointRaidus
-                    )
-                )
-            )
-        ),
-        genericDivWidget("column").append(
-            $("<label>", {class: "label"}).text("Preview"),
-            $("<canvas>", {
-                id: `point-preview-canvas-${index}`,
-                style: "height: 100px; width: 100px;"
-            }).attr("height", 100).attr("width", 100)
-        )
-    );
-    return widget;
-}
 
 function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEvent, bindings) {
     let mod = (track, display) => {
@@ -1729,6 +1602,19 @@ function loadCameraInfoWidget(bindings) {
             )
         ).css("overflow", "hidden") // TODO: This is dumb. I'm not sure how to make the button work though.
     )
+}
+
+
+function exportPointsGUI(bindings) {
+
+}
+
+function exportButtonWidget(bindings) {
+    return genericDivWidget("column is-three-fifths").append(
+        genericDivWidget("box").append(
+            $("<button>", {class: "button"}).on("click", bindings.exportFunction())
+        )
+    );
 }
 
 function loginWidget(onLogin) {

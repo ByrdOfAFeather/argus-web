@@ -299,37 +299,7 @@ function download(filename, text) {
 
 
 function exportPoints() {
-    let duration = videos[0].video.duration;
-    let frames = Math.floor(duration * FRAME_RATE);
 
-    let exportablePoints = [];
-    let header = [];
-    for (let j = 0; j < trackTracker.tracks.length; j++) {
-        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-            header.push(`${trackTracker.tracks[j].name}_cam_${i + 1}_x`);
-            header.push(`${trackTracker.tracks[j].name}_cam_${i + 1}_y`);
-        }
-    }
-    exportablePoints.push(header.join(",") + ",\n");
-    for (let i = 0; i < frames; i++) {
-        let frameArray = [];
-        for (let q = 0; q < trackTracker.tracks.length; q++) {
-            for (let j = 0; j < NUMBER_OF_CAMERAS; j++) {
-                let localPoints = getClickedPoints(j, q);
-                let index = getIndexFromFrame(localPoints, i);
-                if (index === null) {
-                    frameArray.push(NaN);
-                    frameArray.push(NaN);
-                } else {
-                    frameArray.push(localPoints[index].x);
-                    frameArray.push(localPoints[index].y);
-                }
-            }
-        }
-        exportablePoints.push(frameArray.join(",") + ",\n");
-    }
-
-    download("clickedpoints.csv", exportablePoints.join(""));
 }
 
 
@@ -350,7 +320,6 @@ function mainWindowDeletePoint(e) {
         videos[video].drawPoints(localPoints);
         videos[video].drawLines(localPoints);
     }
-
 }
 
 /// END LOAD FUNCTIONS ///

@@ -48,6 +48,8 @@ class Video {
         this.isDisplayingFocusedPoint = false;
 
         this.isEpipolarLocked = isEpipolarLocked;
+        let lockText = isEpipolarLocked ? "Enabled" : "Disabled";
+        $(`#epipolar-lock-${videosIndex}`).text(`L = Lock To Epipolar [${lockText}]`);
         this.epipolarProjection = epipolarProjection;
     }
 
@@ -221,6 +223,8 @@ class Video {
         } else {
             this.isEpipolarLocked = false;
         }
+        let lockText = this.isEpipolarLocked ? "Enabled" : "Disabled";
+        $(`#epipolar-lock-${this.index}`).text(`L = Lock To Epipolar [${lockText}]`);
     }
 
 

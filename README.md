@@ -9,3 +9,5 @@ Bulma-tooltips: https://github.com/Wikiki/bulma-tooltip
 Broadcast-Channel: https://github.com/pubkey/broadcast-channel
 
 Django: https://github.com/django/django
+
+JsZip: https://codeload.github.com/Stuk/jszip/legacy.zip/master

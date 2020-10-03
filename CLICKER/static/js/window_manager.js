@@ -575,10 +575,14 @@ class WindowManager {
                 // Left
                 e.preventDefault();
                 this.videos[id].mouseTracker[typeX] -= movementAmount;
-            } else if (e.keyCode === 13) {
-                // Enter
+            } else if (e.keyCode === 32) {
+                // Space bar
                 e.preventDefault();
-                $(`#canvas-${id}`).click();
+                if (e.shiftKey) {
+                    this.removePoint(e);
+                } else {
+                    $(`#canvas-${id}`).click();
+                }
             }
             if (this.videos[id].isEpipolarLocked) {
                 let proj = this.projectMouseToEpipolar(id, this.videos[id].mouseTracker.orgX);
@@ -605,6 +609,10 @@ class WindowManager {
                 this.settings["precisionMode"] = !this.settings["precisionMode"];
             } else {
                 this.settings["precisionMode"] = true;
+            }
+            let precisionModeText = this.settings["precisionMode"] ? "Enabled" : "Disabled";
+            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                $(`#precision-mode-${i}`).text(`P = Enter Precision Mode [${precisionModeText}]`);
             }
             this.communicatorsManager.updateCommunicators(messageCreator("updateSettings", {settings: this.settings}));
         }
@@ -1142,6 +1150,81 @@ class MainWindowManager extends WindowManager {
         }
     }
 
+    async exportPoints() {
+        // Puts all points in ARGUS format
+        let duration = this.videos[0].video.duration;
+        let frames = Math.floor(duration * FRAME_RATE);
+
+        let exportablePoints = [];
+        let header = [];
+        for (let j = 0; j < this.trackManager.tracks.length; j++) {
+            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x`);
+                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y`);
+            }
+        }
+        exportablePoints.push(header.join(",") + ",\n");
+        let masterFrameArray = [];
+        for (let i = 0; i < frames; i++) {
+            let frameArray = [];
+            for (let q = 0; q < this.trackManager.tracks.length; q++) {
+                for (let j = 0; j < NUMBER_OF_CAMERAS; j++) {
+                    let localPoints = this.clickedPointsManager.getClickedPoints(j, q);
+                    let index = getIndexFromFrame(localPoints, i); // TODO: Global function
+                    if (index === null) {
+                        frameArray.push(NaN);
+                        frameArray.push(NaN);
+                    } else {
+                        frameArray.push(localPoints[index].x);
+                        frameArray.push(localPoints[index].y);
+                    }
+                }
+            }
+            exportablePoints.push(frameArray.join(",") + ",\n");
+            masterFrameArray.push(frameArray);
+        }
+
+        let zip = new JSZip();
+
+        if (DLT_COEFFICIENTS !== null && CAMERA_PROFILE !== null) {
+            let exportableXYZPoints = []
+            let header = [];
+            for (let j = 0; j < this.trackManager.tracks.length; j++) {
+                header.push(`${this.trackManager.tracks[j].name}_x`);
+                header.push(`${this.trackManager.tracks[j].name}_y`);
+                header.push(`${this.trackManager.tracks[j].name}_z`);
+            }
+            exportableXYZPoints.push(header.join(",") + ",\n");
+            for (let i = 0; i < masterFrameArray.length; i++) {
+                let local_xyzs = [];
+                for (let j = 0; j < this.trackManager.tracks.length; j++) {
+                    let frame = i;
+                    let pointHelper = (videoIndex, trackIndex) => this.clickedPointsManager.getClickedPoints(videoIndex, trackIndex)
+
+                    let coord = await getEpipolarLinesOrUnifiedCoord(0, frame, this.trackManager.tracks[j].absoluteIndex, this.videosToSizes, pointHelper)
+                    if (coord.type === "unified") {
+                        let xyz = coord.result[0];
+                        local_xyzs.push(xyz[0][0]);
+                        local_xyzs.push(xyz[0][1]);
+                        local_xyzs.push(xyz[0][2]);
+                    } else {
+                        local_xyzs.push(NaN);
+                        local_xyzs.push(NaN);
+                        local_xyzs.push(NaN);
+                    }
+                }
+                exportableXYZPoints.push(local_xyzs.join(",") + ",\n");
+            }
+            zip.file("xyz_points.csv", exportableXYZPoints.join(""));
+        }
+        zip.file("xy_points.csv", exportablePoints.join(""));
+zip.generateAsync({type:"blob"})
+.then(function(content) {
+    // see FileSaver.js
+    saveAs(content, "example.zip");
+});
+    }
+
 
     loadSettings() {
         let allSettings = genericDivWidget("columns is-multiline is-centered is-mobile");
@@ -1189,6 +1272,10 @@ class MainWindowManager extends WindowManager {
 
         let loadCameraInfo = loadCameraInfoWidget();
         allSettings.append(loadCameraInfo);
+
+        let exportPointsBindings = {
+            exportFunction: () => this.exportPoints()
+        };
 
         if (NUMBER_OF_CAMERAS === 1) {
             allSettings.append($("<button>", {class: "button"}).text("Set Scale").on("click", () => {
