@@ -47,7 +47,27 @@ class WindowManager {
         this.videosToSettings = {};
         this.curEpipolarInfo = {};
         this.communicatorsManager = null;
-        this.scaleMode = {} // Used when a user wants to select points for reference in single-video analysis
+        this.scaleMode = {
+            drawCrossAxis: (centerPoint) => {
+                this.videos[0].drawLine(
+                    {x: 0, y: centerPoint.y},
+                    {x: this.videosToSizes[0].width, y: centerPoint.y},
+                    this.videos[0].canvasContext,
+                    this.trackManager.currentTrack.color
+                );
+                this.videos[0].drawLine(
+                    {x: centerPoint.x, y: 0},
+                    {x: centerPoint.x, y: this.videosToSizes[0].height},
+                    this.videos[0].canvasContext,
+                    this.trackManager.currentTrack.color
+                );
+            },
+            redrawScalePoint: () => {
+                this.videos[0].drawScalePoint(this.scaleMode.initialPoint, 15);
+                this.videos[0].drawScalePoint(this.scaleMode.finalPoint, 15);
+                this.videos[0].drawLine(this.scaleMode.initialPoint, this.scaleMode.finalPoint, this.videos[0].canvasContext, COLORS[5]);
+            }
+        } // Used when a user wants to select points for reference in single-video analysis
         this.focused = true;
         window.addEventListener('blur', () => {
             this.focused = false;
@@ -344,14 +364,19 @@ class WindowManager {
             this.scaleMode.mouseDown = true;
 
             let currentLocation = this.videos[0].createPointObject();
-            let inInitPoint = this.inPoint(currentLocation, this.scaleMode.initialPoint, 15);
-            let inFinalPoint = this.inPoint(currentLocation, this.scaleMode.finalPoint, 15);
-            if (inInitPoint) {
-                this.scaleMode.moving = "init";
-            } else if (inFinalPoint) {
-                this.scaleMode.moving = "final";
+            if (!this.scaleMode.originSet) {
+                let inOrigin = this.inPoint(currentLocation, this.scaleMode.originPoint, 15);
+                this.scaleMode.moving = inOrigin ? "origin" : "none";
             } else {
-                this.scaleMode.moving = "none";
+                let inInitPoint = this.inPoint(currentLocation, this.scaleMode.initialPoint, 15);
+                let inFinalPoint = this.inPoint(currentLocation, this.scaleMode.finalPoint, 15);
+                if (inInitPoint) {
+                    this.scaleMode.moving = "init";
+                } else if (inFinalPoint) {
+                    this.scaleMode.moving = "final";
+                } else {
+                    this.scaleMode.moving = "none";
+                }
             }
             return {point: null};
         }
@@ -447,18 +472,23 @@ class WindowManager {
 
         if (this.scaleMode.isActive && this.scaleMode.mouseDown && this.scaleMode.moving !== "none") {
             this.videos[0].clearPoints(this.videos[0].canvasContext);
-            if (this.scaleMode.moving === "init") {
-                this.scaleMode.initialPoint.x = baseX;
-                this.scaleMode.initialPoint.y = baseY;
-                this.videos[0].drawScalePoint(this.scaleMode.initialPoint, 15);
-                this.videos[0].drawScalePoint(this.scaleMode.finalPoint, 15);
-                this.videos[0].drawLine(this.scaleMode.initialPoint, this.scaleMode.finalPoint, this.videos[0].canvasContext, COLORS[5]);
+            if (this.scaleMode.originSet === false) {
+                if (this.scaleMode.moving === "origin") {
+                    this.scaleMode.originPoint.x = baseX;
+                    this.scaleMode.originPoint.y = baseY;
+                    this.videos[0].drawScalePoint(this.scaleMode.originPoint, 15);
+                    this.scaleMode.drawCrossAxis(this.scaleMode.originPoint);
+                }
             } else {
-                this.scaleMode.finalPoint.x = baseX;
-                this.scaleMode.finalPoint.y = baseY;
-                this.videos[0].drawScalePoint(this.scaleMode.initialPoint, 15);
-                this.videos[0].drawScalePoint(this.scaleMode.finalPoint, 15);
-                this.videos[0].drawLine(this.scaleMode.initialPoint, this.scaleMode.finalPoint, this.videos[0].canvasContext, COLORS[5]);
+                if (this.scaleMode.moving === "init") {
+                    this.scaleMode.initialPoint.x = baseX;
+                    this.scaleMode.initialPoint.y = baseY;
+                    this.scaleMode.redrawScalePoint();
+                } else if (this.scaleMode.moving === "final") {
+                    this.scaleMode.finalPoint.x = baseX;
+                    this.scaleMode.finalPoint.y = baseY;
+                    this.scaleMode.redrawScalePoint();
+                }
             }
         }
 
@@ -554,43 +584,41 @@ class WindowManager {
             return;
         }
 
-        if (this.settings["precisionMode"]) {
-            let typeX = this.videos[id].isEpipolarLocked ? "orgX" : "x";
-            let typeY = this.videos[id].isEpipolarLocked ? "orgY" : "y";
-            let movementAmount = e.ctrlKey ? 15 : 1;
-            movementAmount = e.altKey ? .05 : movementAmount;
-            if (e.keyCode === 38) {
-                // Up
-                e.preventDefault();
-                this.videos[id].mouseTracker[typeY] -= movementAmount;
-            } else if (e.keyCode === 39) {
-                // Right
-                e.preventDefault();
-                this.videos[id].mouseTracker[typeX] += movementAmount;
-            } else if (e.keyCode === 40) {
-                // Down
-                e.preventDefault();
-                this.videos[id].mouseTracker[typeY] += movementAmount;
-            } else if (e.keyCode === 37) {
-                // Left
-                e.preventDefault();
-                this.videos[id].mouseTracker[typeX] -= movementAmount;
-            } else if (e.keyCode === 32) {
-                // Space bar
-                e.preventDefault();
-                if (e.shiftKey) {
-                    this.removePoint(e);
-                } else {
-                    $(`#canvas-${id}`).click();
-                }
+        let typeX = this.videos[id].isEpipolarLocked ? "orgX" : "x";
+        let typeY = this.videos[id].isEpipolarLocked ? "orgY" : "y";
+        let movementAmount = e.ctrlKey ? 15 : 1;
+        movementAmount = e.altKey ? .05 : movementAmount;
+        if (e.keyCode === 38) {
+            // Up
+            e.preventDefault();
+            this.videos[id].mouseTracker[typeY] -= movementAmount;
+        } else if (e.keyCode === 39) {
+            // Right
+            e.preventDefault();
+            this.videos[id].mouseTracker[typeX] += movementAmount;
+        } else if (e.keyCode === 40) {
+            // Down
+            e.preventDefault();
+            this.videos[id].mouseTracker[typeY] += movementAmount;
+        } else if (e.keyCode === 37) {
+            // Left
+            e.preventDefault();
+            this.videos[id].mouseTracker[typeX] -= movementAmount;
+        } else if (e.keyCode === 32 || e.keyCode === 13) {
+            // Space bar
+            e.preventDefault();
+            if (e.shiftKey) {
+                this.removePoint(e);
+            } else {
+                $(`#canvas-${id}`).click();
             }
-            if (this.videos[id].isEpipolarLocked) {
-                let proj = this.projectMouseToEpipolar(id, this.videos[id].mouseTracker.orgX);
-                this.videos[id].mouseTracker.x = proj.x;
-                this.videos[id].mouseTracker.y = proj.y;
-            }
-            this.videos[id].drawZoomWindows(this.trackManager.currentTrack.color);
         }
+        if (this.videos[id].isEpipolarLocked) {
+            let proj = this.projectMouseToEpipolar(id, this.videos[id].mouseTracker.orgX);
+            this.videos[id].mouseTracker.x = proj.x;
+            this.videos[id].mouseTracker.y = proj.y;
+        }
+        this.videos[id].drawZoomWindows(this.trackManager.currentTrack.color);
 
         if (String.fromCharCode(e.which) === "F") {
             this.goForwardFrames(id);
@@ -604,24 +632,18 @@ class WindowManager {
             this.videos[id].zoomOutZoomWindow();
         } else if (String.fromCharCode(e.which) === "L") {
             this.videos[id].inverseEpipolarLocked(this.trackManager.currentTrack.color);
-        } else if (String.fromCharCode(e.which) === "P") {
-            if (this.settings["precisionMode"] !== undefined) {
-                this.settings["precisionMode"] = !this.settings["precisionMode"];
-            } else {
-                this.settings["precisionMode"] = true;
-            }
-            let precisionModeText = this.settings["precisionMode"] ? "Enabled" : "Disabled";
-            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                $(`#precision-mode-${i}`).text(`P = Enter Precision Mode [${precisionModeText}]`);
-            }
-            this.communicatorsManager.updateCommunicators(messageCreator("updateSettings", {settings: this.settings}));
+        } else if (String.fromCharCode(e.which) === "S") {
+            $(`#openSettings-${id}`).click();
         }
     }
 
     redrawWindow(videoIndex) {
         // this.videos[videoIndex].clearPoints();
         let currentTrack = this.trackManager.currentTrack;
-        let currentPoints = this.clickedPointsManager.getClickedPoints(videoIndex, currentTrack.absoluteIndex);
+        let currentPoints = []
+        if (!this.scaleMode.isActive) {
+            currentPoints = this.clickedPointsManager.getClickedPoints(videoIndex, currentTrack.absoluteIndex);
+        }
         let mainTrackInfo = {"points": currentPoints, "color": currentTrack.color};
         this.videos[videoIndex].loadFrame(mainTrackInfo);
     }
@@ -753,7 +775,9 @@ class WindowManager {
 
         $(`#video-${currentVideoIndex}`).on("canplay", () => {
             loadPreviewFrameFunction(currentVideoIndex);
-            this.locks.can_click = true;
+            if (!this.scaleMode.isActive) {
+                this.locks.can_click = true;
+            }
         });
     }
 
@@ -782,9 +806,6 @@ class WindowManager {
             'height': document.getElementById(`video-${currentIndex}`).videoHeight,
             'width': document.getElementById(`video-${currentIndex}`).videoWidth
         }; // This comes from the hidden video that should be created before this point.
-        console.log(this.videosToSizes);
-        console.log(document.getElementById(`video-${currentIndex}`));
-        console.log(document.getElementById(`video-${currentIndex}`).videoWidth);
 
         this.createClickerWidget(parsedInputs.index, parsedInputs)
 
@@ -1150,8 +1171,16 @@ class MainWindowManager extends WindowManager {
         }
     }
 
+    // getReprojectionErrors(uvPoint, xyzPoint) {
+    //     let errors = [];
+    //     let undistortPoints = undistortPoints(uvPoint, CAMERA_PROFILE);
+    //     let reconstructPoints = reconstructUV(DLT_COEFFICIENTS[0], xyzPoint);
+    // }
+
     async exportPoints() {
         // Puts all points in ARGUS format
+        let zip = new JSZip();
+
         let duration = this.videos[0].video.duration;
         let frames = Math.floor(duration * FRAME_RATE);
 
@@ -1169,22 +1198,35 @@ class MainWindowManager extends WindowManager {
             let frameArray = [];
             for (let q = 0; q < this.trackManager.tracks.length; q++) {
                 for (let j = 0; j < NUMBER_OF_CAMERAS; j++) {
-                    let localPoints = this.clickedPointsManager.getClickedPoints(j, q);
+                    let trackIndex = this.trackManager.tracks[q].absoluteIndex;
+                    let localPoints = this.clickedPointsManager.getClickedPoints(j, trackIndex);
                     let index = getIndexFromFrame(localPoints, i); // TODO: Global function
                     if (index === null) {
                         frameArray.push(NaN);
                         frameArray.push(NaN);
                     } else {
-                        frameArray.push(localPoints[index].x);
-                        frameArray.push(localPoints[index].y);
+                        if (NUMBER_OF_CAMERAS === 1) {
+                            let yDist = Math.abs(this.scaleMode.initialPoint.y - this.scaleMode.finalPoint.y);
+                            yDist = yDist === 0 ? 1 : yDist;
+                            let xDist = Math.abs(this.scaleMode.initialPoint.x - this.scaleMode.finalPoint.x);
+                            xDist = xDist === 0 ? 1 : xDist;
+                            let dxunits = (parseFloat(this.scaleMode.unitRatio) * (xDist)) / this.distanceBetweenPoints(this.scaleMode.initialPoint, this.scaleMode.finalPoint);
+                            let dyunits = (parseFloat(this.scaleMode.unitRatio) * (yDist)) / this.distanceBetweenPoints(this.scaleMode.initialPoint, this.scaleMode.finalPoint);
+                            let scaledX = (dxunits * (localPoints[index].x - this.scaleMode.originPoint.x)) / (xDist);
+                            let scaledY = (dyunits * (this.scaleMode.originPoint.y - localPoints[index].y)) / (yDist);
+                            frameArray.push(scaledX);
+                            frameArray.push(scaledY);
+                        } else {
+                            frameArray.push(localPoints[index].x);
+                            frameArray.push(localPoints[index].y);
+                        }
                     }
                 }
             }
             exportablePoints.push(frameArray.join(",") + ",\n");
             masterFrameArray.push(frameArray);
         }
-
-        let zip = new JSZip();
+        zip.file("xy_points.csv", exportablePoints.join(""));
 
         if (DLT_COEFFICIENTS !== null && CAMERA_PROFILE !== null) {
             let exportableXYZPoints = []
@@ -1217,12 +1259,11 @@ class MainWindowManager extends WindowManager {
             }
             zip.file("xyz_points.csv", exportableXYZPoints.join(""));
         }
-        zip.file("xy_points.csv", exportablePoints.join(""));
-zip.generateAsync({type:"blob"})
-.then(function(content) {
-    // see FileSaver.js
-    saveAs(content, "example.zip");
-});
+        zip.generateAsync({type: "blob"})
+            .then(function (content) {
+                // see FileSaver.js
+                saveAs(content, "example.zip");
+            });
     }
 
 
@@ -1270,84 +1311,90 @@ zip.generateAsync({type:"blob"})
         allSettings.append(changeForwardBackwardOffsetWidget(forwardBackwardsBindings))
         allSettings.append(saveWidget);
 
-        let loadCameraInfo = loadCameraInfoWidget();
-        allSettings.append(loadCameraInfo);
+        if (NUMBER_OF_CAMERAS > 1) {
+            let loadCameraInfo = loadCameraInfoWidget();
+            allSettings.append(loadCameraInfo);
+        }
 
         let exportPointsBindings = {
             exportFunction: () => this.exportPoints()
         };
 
         if (NUMBER_OF_CAMERAS === 1) {
-            allSettings.append($("<button>", {class: "button"}).text("Set Scale").on("click", () => {
-                $("#canvas-columns-0").append(
-                    genericDivWidget("column is-12", "scaleColumn").append(
-                        genericDivWidget("columns").append(
-                            genericDivWidget("column").append(
-                                $("<input>", {class: "input", id: "unitRatio", placeholder: "How many units?"})),
-                            genericDivWidget("column").append(
-                                $("<input>", {class: "input", id: "unitName", placeholder: "Unit name"})),
-                            genericDivWidget("column").append(
-                                $("<button>", {class: "button"}).text("Save").on("click", () => {
-                                    this.locks.can_click = true;
-                                    this.drawAllPoints(0);
-                                    this.scaleMode.isActive = false;
-                                    this.scaleMode.unitRatio = $("#unitRatio").val();
-                                    this.scaleMode.unitName = $("#unitName").val();
-                                    $("#scaleColumn").remove();
-                                    // TODO: Various forms of error checking
-                                })
-                            )
-                        ),
-                    )
-                );
+            /// TODO: So much cleanup
+            let scaleModeBindings = {
+                setScale: () => {
+                    this.videos[0].isDisplayingFocusedPointStore = this.videos[0].isDisplayingFocusedPoint;
+                    this.videos[0].isDisplayingFocusedPoint = false; // Otherwise it force-redraws points
+                    this.videos[0].clearPoints(this.videos[0].canvasContext);
+                    this.videos[0].clearPoints(this.videos[0].subTrackCanvasContext);
 
-                this.videos[0].clearPoints(this.videos[0].canvasContext);
-                this.videos[0].clearPoints(this.videos[0].subTrackCanvasContext);
+                    this.scaleMode.originPoint = {
+                        x: this.videosToSizes[0].width / 2,
+                        y: this.videosToSizes[0].height / 2
+                    }
 
-                this.scaleMode.initialPoint = {
-                    x: (this.videosToSizes[0].width / 2) - (this.videosToSizes[0].width / 3),
-                    y: this.videosToSizes[0].height / 2
+                    this.videos[0].drawScalePoint(this.scaleMode.originPoint, 20);
+
+                    this.scaleMode.drawCrossAxis(this.scaleMode.originPoint);
+
+                    this.locks.can_click = false;
+                    this.scaleMode.originSet = false;
+                    this.scaleMode.isActive = true;
+
+                    this.TEMP = () => {
+                        this.onMouseUp();
+                    }
+                    this.TEMP2 = () => {
+                        this.onMouseDown();
+                    }
+
+                    $(document).on("mouseup", this.TEMP);
+                    $(document).on("mousedown", this.TEMP2);
+                },
+                saveScale: () => {
+                    this.locks.can_click = true;
+                    this.drawAllPoints(0);
+                    this.scaleMode.isActive = false;
+                    this.scaleMode.unitRatio = $("#unitRatio").val();
+                    this.scaleMode.unitName = $("#unitName").val();
+                    this.videos[0].isDisplayingFocusedPoint = this.videos[0].isDisplayingFocusedPointStore;
+                    $("#scaleColumn").remove();
+                    // TODO: Various forms of error checking
+                },
+                cleanUpOrigin: () => {
+                    this.videos[0].clearPoints(this.videos[0].canvasContext);
+                    this.scaleMode.originSet = true;
+                    this.scaleMode.initialPoint = {
+                        x: (this.videosToSizes[0].width / 2) - (this.videosToSizes[0].width / 3),
+                        y: this.videosToSizes[0].height / 2
+                    }
+                    this.scaleMode.finalPoint = {
+                        x: (this.videosToSizes[0].width / 2) + (this.videosToSizes[0].width / 3),
+                        y: (this.videosToSizes[0].height / 2)
+                    };
+                    this.scaleMode.redrawScalePoint();
+                    $("#TEMP_DELETE").remove();
                 }
-                this.scaleMode.finalPoint = {
-                    x: (this.videosToSizes[0].width / 2) + (this.videosToSizes[0].width / 3),
-                    y: (this.videosToSizes[0].height / 2)
-                };
-                this.videos[0].drawScalePoint(
-                    this.scaleMode.initialPoint,
-                    15
-                );
-                this.videos[0].drawScalePoint(
-                    this.scaleMode.finalPoint,
-                    15
-                );
+            };
 
-                this.videos[0].drawLine(this.scaleMode.initialPoint, this.scaleMode.finalPoint,
-                    this.videos[0].canvasContext, COLORS[5]);
-                this.locks.can_click = false;
-                this.scaleMode.isActive = true;
-
-                this.TEMP = () => {
-                    this.onMouseUp();
-                }
-                this.TEMP2 = () => {
-                    this.onMouseDown();
-                }
-
-                $(document).on("mouseup", this.TEMP);
-                $(document).on("mousedown", this.TEMP2);
-            }));
+            scaleModeBindings.setScaleBinding = () => {
+                scaleModeBindings.setScale();
+                $("#canvas-columns-0").append(setScaleSaveOrigin(scaleModeBindings));
+            }
+            allSettings.append(setScaleWidget(scaleModeBindings));
         }
+
         $("#settings").append(allSettings);
+        $("#settings").append($("<button>", {class: "button"}).text("Export Points").on("click", () => {
+            this.exportPoints()
+        }));
     }
 
 
     distanceBetweenPoints(point1, point2) {
-        if (this.scaleMode.unitRatio !== undefined) {
-            let distAbs = Math.sqrt((this.scaleMode.initialPoint.x - this.scaleMode.finalPoint.x) ** 2 + (this.scaleMode.initialPoint.y - this.scaleMode.finalPoint.y) ** 2);
-            let distRel = Math.sqrt((point1.x - point2.x) ** 2 + (point1.y - point2.y) ** 2);
-            let units = (distRel / distAbs) * this.scaleMode.unitRatio;
-            console.log(`The distance is ${units} ${this.scaleMode.unitName}`);
-        }
+        let distRel = Math.sqrt((point1.x - point2.x) ** 2 + (point1.y - point2.y) ** 2);
+        return distRel
     }
 
 

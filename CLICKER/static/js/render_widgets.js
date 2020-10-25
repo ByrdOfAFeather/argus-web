@@ -415,7 +415,7 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
                         genericDivWidget("columns").append(
                             genericDivWidget("column", `pop-out-${videoIndex}-placeholder`),
                             genericDivWidget("column").append(
-                                $("<button>", {class: "button"}).append(
+                                $("<button>", {class: "button", id: `openSettings-${videoIndex}`}).append(
                                     $("<i>", {class: "fa fa-cog"}).attr("aria-hidden", "true")
                                 ).on("click", displaySettings)
                             )
@@ -438,10 +438,6 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
                         class: "render-unselectable",
                         id: `epipolar-lock-${videoIndex}`
                     }).text("L = Lock To Epipolar [Disabled]"),
-                    $("<p>", {
-                        class: "render-unselectable",
-                        id: `precision-mode-${videoIndex}`
-                    }).text("P = Enter Precision Mode [Disabled]")
                 )
             ),
         )
@@ -1164,7 +1160,7 @@ function frameMovementSettingsWidget(bindings) {
             }).prop("checked", auto),
 
             // Sync Check box
-            $("<label>", {class: "label"}).text("Snyc:"),
+            $("<label>", {class: "label"}).text("Synchronize Videos:"),
             $("<input>", {
                 id: "sync-setting",
                 type: "checkbox",
@@ -1601,6 +1597,41 @@ function loadCameraInfoWidget(bindings) {
                 )
             )
         ).css("overflow", "hidden") // TODO: This is dumb. I'm not sure how to make the button work though.
+    )
+}
+
+function setScaleWidget(bindings) {
+    return genericDivWidget("column is-three-fifths").append(
+        genericDivWidget("box").append(
+            $("<button>", {class: "button"}).text("Set Scale").on("click", bindings.setScaleBinding)
+        )
+    );
+}
+
+function setScaleSaveOrigin(bindings) {
+    return genericDivWidget("column is-12").append($("<button>", {
+            class: "button",
+            id: "TEMP_DELETE"
+        }).text("Save origin").on("click", () => {
+            $("#canvas-columns-0").append(
+                genericDivWidget("column is-12", "scaleColumn").append(
+                    genericDivWidget("columns").append(
+                        genericDivWidget("column").append(
+                            $("<input>", {
+                                class: "input",
+                                id: "unitRatio",
+                                placeholder: "How many units?"
+                            })),
+                        genericDivWidget("column").append(
+                            $("<input>", {class: "input", id: "unitName", placeholder: "Unit name"})),
+                        genericDivWidget("column").append(
+                            $("<button>", {class: "button"}).text("Save").on("click", bindings.saveScale)
+                        )
+                    ),
+                ));
+
+            bindings.cleanUpOrigin();
+        })
     )
 }
 

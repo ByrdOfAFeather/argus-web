@@ -239,9 +239,6 @@ class Video {
         this.videoCanvasContext.fillRect(0, 0, canvasWidth, canvasHeight);
         this.videoCanvasContext.drawImage(this.video, 0, 0, canvasWidth, canvasHeight);
         this.currentStrokeStyle = mainTrackInfo.color;
-        if (!locks["can_click"]) {
-            locks["can_click"] = true;
-        }
 
         let points = mainTrackInfo.points;
         let pointIndex = Video.checkIfPointAlreadyExists(points, frameTracker[this.index]);
@@ -336,7 +333,7 @@ class Video {
     }
 
     drawScalePoint(point, radius) {
-        this.canvasContext.strokeStyle = COLORS[5];
+        this.canvasContext.strokeStyle = COLORS[0];
 
         this.canvasContext.beginPath();
         this.canvasContext.arc(point.x, point.y, radius, 0, 2 * Math.PI);

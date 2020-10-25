@@ -137,7 +137,6 @@ function redistortPoints(coordinatePair, cameraProfile) {
 }
 
 function undistortPoints(coordinatePair, cameraProfile) {
-    // TODO: TAN DISTORTION UNTESTED
     // TODO: Vectorize
     let f = cameraProfile[0];
     let cx = cameraProfile[1];
