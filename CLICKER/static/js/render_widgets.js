@@ -344,7 +344,7 @@ function clickerCanvasWidget(videoIndex, videoWidth, videoHeight, onKeyboardInpu
     I believe it is due to resizing which is a legacy feature.
      */
 
-    let clickableCanvas = canvas(`canvas-${videoIndex}`, "clickable-canvas absolute", "z-index: 4;");
+    let clickableCanvas = canvas(`canvas-${videoIndex}`, "clickable-canvas absolute", "z-index: 5;");
     clickableCanvas = _canvasWidthAndHeightManager(clickableCanvas, videoWidth, videoHeight);
     clickableCanvas.prop('tabindex', 1000);
     clickableCanvas.on('keydown', onKeyboardInput);
@@ -358,11 +358,15 @@ function clickerCanvasWidget(videoIndex, videoWidth, videoHeight, onKeyboardInpu
     let subTrackCanvas = canvas(`subtrackCanvas-${videoIndex}`, 'sub-track absolute', 'z-index: 3;');
     subTrackCanvas = _canvasWidthAndHeightManager(subTrackCanvas, videoWidth, videoHeight);
 
+    let focusedPointCanvas = canvas(`focusedPointCanvas-${videoIndex}`, 'absolute', 'z-index: 4;');
+    focusedPointCanvas = _canvasWidthAndHeightManager(focusedPointCanvas, videoWidth, videoHeight)
+
     return genericDivWidget("container", `container-for-canvas-${videoIndex}`).append(
         clickableCanvas.on("click", onClick).on("contextmenu", onRightClick).on("mousemove", setMousePos),
         epipolarCanvas,
         videoCanvas,
-        subTrackCanvas
+        subTrackCanvas,
+        focusedPointCanvas
     ).css("height", "100%");
 }
 
@@ -431,6 +435,7 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
                 genericDivWidget("container", `zoom-text-${videoIndex}`).append(
                     genericDivWidget("container", `zoom-canvas-${videoIndex}`).append(
                         canvas(`zoomEpipolarCanvas-${videoIndex}`, "zoom-epipolar-canvas absolute", "z-index: 3;").css("height", "100%").css("width", "100%"),
+                        canvas(`zoomFocusedPointCanvas-${videoIndex}`, "absolute zoom-focused-point-canvas", "z-index: 4;").css("height", "100%").css("width", "100%"),
                         canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas absolute", "z-index: 2;").css("height", "100%").css("width", "100%"),
                     ),
                     $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In<br></p>"),

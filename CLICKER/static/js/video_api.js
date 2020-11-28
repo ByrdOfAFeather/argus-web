@@ -4,11 +4,48 @@ let RGB = "grayscale(0%)";
 let GREYSCALE = "grayscale(100%)";
 
 class Video {
-    constructor(videosIndex, videoName, offset, isEpipolarLocked, epipolarProjection) {
-        this.index = videosIndex;
+
+    _initCanvases(videoIndex) {
+        this.canvas = document.getElementById(`canvas-${videoIndex}`);
+        this.canvasContext = this.canvas.getContext("2d");
+        this.videoCanvas = document.getElementById(`videoCanvas-${videoIndex}`);
+        this.videoCanvasContext = this.videoCanvas.getContext("2d");
+
+        this.epipolarCanvas = document.getElementById(`epipolarCanvas-${videoIndex}`);
+        this.epipolarCanvasContext = this.epipolarCanvas.getContext("2d");
+
+        this.subTrackCanvas = document.getElementById(`subtrackCanvas-${videoIndex}`);
+        this.subTrackCanvasContext = this.subTrackCanvas.getContext('2d');
+
+        this.focusedPointCanvas = document.getElementById(`focusedPointCanvas-${videoIndex}`);
+        this.focusedPointCanvasContext = this.focusedPointCanvas.getContext('2d');
+    }
+
+    _initZoomWindow(videoIndex) {
+        /*
+         * Initialize the zoom window references that will be needed during runtime. The zoom window draws copies of
+         * the epipolar canvas, the video canvas, as well as the focused point canvas
+         * (The point that represents the current frame).
+         */
+        this.zoomCanvas = document.getElementById(`zoomCanvas-${videoIndex}`);
+        this.zoomCanvasContext = this.zoomCanvas.getContext("2d");
+        this.zoomCanvas = $(this.zoomCanvas);
+
+        this.zoomEpipolarCanvas = document.getElementById(`zoomEpipolarCanvas-${videoIndex}`);
+        this.zoomEpipolarCanvasContext = this.zoomEpipolarCanvas.getContext("2d");
+        this.zoomEpipolarCanvas = $(this.zoomEpipolarCanvas);
+
+        this.zoomFocusedPointCanvas = document.getElementById(`zoomFocusedPointCanvas-${videoIndex}`);
+        this.zoomFocusedPointCanvasContext = this.zoomFocusedPointCanvas.getContext("2d");
+        this.zoomFocusedPointCanvas = $(this.zoomFocusedPointCanvas);
+        this.zoomOffset = 10;
+    }
+
+    constructor(videoIndex, videoName, offset, isEpipolarLocked, epipolarProjection) {
+        this.index = videoIndex;
         this.name = videoName;
         this.offset = offset;
-        this.video = document.getElementById(`video-${videosIndex}`);
+        this.video = document.getElementById(`video-${videoIndex}`);
         this.mouseTracker = {
             x: 0,
             y: 0,
@@ -16,40 +53,22 @@ class Video {
             orgY: 0,
         };
 
-        this.canvas = document.getElementById(`canvas-${videosIndex}`);
-        this.canvasContext = this.canvas.getContext("2d");
-        this.videoCanvas = document.getElementById(`videoCanvas-${videosIndex}`);
-        this.videoCanvasContext = this.videoCanvas.getContext("2d");
-
-        this.epipolarCanvas = document.getElementById(`epipolarCanvas-${videosIndex}`);
-        this.epipolarCanvasContext = this.epipolarCanvas.getContext("2d");
-
-        this.subTrackCanvas = document.getElementById(`subtrackCanvas-${videosIndex}`);
-        this.subTrackCanvasContext = this.subTrackCanvas.getContext('2d');
-
-        this.zoomCanvas = document.getElementById(`zoomCanvas-${videosIndex}`);
-        this.zoomCanvasContext = this.zoomCanvas.getContext("2d");
-        this.zoomCanvas = $(this.zoomCanvas);
-
-        this.zoomEpipolarCanvas = document.getElementById(`zoomEpipolarCanvas-${videosIndex}`);
-        this.zoomEpipolarCanvasContext = this.zoomEpipolarCanvas.getContext("2d");
-        this.zoomEpipolarCanvas = $(this.zoomEpipolarCanvas);
-
-        this.zoomOffset = 10;
+        this._initCanvases(videoIndex);
+        this._initZoomWindow(videoIndex);
 
         this.currentBrightnessFilter = '';
         this.currentContrastFilter = '';
         this.currentSaturateFilter = '';
         this.currentColorspace = '';
 
-        this.videoLabelID = `videoLabel-${videosIndex}`;
+        this.videoLabelID = `videoLabel-${videoIndex}`;
 
         this.lastFrame = (FRAME_RATE * this.video.duration);
         this.isDisplayingFocusedPoint = false;
 
         this.isEpipolarLocked = isEpipolarLocked;
         let lockText = isEpipolarLocked ? "Enabled" : "Disabled";
-        $(`#epipolar-lock-${videosIndex}`).text(`L = Lock To Epipolar [${lockText}]`);
+        $(`#epipolar-lock-${videoIndex}`).text(`L = Lock To Epipolar [${lockText}]`);
         this.epipolarProjection = epipolarProjection;
     }
 
@@ -69,54 +88,6 @@ class Video {
         this.drawLines(points, canvasContext, color);
     }
 
-    drawEpipolarZoomWindow() {
-        let startX = this.mouseTracker.x;
-        let startY = this.mouseTracker.y;
-        let width = parseFloat(this.zoomEpipolarCanvas.css("width"));
-        let height = parseFloat(this.zoomEpipolarCanvas.css("height"));
-        this.zoomEpipolarCanvasContext.clearRect(0, 0, width, height);
-
-        this.zoomEpipolarCanvasContext.globalAlpha = 0.4;
-        // Draw Epipolar lines
-        this.zoomEpipolarCanvasContext.drawImage(
-            this.epipolarCanvas,
-            startX - this.zoomOffset,
-            startY - this.zoomOffset,
-            this.zoomOffset * 2,
-            this.zoomOffset * 2, 0, 0, width, height); // startX, startY, endX, endY, 0, 0, endY, endX);
-        this.zoomEpipolarCanvasContext.globalAlpha = 1;
-
-    }
-
-    drawZoomWindow(color) {
-        let startX = this.mouseTracker.x;
-        let startY = this.mouseTracker.y;
-
-        this.zoomCanvasContext.strokeStyle = color;
-
-        let width = parseFloat(this.zoomCanvas.css("width"));
-        let height = parseFloat(this.zoomCanvas.css("height"));
-
-        // Draw Video
-        this.zoomCanvasContext.clearRect(0, 0, width, height);
-        // this.zoomEpipolarCanvasContext.clearRect(0, 0, width, height);
-        this.zoomCanvasContext.drawImage(
-            this.videoCanvas,
-            startX - this.zoomOffset,
-            startY - this.zoomOffset,
-            this.zoomOffset * 2,
-            this.zoomOffset * 2, 0, 0, width, height); // startX, startY, endX, endY, 0, 0, endY, endX);
-
-        this.zoomCanvasContext.beginPath();
-        this.zoomCanvasContext.moveTo(width / 2, 0);
-        this.zoomCanvasContext.lineTo(width / 2, height);
-        this.zoomCanvasContext.stroke();
-
-        this.zoomCanvasContext.beginPath();
-        this.zoomCanvasContext.moveTo(0, height / 2);
-        this.zoomCanvasContext.lineTo(width, height / 2);
-        this.zoomCanvasContext.stroke();
-    }
 
     static checkIfPointAlreadyExists(localPoints, currentFrame) {
         let indexOfAlreadyExistingPoints = null;
@@ -208,9 +179,51 @@ class Video {
         this.goToFrame(newFrame);
     }
 
+
+    drawZoom(zoomContext, copyCanvas, options={}) {
+        let startX = this.mouseTracker.x;
+        let startY = this.mouseTracker.y;
+        let width = parseFloat(this.zoomFocusedPointCanvas.css("width"));
+        let height = parseFloat(this.zoomFocusedPointCanvas.css("height"));
+        zoomContext.clearRect(0, 0, width, height);
+
+        if (options.alpha !== undefined) { zoomContext.globalAlpha = options.alpha; }
+        zoomContext.drawImage(
+            copyCanvas,
+            startX - this.zoomOffset,
+            startY - this.zoomOffset,
+            this.zoomOffset * 2,
+            this.zoomOffset * 2, 0, 0, width, height);
+        if (options.alpha !== undefined) { zoomContext.globalAlpha = 1; }
+    }
+
+
+    drawEpipolarZoomWindow() {
+        this.drawZoom(this.zoomEpipolarCanvasContext, this.epipolarCanvas, {alpha: .4});
+    }
+
+
     drawZoomWindows(color) {
-        this.drawZoomWindow(color);
-        this.drawEpipolarZoomWindow();
+        // Init the zoom window for this frame
+        this.drawZoom(this.zoomCanvasContext, this.videoCanvas);
+
+        // Draws the lines
+        let width = parseFloat(this.zoomEpipolarCanvas.css("width"));
+        let height = parseFloat(this.zoomEpipolarCanvas.css("height"));
+        this.zoomCanvasContext.strokeStyle = color;
+        this.zoomCanvasContext.beginPath();
+        this.zoomCanvasContext.moveTo(width / 2, 0);
+        this.zoomCanvasContext.lineTo(width / 2, height);
+        this.zoomCanvasContext.stroke();
+
+        this.zoomCanvasContext.beginPath();
+        this.zoomCanvasContext.moveTo(0, height / 2);
+        this.zoomCanvasContext.lineTo(width, height / 2);
+        this.zoomCanvasContext.stroke();
+
+        // Draws the remaining details
+        this.drawZoom(this.zoomEpipolarCanvasContext, this.epipolarCanvas, .4);
+        this.drawZoom(this.zoomFocusedPointCanvasContext, this.focusedPointCanvas);
     }
 
     inverseEpipolarLocked(color) {
@@ -227,6 +240,12 @@ class Video {
         $(`#epipolar-lock-${this.index}`).text(`L = Lock To Epipolar [${lockText}]`);
     }
 
+
+    clearFocusedPointCanvas() {
+        let canvasHeight = this.canvas.height;
+        let canvasWidth = this.canvas.width;
+        this.focusedPointCanvasContext.clearRect(0,0, canvasWidth, canvasHeight);
+    }
 
     loadFrame(mainTrackInfo) {
         let canvasWidth;
@@ -245,12 +264,14 @@ class Video {
         if (pointIndex !== null) {
             if (this.isDisplayingFocusedPoint) {
                 this.redrawPoints(points);
+                this.clearFocusedPointCanvas();
             }
             this.isDisplayingFocusedPoint = true;
-            this.drawFocusedPoint(points[pointIndex].x, points[pointIndex].y, 20);
+            this.drawFocusedPoint(points[pointIndex].x, points[pointIndex].y);
         } else {
             if (this.isDisplayingFocusedPoint === true) {
                 this.redrawPoints(points);
+                this.clearFocusedPointCanvas();
             }
             this.isDisplayingFocusedPoint = false;
         }
@@ -260,8 +281,7 @@ class Video {
             this.mouseTracker.x = projectedCoords.x;
             this.mouseTracker.y = projectedCoords.y;
         }
-        this.drawZoomWindow(mainTrackInfo.color);
-        this.drawEpipolarZoomWindow();
+        this.drawZoomWindows(mainTrackInfo.color);
     }
 
     addSubTrack(subTrackInfo) {
@@ -284,15 +304,16 @@ class Video {
     }
 
     drawFocusedPoint(x, y) {
-        this.canvasContext.strokeStyle = "rgb(0,190,57)";
-        this.canvasContext.beginPath();
-        this.canvasContext.arc(x, y, VIDEO_TO_POINT_SIZE[this.index], 0, Math.PI);
-        this.canvasContext.stroke();
+        this.focusedPointCanvasContext.strokeStyle = "rgb(0,190,57)";
+        this.focusedPointCanvasContext.beginPath();
+        //
+        this.focusedPointCanvasContext.arc(x, y, VIDEO_TO_POINT_SIZE[this.index], 0, Math.PI);
+        this.focusedPointCanvasContext.stroke();
 
-        this.canvasContext.strokeStyle = "rgb(0,18,190)";
-        this.canvasContext.beginPath();
-        this.canvasContext.arc(x, y, VIDEO_TO_POINT_SIZE[this.index], Math.PI, 2 * Math.PI);
-        this.canvasContext.stroke();
+        this.focusedPointCanvasContext.strokeStyle = "rgb(0,18,190)";
+        this.focusedPointCanvasContext.beginPath();
+        this.focusedPointCanvasContext.arc(x, y, VIDEO_TO_POINT_SIZE[this.index], Math.PI, 2 * Math.PI);
+        this.focusedPointCanvasContext.stroke();
 
     }
 
@@ -420,16 +441,14 @@ class Video {
             this.zoomOffset = 1;
         } else {
             this.zoomOffset -= 10;
-            this.drawZoomWindow();
-            this.drawEpipolarZoomWindow();
+            this.drawZoomWindows();
         }
 
     }
 
     zoomOutZoomWindow() {
         this.zoomOffset += 10;
-        this.drawZoomWindow();
-        this.drawEpipolarZoomWindow();
+        this.drawZoomWindows();
     }
 }
 

@@ -251,6 +251,13 @@ class WindowManager {
             $(this).attr("width", width);
             $(this).attr("height", height);
         });
+        $(".zoom-focused-point-canvas").each(function() {
+            let width = parseFloat($(this).css("width"));
+            let height = width;
+            $(this.parentElement).css("height", `${height}px`);
+            $(this).attr("width", width);
+            $(this).attr("height", height);
+        })
     }
 
     getVideoSettings(context, initSettings) {
@@ -508,9 +515,7 @@ class WindowManager {
             return;
         }
         let currentColor = this.trackManager.currentTrack.color;
-        this.videos[video].drawZoomWindow(currentColor);
-        this.videos[video].drawEpipolarZoomWindow();
-
+        this.videos[video].drawZoomWindows(currentColor);
     }
 
     goForwardFrames() {
@@ -572,8 +577,10 @@ class WindowManager {
         this.clickedPointsManager.removePoint(video, this.trackManager.currentTrack.absoluteIndex, frameTracker[video]);
         let points = this.clickedPointsManager.getClickedPoints(video, this.trackManager.currentTrack.absoluteIndex);
         this.videos[video].redrawPoints(points, this.trackManager.currentTrack.color);
+        this.videos[video].clearFocusedPointCanvas();
         this.clearEpipolarCanvases();
         this.getEpipolarInfo(video, frameTracker[video]);
+        this.videos[video].drawZoomWindows(this.trackManager.currentTrack.color);
     }
 
     handleKeyboardInput(e) {
