@@ -1018,7 +1018,8 @@ class MainWindowManager extends WindowManager {
         this.getEpipolarInfo(0, frameTracker[0]);
         this.keepCanvasAspectRatio(true); // A little wasteful as I resize previous videos that don't need it
         $(window).on("resize", () => this.keepCanvasAspectRatio(false));
-        AUTO_SAVE_INTERVAL_ID = setInterval(() => this.saveProject(true), 60000);
+        // TODO: AUTO SAVE IS DISABLED FOR THE PRESENTATION
+        // AUTO_SAVE_INTERVAL_ID = setInterval(() => this.saveProject(true), 60000);
         this.loadSettings();
     }
 

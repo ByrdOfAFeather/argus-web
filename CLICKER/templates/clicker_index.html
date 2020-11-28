@@ -199,9 +199,12 @@
                         },
                         error: (error) => {
                             if (error.status === 403) {
-                                generateError("You have to login before you can access this feature!",
-                                    $(`<button class="button" onclick="goToLogin()">Login</button>
-                           <button class="button" onclick="genericInputCleanUp($('#modal-content-container'), $('#generic-input-modal'));">Cancel</button>`))
+                                $(document.body).append(loadSavedStateFromFileWidget());
+                                $("#saved-state-input").click();
+                                // TODO: Disabled for presentation
+                                // generateError("You have to login before you can access this feature!",
+                                //    $(`<button class="button" onclick="goToLogin()">Login</button>
+                           // <button class="button" onclick="genericInputCleanUp($('#modal-content-container'), $('#generic-input-modal'));">Cancel</button>`))
                             }
                         }
                     }
@@ -251,13 +254,14 @@
                         successText.text(`Last saved : ${now.toString()} ${auto}`);
                     },
                     error: function (error) {
-                        // TODO: Allow a user to still save after creating an account / logging in
                         if (error.status === 403) {
-                            if (!autoSaved) {
-                                generateError("You have to be logged in to use this feature!");
-                            }
-                            clearInterval(AUTO_SAVE_INTERVAL_ID);
-                            AUTO_SAVE_INTERVAL_ID = null;
+                            download(`${PROJECT_NAME}.json`, JSON.stringify(outputJson));
+                            // TODO: Log in/ log out is not enabled for the demo
+                            //if (!autoSaved) {
+                            //    generateError("You have to be logged in to use this feature!");
+                            //}
+                            //clearInterval(AUTO_SAVE_INTERVAL_ID);
+                            //AUTO_SAVE_INTERVAL_ID = null;
                         }
                     }
                 });

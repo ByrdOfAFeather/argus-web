@@ -1642,7 +1642,8 @@ function setScaleSaveOrigin(bindings) {
 
 
 function exportPointsGUI(bindings) {
-
+    // TODO: Implement
+    return null;
 }
 
 function exportButtonWidget(bindings) {
@@ -1654,7 +1655,22 @@ function exportButtonWidget(bindings) {
 }
 
 function loginWidget(onLogin) {
-    return genericDivWidget("columns").append(
+    // TODO: Implement
+    return null;
+}
 
-    )
+// TODO: TEMP, Could be kept. Allows user to save/load without logging in
+function loadSavedStateFromFileWidget() {
+    let onChange = () => {
+        let state = Array.from($("#saved-state-input").prop("files"))[0];
+        let reader = new FileReader();
+        reader.onload = () => {
+            let state = JSON.parse(reader.result);
+            state.autosave = false;
+            state.projectID = 0;
+            loadSavedState(state);
+        };
+        reader.readAsText(state);
+    };
+    return fileInputWidget('Saved State', "saved-state-input", "*.json", onChange).css("display", "none");
 }

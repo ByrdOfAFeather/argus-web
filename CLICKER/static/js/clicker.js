@@ -335,7 +335,8 @@ function sendKillNotification(e) {
     );
     windowManager.killPoppedWindows();
     try {
-        windowManager.saveProject(true);
+        // TODO: Disabled for presentation
+        // windowManager.saveProject(true);
     } catch (e) {
     }
 }
