@@ -1674,3 +1674,10 @@ function loadSavedStateFromFileWidget() {
     };
     return fileInputWidget('Saved State', "saved-state-input", "*.json", onChange).css("display", "none");
 }
+
+/*
+window.scroll({
+  top: $("#canvas-0").get(0).getBoundingClientRect().y,
+  behavior: 'smooth'
+});
+ */

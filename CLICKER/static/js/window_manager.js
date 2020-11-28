@@ -978,6 +978,7 @@ class MainWindowManager extends WindowManager {
             colorSpaces: VIDEO_TO_COLORSPACE, // ----
             pointSizes: VIDEO_TO_POINT_SIZE, // ----
             videoSettings: this.videosToSettings,
+            scaleMode: this.scaleMode
         };
         createNewSavedState(output_json, autoSaved, PROJECT_ID);
     }
@@ -1021,6 +1022,14 @@ class MainWindowManager extends WindowManager {
         // TODO: AUTO SAVE IS DISABLED FOR THE PRESENTATION
         // AUTO_SAVE_INTERVAL_ID = setInterval(() => this.saveProject(true), 60000);
         this.loadSettings();
+
+        // Smooth scrolls if the window is considered mobile via bulma's framework
+        if ($(window).width() <= 768) {
+            window.scroll({
+                top: $("#canvas-0").get(0).getBoundingClientRect().y,
+                behavior: 'smooth'
+            });
+        }
     }
 
     loadSavedState(state) {
@@ -1032,6 +1041,9 @@ class MainWindowManager extends WindowManager {
         frameTracker = state.frameTracker;
         this.settings = state.settings;
         this.videosToSettings = state.videoSettings;
+        if (NUMBER_OF_CAMERAS == 1) {
+            this.scaleMode = state.scaleMode;
+        }
         let videoGetter = loadSavedStateWidget(state.videos, (videos) => this.loadSavedStateVideos(videos));
         let modal = $("#generic-input-modal");
         $("#modal-content-container").append(videoGetter);
@@ -1196,8 +1208,10 @@ class MainWindowManager extends WindowManager {
         let header = [];
         for (let j = 0; j < this.trackManager.tracks.length; j++) {
             for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x`);
-                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y`);
+                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x_rel`);
+                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y_rel`);
+                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x_org`);
+                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y_org`);
             }
         }
         exportablePoints.push(header.join(",") + ",\n");
@@ -1224,7 +1238,13 @@ class MainWindowManager extends WindowManager {
                             let scaledY = (dyunits * (this.scaleMode.originPoint.y - localPoints[index].y)) / (yDist);
                             frameArray.push(scaledX);
                             frameArray.push(scaledY);
+                            frameArray.push(localPoints[index].x);
+                            frameArray.push(localPoints[index].y);
                         } else {
+                            // TODO: This is the case where there are multiple cameras exporting xy points
+                            // We will basically have x,y for relative (on the origin etc) and original
+                            frameArray.push(localPoints[index].x);
+                            frameArray.push(localPoints[index].y);
                             frameArray.push(localPoints[index].x);
                             frameArray.push(localPoints[index].y);
                         }
@@ -1232,9 +1252,18 @@ class MainWindowManager extends WindowManager {
                 }
             }
             exportablePoints.push(frameArray.join(",") + ",\n");
-            masterFrameArray.push(frameArray);
+            masterFrameArray.push(frameArray); // TODO: Note this is now doubled with duplicates due to the note above
         }
-        zip.file("xy_points.csv", exportablePoints.join(""));
+        zip.file("xy_points_system.csv", exportablePoints.join(""));
+        if (NUMBER_OF_CAMERAS === 1) {
+            zip.file("origin_system.json", JSON.stringify({
+                origin: this.scaleMode.originPoint,
+                point1: this.scaleMode.initialPoint,
+                point2: this.scaleMode.finalPoint,
+                units: this.scaleMode.unitRatio,
+                unitName: this.scaleMode.unitName
+            }));
+        }
 
         if (DLT_COEFFICIENTS !== null && CAMERA_PROFILE !== null) {
             let exportableXYZPoints = []
@@ -1666,11 +1695,20 @@ class MainWindowManager extends WindowManager {
                 $("#generic-input-modal").removeClass("is-active");
                 $("#blurrable").css("filter", "");
                 this.loadVideoIntoDOM(parsedInputs);
-                AUTO_SAVE_INTERVAL_ID = setInterval(() => {
-                        this.saveProject(true)
-                    },
-                    60000);
+                // TODO: Disabled for presentation
+                // AUTO_SAVE_INTERVAL_ID = setInterval(() => {
+                //         this.saveProject(true)
+                //     },
+                //     60000);
                 $(window).on("resize", () => this.keepCanvasAspectRatio(false));
+
+                // Smooth scrolls if the window is considered mobile via bulma's framework
+                if ($(window).width() <= 768) {
+                    window.scroll({
+                        top: $("#canvas-0").get(0).getBoundingClientRect().y,
+                        behavior: 'smooth'
+                    });
+                }
             } else {
                 this.loadVideoIntoDOM(parsedInputs);
                 if (this.videosToSettings[index] === undefined) {
