@@ -407,7 +407,12 @@ function savedStatePaginationHandler(newPagination, type) {
 
 
 async function displaySavedStates(currentPagination, direction = null) {
-    let projects = await getSavedProjects();
+    let projects = null;
+    try {
+        projects = await getSavedProjects();
+    } catch (e) {
+        return;
+    }
     let section = $("#saved-states-section");
     section.removeClass("no-display");
     section.hide();

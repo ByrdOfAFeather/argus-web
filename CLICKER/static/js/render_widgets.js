@@ -1606,14 +1606,22 @@ function loadCameraInfoWidget(bindings) {
 }
 
 function setScaleWidget(bindings) {
-    return genericDivWidget("column is-three-fifths").append(
+    return genericDivWidget("column is-three-fifths has-text-centered").append(
         genericDivWidget("box").append(
             $("<button>", {class: "button"}).text("Set Scale").on("click", bindings.setScaleBinding)
         )
     );
 }
 
-function setScaleSaveOrigin(bindings) {
+function setScaleSaveOriginWidget(bindings) {
+    let errorMap = {
+        unitRatio: "#units-error-message",
+        unitName: "#unit-name-error-message"
+    };
+    let generateError = (errorType, errorText) => {
+        let errorTag = $(errorMap[errorType]);
+        errorTag.text(errorText);
+    };
     return genericDivWidget("column is-12").append($("<button>", {
             class: "button",
             id: "TEMP_DELETE"
@@ -1622,18 +1630,25 @@ function setScaleSaveOrigin(bindings) {
                 genericDivWidget("column is-12", "scaleColumn").append(
                     genericDivWidget("columns").append(
                         genericDivWidget("column").append(
-                            $("<input>", {
-                                class: "input",
-                                id: "unitRatio",
-                                placeholder: "How many units?"
-                            })),
+                            genericDivWidget("field").append(
+                                $("<input>", {
+                                    class: "input",
+                                    id: "unitRatio",
+                                    placeholder: "How many units?"
+                                }),
+                                $("<p>", {id: "units-error-message", class: "help is-danger"})
+                            )
+                        ),
                         genericDivWidget("column").append(
-                            $("<input>", {class: "input", id: "unitName", placeholder: "Unit name"})),
+                            genericDivWidget("field").append(
+                                $("<input>", {class: "input", id: "unitName", placeholder: "Unit name"}),
+                                $("<p>", {id: "unit-name-error-message", class: "help is-danger"})
+                            )),
                         genericDivWidget("column").append(
-                            $("<button>", {class: "button"}).text("Save").on("click", bindings.saveScale)
+                            $("<button>", {class: "button"}).text("Save").on("click", ()=>bindings.saveScale(generateError))
                         )
                     ),
-                ));
+                ))
 
             bindings.cleanUpOrigin();
         })
@@ -1646,10 +1661,10 @@ function exportPointsGUI(bindings) {
     return null;
 }
 
-function exportButtonWidget(bindings) {
+function exportButtonWidget(text, bindings) {
     return genericDivWidget("column is-three-fifths").append(
         genericDivWidget("box").append(
-            $("<button>", {class: "button"}).on("click", bindings.exportFunction())
+            $("<button>", {class: "button"}).on("click", bindings.exportFunction).text(text)
         )
     );
 }
@@ -1674,10 +1689,3 @@ function loadSavedStateFromFileWidget() {
     };
     return fileInputWidget('Saved State', "saved-state-input", "*.json", onChange).css("display", "none");
 }
-
-/*
-window.scroll({
-  top: $("#canvas-0").get(0).getBoundingClientRect().y,
-  behavior: 'smooth'
-});
- */

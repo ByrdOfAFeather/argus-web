@@ -626,7 +626,8 @@ function loadHiddenVideo(objectURL, index, onCanPlay) {
     });
 
     $("#videos").append(curVideo);
-    curVideo.get(0).currentTime = 0.001;
+    curVideo.get(0).load();
+    // curVideo.get(0).currentTime = 0.001;
     curVideo.one("loadeddata", onCanPlay);
     return curVideo;
 }

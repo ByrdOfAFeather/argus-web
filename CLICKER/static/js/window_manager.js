@@ -1245,8 +1245,6 @@ class MainWindowManager extends WindowManager {
                             // We will basically have x,y for relative (on the origin etc) and original
                             frameArray.push(localPoints[index].x);
                             frameArray.push(localPoints[index].y);
-                            frameArray.push(localPoints[index].x);
-                            frameArray.push(localPoints[index].y);
                         }
                     }
                 }
@@ -1265,7 +1263,7 @@ class MainWindowManager extends WindowManager {
             }));
         }
 
-        if (DLT_COEFFICIENTS !== null && CAMERA_PROFILE !== null) {
+        if (DLT_COEFFICIENTS !== null) {
             let exportableXYZPoints = []
             let header = [];
             for (let j = 0; j < this.trackManager.tracks.length; j++) {
@@ -1389,15 +1387,29 @@ class MainWindowManager extends WindowManager {
                     $(document).on("mouseup", this.TEMP);
                     $(document).on("mousedown", this.TEMP2);
                 },
-                saveScale: () => {
-                    this.locks.can_click = true;
-                    this.drawAllPoints(0);
-                    this.scaleMode.isActive = false;
-                    this.scaleMode.unitRatio = $("#unitRatio").val();
-                    this.scaleMode.unitName = $("#unitName").val();
-                    this.videos[0].isDisplayingFocusedPoint = this.videos[0].isDisplayingFocusedPointStore;
-                    $("#scaleColumn").remove();
-                    // TODO: Various forms of error checking
+                saveScale: (generateError) => {
+                    let unitRatio = $("#unitRatio").val();
+                    let valid = true;
+                    if (isNaN(parseFloat(unitRatio))) {
+                        valid = false;
+                        generateError("unitRatio", "This has to be a numeric value!");
+                    }
+
+                    let unitName = $("#unitName").val();
+                    if (unitName.length === 0) {
+                        valid = false;
+                        generateError("unitName", "The name can't be empty");
+                    }
+
+                    if(valid) {
+                        this.locks.can_click = true;
+                        this.drawAllPoints(0);
+                        this.scaleMode.isActive = false;
+                        this.scaleMode.unitRatio = $("#unitRatio").val();
+                        this.scaleMode.unitName = $("#unitName").val();
+                        this.videos[0].isDisplayingFocusedPoint = this.videos[0].isDisplayingFocusedPointStore;
+                        $("#scaleColumn").remove();
+                    }
                 },
                 cleanUpOrigin: () => {
                     this.videos[0].clearPoints(this.videos[0].canvasContext);
@@ -1417,15 +1429,13 @@ class MainWindowManager extends WindowManager {
 
             scaleModeBindings.setScaleBinding = () => {
                 scaleModeBindings.setScale();
-                $("#canvas-columns-0").append(setScaleSaveOrigin(scaleModeBindings));
+                $("#canvas-columns-0").append(setScaleSaveOriginWidget(scaleModeBindings));
             }
             allSettings.append(setScaleWidget(scaleModeBindings));
         }
+        allSettings.append(exportButtonWidget("Export Points", exportPointsBindings));
 
         $("#settings").append(allSettings);
-        $("#settings").append($("<button>", {class: "button"}).text("Export Points").on("click", () => {
-            this.exportPoints()
-        }));
     }
 
 
@@ -1888,12 +1898,13 @@ class PopOutWindowManager extends WindowManager {
          *   parsedInputs now requires "frame" attribute. This represents
          *   the frame the video should load to. (see: pop_out.js -> setup())
          */
+        let videoTag = $(`#video-${parsedInputs.index}`);
         super.loadVideoIntoDOM(parsedInputs);
         this.videos[parsedInputs.index].isEpipolarLocked = parsedInputs.isEpipolarLocked;
         this.videos[parsedInputs.index].goToFrame(parsedInputs.frame);
         this.videosToSettings[parsedInputs.index] = parsedInputs; // TODO: A lot of extra information is now stored in this, but it doesn't really matter that much, would be nice to clean up one day
         this.videoFiles[this.absoluteIndex] = {name: parsedInputs.name};
-        $(`#video-${parsedInputs.index}`).one("canplay", () => {
+        videoTag.one("canplay", () => {
             this.drawAllPoints(parsedInputs.index);
             if (parsedInputs.epipolarInfo.isEpipolar) {
                 if (parsedInputs.epipolarInfo.infoType === "epipolar") {
