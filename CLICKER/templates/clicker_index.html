@@ -14,30 +14,36 @@
             integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU="
             crossorigin="anonymous"></script>
 
+    <!-- argus files -->
     <script src="{% static 'js/video_api.js' %}"></script>
     <script src="{% static 'js/track_manager.js' %}"></script>
     <script src="{% static 'js/point_manager.js' %}"></script>
     <script src="{% static 'js/window_manager.js' %}"></script>
     <script src="{% static 'js/clicker.js' %}"></script>
     <script src="{% static 'js/clicker_animations.js' %}"></script>
-    <script src="{% static 'js/broadcast_channel.js' %}"></script>
-    <script src="{% static 'js/bulma-slider.js' %}"></script>
     <script src="{% static 'js/render_widgets.js' %}"></script>
     <script src="{% static 'js/DLT_helpers.js' %}"></script>
     <script src="{% static 'js/communicators_manager.js' %}"></script>
+
+    <!-- External Dependencies -->
+    <script src="{% static 'js/broadcast_channel.js' %}"></script>
+    <script src="{% static 'js/bulma-slider.js' %}"></script>
+    <script src="{% static 'js/spectrum.js'%}"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.2/dist/tf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/6.2.2/math.js"></script>
+    <script src="//cdn.jsdelivr.net/jquery.shadow-animation/1/mainfile"></script>
+
 
     <!-- File Saving Dependices -->
     <script src="{% static 'js/jszip.min.js' %}"></script>
     <script src="{% static 'js/FileSaver.min.js' %}"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.2/dist/tf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/6.2.2/math.js"></script>
-    <script src="//cdn.jsdelivr.net/jquery.shadow-animation/1/mainfile"></script>
     <link type="text/css" href="{% static 'css/clicker_index.css' %}" rel="stylesheet">
     <link type='text/css' href="{% static 'css/all.css' %}" rel="stylesheet">
     <link type="text/css" href="{% static 'css/bulma-tooltip.min.css' %}" rel="stylesheet">
     <link type="text/css" href="{% static 'css/bulma-slider.min.css' %}" rel="stylesheet">
+    <link type="text/css" href="{% static 'css/spectrum.css' %}" rel="stylesheet">
     <link type="text/css"
           href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css?family=Julius+Sans+One|Roboto&display=swap" rel="stylesheet">
@@ -255,7 +261,10 @@
                     },
                     error: function (error) {
                         if (error.status === 403) {
+                            let successText = $("#auto-save-placeholder");
                             download(`${PROJECT_NAME}.json`, JSON.stringify(outputJson));
+                            let now = new Date();
+                            successText.text(`Last saved : ${now.toString()}`);
                             // TODO: Log in/ log out is not enabled for the demo
                             //if (!autoSaved) {
                             //    generateError("You have to be logged in to use this feature!");

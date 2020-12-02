@@ -39,6 +39,7 @@ class WindowManager {
             offset: -1,
             pointSize: 1
         };
+        this.lastFocusedCanvas = 0; // This is used to re-sync the videos after it is turned off then on
 
 
         // Modified by subclasses
@@ -318,8 +319,8 @@ class WindowManager {
         // Builds a context for the input builder so that we don't have redundant inputs or inputs that
         // don't belong for a given video.
         let name = this.videoFiles[context.index].name;
-        if (name.length > 20) {
-            name = name.slice(0, 20);
+        if (name.length > 250) {
+            name = name.slice(0, 250);
             name += "...";
         }
 
@@ -467,6 +468,7 @@ class WindowManager {
 
     setMousePos(e) {
         $(e.target).focus();
+        this.lastFocusedCanvas = e.target.id.split("-")[1];
 
         // Source : https://stackoverflow.com/a/17130415
         let bounds = e.target.getBoundingClientRect();
@@ -1191,6 +1193,19 @@ class MainWindowManager extends WindowManager {
         }
     }
 
+    onTrackColorChange(trackID, color) {
+        this.trackManager.findTrack(trackID).color = `rgb(${color._r}, ${color._g}, ${color._b})`;
+        let redrawPoints = this.trackManager.hasSubTrack(trackID) || this.trackManager.currentTrack.absoluteIndex == trackID;
+        if (redrawPoints) {
+            for (let i = 0; i<this.videos.length; i++) {
+                this.drawAllPoints(i);
+                if (this.trackManager.currentTrack.absoluteIndex == trackID) {
+                    this.videos[i].drawZoomWindows(this.trackManager.findTrack(trackID).color);
+                }
+            }
+        }
+    }
+
     // getReprojectionErrors(uvPoint, xyzPoint) {
     //     let errors = [];
     //     let undistortPoints = undistortPoints(uvPoint, CAMERA_PROFILE);
@@ -1304,11 +1319,23 @@ class MainWindowManager extends WindowManager {
 
     loadSettings() {
         let allSettings = genericDivWidget("columns is-multiline is-centered is-mobile");
+        allSettings.append(
+            genericDivWidget("column is-three-fifths").append(
+                genericDivWidget("box").append(
+                    $("<p>", {class: "subtitle"}).text(`Project: ${PROJECT_NAME}`)
+                )
+            )
+        );
+        let saveBinding = () => this.saveProject(false);
+        let saveWidget = saveProjectWidget(saveBinding);
+        allSettings.append(saveWidget);
+
         let trackBindings = {
             onTrackClick: (event) => this.onTrackClick(event),
             onTrackDisplay: (event) => this.onTrackDisplay(event),
             onTrackDelete: (event) => this.onTrackDelete(event),
             onTrackAdd: (event) => this.onTrackAdd(event),
+            onTrackColorChange: (trackID, color) => this.onTrackColorChange(trackID, color),
             getCurrentTrack: () => this.trackManager.currentTrack,
             getSelectableTracks: () => this.trackManager.tracks.filter((track) => track.absoluteIndex !== this.trackManager.currentTrack.absoluteIndex),
             getSelectedTracks: () => this.trackManager.subTracks.trackIndicies.map((index) => this.trackManager.findTrack(index))
@@ -1319,15 +1346,17 @@ class MainWindowManager extends WindowManager {
         let frameMovementSettingsBindings = {
             inverseSetting: (setting) => {
                 this.settings[setting] = !this.settings[setting];
+                if (this.settings["sync"] && setting === "sync") {
+                    for (let i = 0; i<this.videos.length; i++) {
+                        this.videos[i].goToFrame(frameTracker[this.lastFocusedCanvas]);
+                    }
+                }
             },
             get: (setting) => this.settings[setting]
         }
         let frameMovementSettings = frameMovementSettingsWidget(frameMovementSettingsBindings);
         allSettings.append(frameMovementSettings);
 
-
-        let saveBinding = () => this.saveProject(false);
-        let saveWidget = saveProjectWidget(saveBinding);
 
         let forwardBackwardsBindings = {
             onChange: (event) => {
@@ -1344,16 +1373,11 @@ class MainWindowManager extends WindowManager {
             }
         }
         allSettings.append(changeForwardBackwardOffsetWidget(forwardBackwardsBindings))
-        allSettings.append(saveWidget);
 
         if (NUMBER_OF_CAMERAS > 1) {
             let loadCameraInfo = loadCameraInfoWidget();
             allSettings.append(loadCameraInfo);
         }
-
-        let exportPointsBindings = {
-            exportFunction: () => this.exportPoints()
-        };
 
         if (NUMBER_OF_CAMERAS === 1) {
             /// TODO: So much cleanup
@@ -1433,6 +1457,9 @@ class MainWindowManager extends WindowManager {
             }
             allSettings.append(setScaleWidget(scaleModeBindings));
         }
+        let exportPointsBindings = {
+            exportFunction: () => this.exportPoints()
+        };
         allSettings.append(exportButtonWidget("Export Points", exportPointsBindings));
 
         $("#settings").append(allSettings);

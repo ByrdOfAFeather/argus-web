@@ -1056,7 +1056,7 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
         }
         let currentTrack = genericDivWidget("column is-12").append(
             genericDivWidget("columns is-multiline").append(
-                genericDivWidget("column").append(
+                genericDivWidget("column is-12").append(
                     $(`<p>${trackName}</p>`)
                 ),
                 genericDivWidget("column").append(
@@ -1088,6 +1088,19 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
                             id: `trackdelete-${tracksDisplay[i].absoluteIndex}-icon`
                         })
                     ).on("click", (event) => updateEvent(bindings.onTrackDelete, event))
+                ),
+                genericDivWidget("column").append(
+                    $("<button>", {
+                        class: 'button',
+                        id: `trackcolor-${tracksDisplay[i].absoluteIndex}`
+                    }).append(
+                        $("<i>", {
+                            class: `fas fa-eye-dropper icon`,
+                            id: `trackcolor-${tracksDisplay[i].absoluteIndex}-icon`
+                        })
+                    ).spectrum({
+                        change: (color) => bindings.onTrackColorChange(tracksDisplay[i].absoluteIndex, color)
+                    })
                 )
             ));
         if (i === 0) {
@@ -1155,24 +1168,31 @@ function frameMovementSettingsWidget(bindings) {
     return genericDivWidget("column  is-three-fifths").append(
         genericDivWidget("box").append(
             // Auto Advance Checkbox
-            $("<label>", {class: "label"}).text("Auto Advance:"),
-            $("<input>", {
-                id: "auto-advance-setting",
-                type: "checkbox",
-                class: "checkbox",
-            }).on("click", function () {
-                bindings.inverseSetting('auto-advance');
-            }).prop("checked", auto),
-
-            // Sync Check box
-            $("<label>", {class: "label"}).text("Synchronize Videos:"),
-            $("<input>", {
-                id: "sync-setting",
-                type: "checkbox",
-                class: "checkbox",
-            }).on("click", function () {
-                bindings.inverseSetting('sync');
-            }).prop("checked", sync),
+            genericDivWidget("columns").append(
+                genericDivWidget("column").append(
+                    $("<label>", {class: "label"}).text("Auto Advance:"),
+                ),
+                genericDivWidget("column").append(
+                    $("<input>", {
+                        id: "auto-advance-setting",
+                        type: "checkbox",
+                        class: "checkbox",
+                    }).on("click", function () {
+                        bindings.inverseSetting('auto-advance');
+                    }).prop("checked", auto),
+                )
+            ),
+            genericDivWidget("columns").append(
+                genericDivWidget("column").append($("<label>", {class: "label"}).text("Synchronize Videos:")),
+                genericDivWidget("column").append(
+                    $("<input>", {
+                        id: "sync-setting",
+                        type: "checkbox",
+                        class: "checkbox",
+                    }).on("click", function () {
+                        bindings.inverseSetting('sync');
+                    }).prop("checked", sync))
+            ),
         )
     );
 }
@@ -1184,7 +1204,7 @@ function changeForwardBackwardOffsetWidget(bindings) {
                 // tooltipLabelWidget(labelText, labelStyle, tooltipText, direction)
 
                 genericDivWidget("column").append(
-                    $("<label>", {class: "label"}).text("Forwards Offset")
+                    $("<label>", {class: "label"}).text("Forwards step size")
                 ),
 
                 genericDivWidget("column").append(
@@ -1196,7 +1216,7 @@ function changeForwardBackwardOffsetWidget(bindings) {
 
 
                 genericDivWidget("column").append(
-                    $("<label>", {class: "label"}).text("Backwards Offset")
+                    $("<label>", {class: "label"}).text("Backwards step size")
                 ),
                 genericDivWidget("column").append(
                     $("<input>", {
@@ -1662,7 +1682,7 @@ function exportPointsGUI(bindings) {
 }
 
 function exportButtonWidget(text, bindings) {
-    return genericDivWidget("column is-three-fifths").append(
+    return genericDivWidget("column is-three-fifths has-text-centered").append(
         genericDivWidget("box").append(
             $("<button>", {class: "button"}).on("click", bindings.exportFunction).text(text)
         )

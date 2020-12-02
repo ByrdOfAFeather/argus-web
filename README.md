@@ -11,3 +11,7 @@ Broadcast-Channel: https://github.com/pubkey/broadcast-channel
 Django: https://github.com/django/django
 
 JsZip: https://codeload.github.com/Stuk/jszip/legacy.zip/master
+
+Jquery: https://jquery.com
+
+Spectrum Color Picker: https://bgrins.github.io/spectrum/#events-change
