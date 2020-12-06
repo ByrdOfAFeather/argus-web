@@ -174,18 +174,21 @@ function removeTrackFromDropDown(trackID) {
 }
 
 
-function trackDropDownWidget(onTrackClick, onTrackDisplay, onTrackDelete) {
-    /*
-     * TODO: When writing this documentation make sure to include the fact that display and delete need stop propagation lines
-     */
-    let items = generateTrackDropDownItem("Track 0", 0, false);
-    let dropDown = genericDropDownWidget('track', 'Select Track', items, onTrackClick);
-
-    dropDown.on('click', '.track-display-box', onTrackDisplay);
-    dropDown.on('click', '.dropdown-item-delete', onTrackDelete);
-    return dropDown;
+// The following two functions are helpful functions that are used exclusively during setup. This is mostly done so that
+// if we ever wanted to change the style of labels and tooltips, we wouldn't have to change 10 anon. functions
+function setupLabelGenerator(labelText) {
+    return $("<label>", {class: `label ${LABEL_STYLES.LIGHT}`}).text(labelText);
 }
 
+function setupTooltipPropertiesGenerator(tooltipText, direction) {
+    return {
+        tooltipText: tooltipText,
+        multiline: true,
+        tooltipStyle: LABEL_STYLES.LIGHT,
+        direction: direction
+    };
+}
+// End line from comment above.
 
 function frameRateDropDownWidget(defaultValue = '30') {
     let COMMON_FRAME_RATES = [
@@ -286,13 +289,17 @@ function tooltipBuilder(helpText, multiline, style, direction) {
     )
 }
 
-function tooltipLabelWidget(labelText, labelStyle, tooltipText, direction) {
+function tooltipDualColumnWidget(prevElement, options) {
+    let tooltipText = options.tooltipText;
+    let multiline = options.multiline;
+    let tooltipStyle = options.tooltipStyle;
+    let textDirection = options.direction;
     return genericDivWidget("columns is-gapless is-vcentered").append(
         genericDivWidget("column is-narrow").append(
-            $("<label>", {class: `label ${labelStyle}`}).text(labelText),
+            prevElement
         ),
         genericDivWidget("column is-narrow").append(
-            tooltipBuilder(tooltipText, true, labelStyle, direction)
+            tooltipBuilder(tooltipText, multiline, tooltipStyle, textDirection)
         )
     );
 }
@@ -475,19 +482,30 @@ function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, upda
     let saturationTooltipText = 'Saturation can be thought of as: how colorful do I want my video? Which is exactly' +
         ' why this setting will have no effect in black & white settings';
 
-    return [genericDivWidget("column is-12").append(
-        tooltipLabelWidget("Brightness", labelStyle, `${brightnessTooltipText}`, "top"),
-        sliderWidget(`${brightnessID}`, "0", "200", initValues.brightness, function () {
-            updateVideoProperties(`${brightnessID}`);
-        })),
+    return [
         genericDivWidget("column is-12").append(
-            tooltipLabelWidget("Contrast", labelStyle, `${contrastTooltipText}`, "top"),
+            tooltipDualColumnWidget(
+                setupLabelGenerator("Brightness"),
+                setupTooltipPropertiesGenerator(brightnessTooltipText, "up")
+            ),
+            sliderWidget(`${brightnessID}`, "0", "200", initValues.brightness, function () {
+                updateVideoProperties(`${brightnessID}`);
+            })
+        ),
+        genericDivWidget("column is-12").append(
+            tooltipDualColumnWidget(
+                setupLabelGenerator("Contrast"),
+                setupTooltipPropertiesGenerator(contrastTooltipText, "up")
+            ),
             sliderWidget(`${contrastID}`, '0', '100', initValues.contrast, function () {
                 updateVideoProperties(`${contrastID}`)
             }),
         ),
         genericDivWidget("column is-12").append(
-            tooltipLabelWidget("Saturation", labelStyle, `${saturationTooltipText}`, "top"),
+            tooltipDualColumnWidget(
+                setupLabelGenerator("Saturation"),
+                setupTooltipPropertiesGenerator(saturationTooltipText, "up")
+            ),
             sliderWidget(`${saturationID}`, '0', '100', initValues.saturation, function () {
                 updateVideoProperties(`${saturationID}`)
             }),
@@ -534,10 +552,12 @@ function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, save
 
 
     let frameRateInput = genericDivWidget("column is-narrow", "framerate-column").append(
-        tooltipLabelWidget("Global Framerate", LABEL_STYLES.LIGHT,
-            "Argus-web doesn't support multiple " +
-            "framerates across videos, this value should be the framerate of all of the videos selected",
-            "right"),
+        tooltipDualColumnWidget(
+            setupLabelGenerator("Global Framerate"),
+            setupTooltipPropertiesGenerator("Argus-web doesn't support multiple " +
+                "framerates across videos, this value should be the framerate of all of the videos selected",
+                "right")
+        ),
         frameRateDropDownWidget(currentSettings["frameRate"].toString())
     );
 
@@ -684,10 +704,14 @@ function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, save
                     genericDivWidget("columns is-multiline is-mobile").append(
                         genericDivWidget("column").append(
                             genericDivWidget("field", "offset-field").append(
-                                tooltipLabelWidget("Offset", LABEL_STYLES.LIGHT,
-                                    "Your videos may start at different places, " +
-                                    " the difference in starting points is the offset (in frames).",
-                                    "right"),
+                                tooltipDualColumnWidget(
+                                    setupLabelGenerator("Offset"),
+                                    setupTooltipPropertiesGenerator(
+                                        "Your videos may start at different places, " +
+                                        " the difference in starting points is the offset (in frames).",
+                                        "right"
+                                    )
+                                ),
                                 offsetField
                             ),
                         ),
@@ -699,18 +723,23 @@ function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, save
                 genericDivWidget("column").append(
                     genericDivWidget("columns is-multiline is-vcentered is-mobile").append(
                         genericDivWidget("column").append(
-                            tooltipLabelWidget("Colorspace", LABEL_STYLES.LIGHT,
-                                "Your videos may be easier to see by swaping colorspace",
-                                "left"),
+                            tooltipDualColumnWidget(
+                                setupLabelGenerator("Colorspace"),
+                                setupTooltipPropertiesGenerator("Your videos may be easier to see by swaping colorspace",
+                                    "left")
+                            ),
                             colorSpaceDropDown,
                         ),
                         genericDivWidget("column").append(
                             genericDivWidget("columns is-mobile").append(
                                 genericDivWidget("column").append(
-                                    tooltipLabelWidget("Point Size", LABEL_STYLES.LIGHT,
-                                        "This controls the radius of your points, the larger it is, the easier it" +
-                                        " will be to see. However, this will cause overlap with other points",
-                                        "left"),
+                                    tooltipDualColumnWidget(
+                                        setupLabelGenerator("Point Size"),
+                                        setupTooltipPropertiesGenerator(
+                                            "This controls the radius of your points, the larger it is, the easier it" +
+                                            " will be to see. However, this will cause overlap with other points",
+                                            "left")
+                                    ),
 
                                     $("<input>", {
                                         class: "input",
@@ -1162,7 +1191,7 @@ function frameMovementSettingsWidget(bindings) {
     let sync = bindings.get("sync") ? "checked" : "";
     // Auto Advance Checkbox
     return [
-        genericDivWidget("columns").append(
+        genericDivWidget("columns is-vcentered").append(
             genericDivWidget("column").append(
                 $("<label>", {class: "label"}).text("Auto Advance:"),
             ),
@@ -1174,9 +1203,17 @@ function frameMovementSettingsWidget(bindings) {
                 }).on("click", function () {
                     bindings.inverseSetting('auto-advance');
                 }).prop("checked", auto),
+            ),
+            genericDivWidget("column").append(
+                tooltipBuilder(
+                    "This determines if a video will automatically go forward by the offset determined below after adding a point",
+                    true,
+                    LABEL_STYLES.DARK,
+                    "up"
+                )
             )
         ),
-        genericDivWidget("columns").append(
+        genericDivWidget("columns is-vcentered").append(
             genericDivWidget("column").append($("<label>", {class: "label"}).text("Synchronize Videos:")),
             genericDivWidget("column").append(
                 $("<input>", {
@@ -1185,7 +1222,15 @@ function frameMovementSettingsWidget(bindings) {
                     class: "checkbox",
                 }).on("click", function () {
                     bindings.inverseSetting('sync');
-                }).prop("checked", sync))
+                }).prop("checked", sync)),
+            genericDivWidget("column").append(
+                tooltipBuilder(
+                    "This determines if all videos will stay on the same frame at all times",
+                    true,
+                    LABEL_STYLES.DARK,
+                    "up"
+                )
+            )
         )];
 }
 
@@ -1202,6 +1247,14 @@ function changeForwardBackwardOffsetWidget(bindings) {
                 class: "input",
                 id: "forward-frame-input"
             }).val(bindings["get"]("movementOffset")).on("change", (event) => bindings["onChange"](event))
+        ),
+        genericDivWidget("column").append(
+            tooltipBuilder(
+                "This lets you change how many frames f/b moves the videos by. As well this will determine how much auto-advance will move the video by",
+                true,
+                LABEL_STYLES.DARK,
+                "up"
+            )
         )
     );
 }
@@ -1589,9 +1642,18 @@ function loadCameraInfoWidget(bindings) {
     // TODO: Make this more inline with how everything else works. Right now it calls a global variable
     return genericDivWidget("columns is-multiline").append(
         genericDivWidget("column").append(
-            fileInputWidget("Load DLT Coefficents", "loadDLTCoefficients", "any", (file) => loadDLTCoefficients(Array.from($("#loadDLTCoefficients").prop("files"))))
+            tooltipDualColumnWidget(
+                fileInputWidget("Load DLT Coefficents", "loadDLTCoefficients", "any", (file) => loadDLTCoefficients(Array.from($("#loadDLTCoefficients").prop("files")))),
+                {
+                    tooltipText: "This will allow you to load DLT coefficients. Once loaded this will allow for advanced features " +
+                        "such as epipolar lines and 3D point recovery",
+                    tooltipStyle: "has-text-black",
+                    direction: "up",
+                    multiline: true
+                }
+            )
         )
-    ).css("overflow", "hidden");  // TODO: This is dumb. I'm not sure how to make the button work though.
+    );
 }
 
 function setScaleWidget(bindings) {
@@ -1650,8 +1712,13 @@ function exportPointsGUI(bindings) {
     return null;
 }
 
-function exportButtonWidget(text, bindings) {
-    return $("<button>", {class: "button"}).on("click", bindings.exportFunction).text(text);
+function exportButtonWidget(text, bindings, tooltipOptions) {
+    let button = $("<button>", {class: "button"}).on("click", bindings.exportFunction).text(text);
+    if (tooltipOptions != null) {
+        return tooltipDualColumnWidget(button, tooltipOptions);
+    } else {
+        return button;
+    }
 }
 
 function loginWidget(onLogin) {
@@ -1683,7 +1750,12 @@ function projectInfoWidget(bindings) {
             $("<hr>"),
             loadCameraInfoWidget(),
             saveProjectWidget(bindings.saveProjectBindings),
-            exportButtonWidget("Export Points", bindings.exportPointBindings)
+            exportButtonWidget("Export Points", bindings.exportPointBindings, {
+                tooltipText: "This will export x,y points in ARGUS format. If DLT coefficients are loaded, this will also " +
+                    "export recovered x,y,z points. If working with one video and the origin has been set, x_scaled and y_scaled will " +
+                    "be exported as well.",
+                multiline: true
+            })
         )
     );
 }
