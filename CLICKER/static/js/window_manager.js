@@ -25,8 +25,7 @@ class WindowManager {
         this.settings = {
             "auto-advance": true,
             "sync": true,
-            "forwardMove": 1,
-            "backwardsMove": 1,
+            "movementOffset": 1,
         };
         this.defaultVideoSettings = {
             filter: {
@@ -1319,16 +1318,16 @@ class MainWindowManager extends WindowManager {
 
     loadSettings() {
         let allSettings = genericDivWidget("columns is-multiline is-centered is-mobile");
-        allSettings.append(
-            genericDivWidget("column is-three-fifths").append(
-                genericDivWidget("box").append(
-                    $("<p>", {class: "subtitle"}).text(`Project: ${PROJECT_NAME}`)
-                )
-            )
-        );
         let saveBinding = () => this.saveProject(false);
-        let saveWidget = saveProjectWidget(saveBinding);
-        allSettings.append(saveWidget);
+        let exportPointsBindings = {
+            exportFunction: () => this.exportPoints()
+        };
+        let projectInfoBindings = {
+            "saveProjectBindings": saveBinding,
+            "exportPointBindings": exportPointsBindings
+        };
+        let projectInfo = projectInfoWidget(projectInfoBindings);
+        allSettings.append(projectInfo);
 
         let trackBindings = {
             onTrackClick: (event) => this.onTrackClick(event),
@@ -1341,8 +1340,9 @@ class MainWindowManager extends WindowManager {
             getSelectedTracks: () => this.trackManager.subTracks.trackIndicies.map((index) => this.trackManager.findTrack(index))
         };
 
-        let trackWidgets = trackManagementWidgets(trackBindings);
+        let trackWidgets = trackWidget(trackBindings);
         allSettings.append(trackWidgets);
+
         let frameMovementSettingsBindings = {
             inverseSetting: (setting) => {
                 this.settings[setting] = !this.settings[setting];
@@ -1354,30 +1354,23 @@ class MainWindowManager extends WindowManager {
             },
             get: (setting) => this.settings[setting]
         }
-        let frameMovementSettings = frameMovementSettingsWidget(frameMovementSettingsBindings);
-        allSettings.append(frameMovementSettings);
-
 
         let forwardBackwardsBindings = {
             onChange: (event) => {
                 let type = event.target.id.split("-")[0];
-                if (type === "forward") {
-                    this.settings["forwardMove"] = parseInt($("#" + event.target.id).val()); // TODO: error checking
-                } else {
-                    this.settings["backwardsMove"] = parseInt($("#" + event.target.id).val());
-                }
+                this.settings["movementOffset"] = parseInt($("#" + event.target.id).val()); // TODO: error checking
                 this.communicatorsManager.updateCommunicators(this.messageCreator("updateSettings", {"settings": this.settings}));
             },
             get: (initValue) => {
                 return this.settings[initValue];
             }
         }
-        allSettings.append(changeForwardBackwardOffsetWidget(forwardBackwardsBindings))
 
-        if (NUMBER_OF_CAMERAS > 1) {
-            let loadCameraInfo = loadCameraInfoWidget();
-            allSettings.append(loadCameraInfo);
-        }
+        let miscSettingsBindings = {
+            "frameMovementBindings": frameMovementSettingsBindings,
+            "forwardBackwardOffsetBindings": forwardBackwardsBindings
+        };
+        allSettings.append(miscSettingsWidget(miscSettingsBindings));
 
         if (NUMBER_OF_CAMERAS === 1) {
             /// TODO: So much cleanup
@@ -1457,10 +1450,6 @@ class MainWindowManager extends WindowManager {
             }
             allSettings.append(setScaleWidget(scaleModeBindings));
         }
-        let exportPointsBindings = {
-            exportFunction: () => this.exportPoints()
-        };
-        allSettings.append(exportButtonWidget("Export Points", exportPointsBindings));
 
         $("#settings").append(allSettings);
     }
@@ -1551,16 +1540,16 @@ class MainWindowManager extends WindowManager {
 
     // Keyboard Inputs \\
     goForwardFrames(id) {
-        let frame = frameTracker[id] + this.settings["forwardMove"];
+        let frame = frameTracker[id] + this.settings["movementOffset"];
         this.goToFrame(id, frame);
     }
 
     goBackwardsAFrame(id) {
-        if (frameTracker[id] - this.settings["backwardsMove"] < 0) {
+        if (frameTracker[id] - this.settings["movementOffset"] < 0) {
             return;
         }
 
-        let frame = frameTracker[id] - this.settings["backwardsMove"];
+        let frame = frameTracker[id] - this.settings["movementOffset"];
         this.goToFrame(id, frame);
     }
 
@@ -1769,17 +1758,17 @@ class MainWindowManager extends WindowManager {
                 }
 
                 let localCallback = (index) => {
-                    this.videos[index].moveToNextFrame();
+                    this.videos[index].goToFrame(frameTracker[index] + this.settings["movementOffset"]);
                     this.clearEpipolarCanvases();
                     this.getEpipolarInfo(index, frameTracker[index]);
                 };
 
-                let message = this.messageCreator("goToFrame", {frame: point.frame + 1});
+                let message = this.messageCreator("goToFrame", {frame: point.frame + this.settings["movementOffset"]});
 
                 this.communicatorsManager.updateAllLocalOrCommunicator(localCallback, message);
             } else {
                 let index = event.target.id.split("-")[1];
-                this.videos[index].moveToNextFrame();
+                this.videos[index].goToFrame(point.frame + this.settings["movementOffset"]);
                 this.clearEpipolarCanvases();
                 this.getEpipolarInfo(index, frameTracker[index]);
             }
@@ -1898,7 +1887,7 @@ class PopOutWindowManager extends WindowManager {
 
     goForwardFrames(id) {
         this.clearEpipolarCanvases(this.absoluteIndex);
-        let frame = frameTracker[id] + this.settings["forwardMove"];
+        let frame = frameTracker[id] + this.settings["movementOffset"];
         this.curEpipolarInfo[id] = {type: EPIPOLAR_TYPES.NONE};
         this.videos[id].goToFrame(frame);
         let message = messageCreator("goToFrame", {frame: frame, index: id});
@@ -1906,7 +1895,7 @@ class PopOutWindowManager extends WindowManager {
     }
 
     goBackwardsAFrame(id) {
-        let frame = frameTracker[id] - this.settings["backwardsMove"];
+        let frame = frameTracker[id] - this.settings["movementOffset"];
         if (frame < 0) {
             return;
         }

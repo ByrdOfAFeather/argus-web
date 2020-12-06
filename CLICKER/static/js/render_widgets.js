@@ -1130,120 +1130,93 @@ function trackManagementWidgets(bindings) {
         bindings);
 
 
-    return [genericDivWidget("column is-three-fifths has-text-centered", "track-input").append(
-        genericDivWidget("box").append(
-            genericDivWidget("field").append(
-                $("<label>", {class: "label"}).text("Add New Track: "),
-                genericDivWidget("control has-text-centered").append(
-                    genericDivWidget("columns is-gapless").append(
-                        genericDivWidget("column").append(
-                            $("<input>", {id: "new-track-input", type: "text", class: "input"}).on("keypress", (e) => {
-                                if (e.keyCode === 13) {
-                                    updateEvent(bindings.onTrackAdd, e);
-                                }
-                            }),
-                        ),
-                        genericDivWidget("column").append(
-                            $("<button>", {class: "button"}).append($("<i>", {
-                                id: "add-track-button",
-                                type: "button",
-                                class: "fas fa-plus",
-                            })).on("click", (event) => updateEvent(bindings.onTrackAdd, event))
-                        )
+    return [
+        paginationWidget,
+        $("<hr>"),
+        genericDivWidget("field").append(
+            $("<label>", {class: "label"}).text("Add New Track: "),
+            genericDivWidget("control has-text-centered").append(
+                genericDivWidget("columns is-gapless").append(
+                    genericDivWidget("column").append(
+                        $("<input>", {id: "new-track-input", type: "text", class: "input"}).on("keypress", (e) => {
+                            if (e.keyCode === 13) {
+                                updateEvent(bindings.onTrackAdd, e);
+                            }
+                        }),
+                    ),
+                    genericDivWidget("column").append(
+                        $("<button>", {class: "button"}).append($("<i>", {
+                            id: "add-track-button",
+                            type: "button",
+                            class: "fas fa-plus",
+                        })).on("click", (event) => updateEvent(bindings.onTrackAdd, event))
                     )
                 )
             )
         )
-    ),
-        genericDivWidget("column is-three-fifths", "currently-viewing-tracks").append(
-            genericDivWidget("box").append(
-                paginationWidget
-            )
-        )];
+    ];
 }
 
 function frameMovementSettingsWidget(bindings) {
     let auto = bindings.get("auto-advance") ? "checked" : "";
     let sync = bindings.get("sync") ? "checked" : "";
-    return genericDivWidget("column  is-three-fifths").append(
-        genericDivWidget("box").append(
-            // Auto Advance Checkbox
-            genericDivWidget("columns").append(
-                genericDivWidget("column").append(
-                    $("<label>", {class: "label"}).text("Auto Advance:"),
-                ),
-                genericDivWidget("column").append(
-                    $("<input>", {
-                        id: "auto-advance-setting",
-                        type: "checkbox",
-                        class: "checkbox",
-                    }).on("click", function () {
-                        bindings.inverseSetting('auto-advance');
-                    }).prop("checked", auto),
-                )
+    // Auto Advance Checkbox
+    return [
+        genericDivWidget("columns").append(
+            genericDivWidget("column").append(
+                $("<label>", {class: "label"}).text("Auto Advance:"),
             ),
-            genericDivWidget("columns").append(
-                genericDivWidget("column").append($("<label>", {class: "label"}).text("Synchronize Videos:")),
-                genericDivWidget("column").append(
-                    $("<input>", {
-                        id: "sync-setting",
-                        type: "checkbox",
-                        class: "checkbox",
-                    }).on("click", function () {
-                        bindings.inverseSetting('sync');
-                    }).prop("checked", sync))
-            ),
-        )
-    );
+            genericDivWidget("column").append(
+                $("<input>", {
+                    id: "auto-advance-setting",
+                    type: "checkbox",
+                    class: "checkbox",
+                }).on("click", function () {
+                    bindings.inverseSetting('auto-advance');
+                }).prop("checked", auto),
+            )
+        ),
+        genericDivWidget("columns").append(
+            genericDivWidget("column").append($("<label>", {class: "label"}).text("Synchronize Videos:")),
+            genericDivWidget("column").append(
+                $("<input>", {
+                    id: "sync-setting",
+                    type: "checkbox",
+                    class: "checkbox",
+                }).on("click", function () {
+                    bindings.inverseSetting('sync');
+                }).prop("checked", sync))
+        )];
 }
 
 function changeForwardBackwardOffsetWidget(bindings) {
-    return genericDivWidget("column is-three-fifths").append(
-        genericDivWidget("box").append(
-            genericDivWidget("columns is-multiline is-vcentered").append(
-                // tooltipLabelWidget(labelText, labelStyle, tooltipText, direction)
+    return genericDivWidget("columns is-multiline is-vcentered").append(
+        // tooltipLabelWidget(labelText, labelStyle, tooltipText, direction)
 
-                genericDivWidget("column").append(
-                    $("<label>", {class: "label"}).text("Forwards step size")
-                ),
+        genericDivWidget("column").append(
+            $("<label>", {class: "label"}).text("Forwards/Backwards step size")
+        ),
 
-                genericDivWidget("column").append(
-                    $("<input>", {
-                        class: "input",
-                        id: "forward-frame-input"
-                    }).val(bindings["get"]("forwardMove")).on("change", (event) => bindings["onChange"](event))
-                ),
-
-
-                genericDivWidget("column").append(
-                    $("<label>", {class: "label"}).text("Backwards step size")
-                ),
-                genericDivWidget("column").append(
-                    $("<input>", {
-                        class: "input",
-                        id: "backward-frame-input"
-                    }).val(bindings["get"]("backwardsMove")).on("change", (event) => bindings["onChange"](event))
-                )
-            )
+        genericDivWidget("column").append(
+            $("<input>", {
+                class: "input",
+                id: "forward-frame-input"
+            }).val(bindings["get"]("movementOffset")).on("change", (event) => bindings["onChange"](event))
         )
     );
 }
 
 function saveProjectWidget(saveCallback) {
-    return genericDivWidget("column has-text-centered is-three-fifths").append(
-        genericDivWidget("box").append(
-            genericDivWidget("columns is-multiline").append(
-                genericDivWidget("column").append(
-                    $("<button>", {
-                        class: "button",
-                    }).append(
-                        $("<i>", {class: "fas fa-save"})
-                    ).on("click", saveCallback)
-                ),
-                genericDivWidget("column").append(
-                    $("<p>", {id: "auto-save-placeholder"}).text("Last Saved: Never!")
-                )
-            )
+    return genericDivWidget("columns is-multiline is-vcentered").append(
+        genericDivWidget("column").append(
+            $("<button>", {
+                class: "button",
+            }).append(
+                $("<i>", {class: "fas fa-save"})
+            ).on("click", saveCallback)
+        ),
+        genericDivWidget("column").append(
+            $("<p>", {id: "auto-save-placeholder"}).text("Last Saved: Never!")
         )
     );
 }
@@ -1614,15 +1587,11 @@ function loadSavedStateWidget(videos, onValidSubmit) {
 
 function loadCameraInfoWidget(bindings) {
     // TODO: Make this more inline with how everything else works. Right now it calls a global variable
-    return genericDivWidget("column is-three-fifths").append(
-        genericDivWidget("box").append(
-            genericDivWidget("columns is-multiline").append(
-                genericDivWidget("column").append(
-                    fileInputWidget("Load DLT Coefficents", "loadDLTCoefficients", "any", (file) => loadDLTCoefficients(Array.from($("#loadDLTCoefficients").prop("files"))))
-                )
-            )
-        ).css("overflow", "hidden") // TODO: This is dumb. I'm not sure how to make the button work though.
-    )
+    return genericDivWidget("columns is-multiline").append(
+        genericDivWidget("column").append(
+            fileInputWidget("Load DLT Coefficents", "loadDLTCoefficients", "any", (file) => loadDLTCoefficients(Array.from($("#loadDLTCoefficients").prop("files"))))
+        )
+    ).css("overflow", "hidden");  // TODO: This is dumb. I'm not sure how to make the button work though.
 }
 
 function setScaleWidget(bindings) {
@@ -1682,11 +1651,7 @@ function exportPointsGUI(bindings) {
 }
 
 function exportButtonWidget(text, bindings) {
-    return genericDivWidget("column is-three-fifths has-text-centered").append(
-        genericDivWidget("box").append(
-            $("<button>", {class: "button"}).on("click", bindings.exportFunction).text(text)
-        )
-    );
+    return $("<button>", {class: "button"}).on("click", bindings.exportFunction).text(text);
 }
 
 function loginWidget(onLogin) {
@@ -1708,4 +1673,34 @@ function loadSavedStateFromFileWidget() {
         reader.readAsText(state);
     };
     return fileInputWidget('Saved State', "saved-state-input", "*.json", onChange).css("display", "none");
+}
+
+
+function projectInfoWidget(bindings) {
+    return genericDivWidget("column has-text-centered").append(
+        genericDivWidget("box").append(
+            $("<p>", {class: "subtitle"}).text(`Project: ${PROJECT_NAME}`),
+            $("<hr>"),
+            loadCameraInfoWidget(),
+            saveProjectWidget(bindings.saveProjectBindings),
+            exportButtonWidget("Export Points", bindings.exportPointBindings)
+        )
+    );
+}
+
+function trackWidget(bindings) {
+    return genericDivWidget("column has-text-centered").append(
+        genericDivWidget("box").append(
+            trackManagementWidgets(bindings),
+        )
+    )
+}
+
+function miscSettingsWidget(bindings) {
+    return genericDivWidget("column has-text-centered").append(
+        genericDivWidget("box").append(
+            frameMovementSettingsWidget(bindings.frameMovementBindings),
+            changeForwardBackwardOffsetWidget(bindings.forwardBackwardOffsetBindings)
+        )
+    )
 }
