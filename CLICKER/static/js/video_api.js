@@ -527,7 +527,7 @@ function sortByFrame(aPoint, bPoint) {
 function genericInputCleanUp(modalContentContainer, modal) {
     modalContentContainer.empty();
     modal.removeClass("is-active");
-    $("#blurrable").css("filter", "blur(0px)");
+    $(".blurrable").css("filter", "blur(0px)");
     // Removes any previous keyboard bindings prevent calling the function multiple times
     modal.off();
 }
@@ -566,7 +566,7 @@ function getGenericStringLikeInput(validate, callback, label, errorText, hasCanc
     input.val(" ");
 
     modal.addClass("is-active");
-    $("#blurrable").css("filter", "blur(5px)");
+    $(".blurrable").css("filter", "blur(5px)");
 
     modalContentContainer.fadeIn(300, function () {
         input.focus();

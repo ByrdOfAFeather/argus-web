@@ -355,26 +355,27 @@ function createNewProject() {
     };
     let form = createProjectWidget(onSubmit, cleanFunction);
 
-    $("#blurrable").css("filter", "blur(10px)");
+    $(".blurrable").css("filter", "blur(10px)");
     $("#footer").css("filter", "blur(10px)");
     contentContainer.append(form);
-    fadeInputModalIn(500, function () {
+    fadeInputModalIn(5, function () {
         $("#project-name-input").focus()
     });
 
     modal.addClass("is-active");
 
-    // modal.on("keydown", function (e) {
-    //     let code = (e.keyCode ? e.keyCode : e.which);
-    //     if (code === 13) {
-    //         let valid = validate();
-    //         if (valid) {
-    //             postValidProject(loggedIn, removedFiles);
-    //         }
-    //     } else if (code === 27) {
-    //         genericInputCleanUp(contentContainer, modal);
-    //     }
-    // });
+    modal.on("keydown", function (e) {
+        let code = (e.keyCode ? e.keyCode : e.which);
+        // if (code === 13) {
+        //     let valid = validate();
+        //     if (valid) {
+        //         postValidProject(loggedIn, removedFiles);
+        //     }
+        // } else
+        if (code === 27) {
+            genericInputCleanUp(contentContainer, modal);
+        }
+    });
 }
 
 

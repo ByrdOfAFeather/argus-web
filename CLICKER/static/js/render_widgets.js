@@ -188,6 +188,7 @@ function setupTooltipPropertiesGenerator(tooltipText, direction) {
         direction: direction
     };
 }
+
 // End line from comment above.
 
 function frameRateDropDownWidget(defaultValue = '30') {
@@ -294,7 +295,7 @@ function tooltipDualColumnWidget(prevElement, options) {
     let multiline = options.multiline;
     let tooltipStyle = options.tooltipStyle;
     let textDirection = options.direction;
-    return genericDivWidget("columns is-gapless is-vcentered").append(
+    return genericDivWidget("columns is-gapless is-vcentered is-centered").append(
         genericDivWidget("column is-narrow").append(
             prevElement
         ),
@@ -815,7 +816,18 @@ function genericDivWidget(classType, id = "") {
     } else {
         return $(`<div>`, {class: classType});
     }
+}
 
+function iconButtonWidget(buttonClasses, buttonID, icon, iconID, onPressed) {
+    return $("<button>", {
+        class: `button ${buttonClasses}`,
+        id: buttonID
+    }).append(
+        $("<i>", {
+            class: `fas ${icon} icon`,
+            id: iconID
+        })
+    ).on("click", onPressed);
 }
 
 function fileInputWidget(labelText, inputID, acceptableFiles, onChangeCallback, multiFile = false, extraLabelClasses = '') {
@@ -1048,7 +1060,16 @@ function createProjectWidget(onSubmit, cleanFunction) {
 }
 
 
-function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEvent, bindings) {
+function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEvent, bindings, startIndex=0, updateType="none") {
+    /*
+     * currentTrack: track object obtained from the trackManager
+     *  - name, absoluteIndex, color, and display are the keys that make up this object
+     * selectedTracks: list of tracks that are set to display aside from the current track
+     * allTracks: list of all track objects except the currentTrack
+     * updateEvent: Updates the pagination widget on any event that requires it (adding/deleting/displaying/etc)
+     * bindings: Callback that will be passed to the updateEvent that will update the tracks programmatically (add/delete/etc)
+     *  - Required: onTrackClick (change tracks), onTrackDelete, onTrackDisplay, onTrackColorChange
+     */
     let mod = (track, display) => {
         track.display = display;
         return track;
@@ -1056,14 +1077,19 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
     let tracksDisplay = [currentTrack];
     tracksDisplay.push(...selectedTracks);
     tracksDisplay = tracksDisplay.map((track) => mod(track, true));
-    if (tracksDisplay.length < 5) {
-        let tracksToPush = 5 - tracksDisplay.length;
+    let paginateRequired = true;
+    let downArrow = true;
+    if (tracksDisplay.length < 4) {
+        let tracksToPush = 4 - tracksDisplay.length;
         let setOfTracks = new Set();
         // Make sure not to list a selected track twice
         selectedTracks.map((track) => track.absoluteIndex).forEach(setOfTracks.add, setOfTracks)
         let localTracks = allTracks.filter((track) => !setOfTracks.has(track.absoluteIndex));
         localTracks = localTracks.map((track) => mod(track, false));
-        tracksDisplay.push(...localTracks.splice(0, tracksToPush));
+        if (localTracks.length <= startIndex +  (3 - selectedTracks.length)) {
+            downArrow = false;
+        }
+        tracksDisplay.push(...localTracks.splice(startIndex, tracksToPush));
     }
     let tracks = genericDivWidget("columns is-multiline");
     for (let i = 0; i < tracksDisplay.length; i++) {
@@ -1072,53 +1098,51 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
             trackName = `${trackName.substring(0, 9)}...`;
         }
 
-        let displayingIcon = tracksDisplay[i].display ? $("<i>", {
-            class: "fas fa-eye-slash icon",
-            id: `trackdisp-${tracksDisplay[i].absoluteIndex}-icon`
-        }) : $("<i>", {
-            class: "fas fa-eye icon",
-            id: `trackdisp-${tracksDisplay[i].absoluteIndex}-icon`
-        });
+        let displayingIcon = tracksDisplay[i].display ? "fa-eye-slash" : "fas fa-eye icon";
+
         let disabledClass = ""
         if (i === 0) {
             disabledClass = "disabled";  // This is for the track currently being edited
         }
-        let currentTrack = genericDivWidget("column is-12").append(
+        let currentTrack = genericDivWidget("column is-12 has-vertical-borders").append(
             genericDivWidget("columns is-multiline").append(
                 genericDivWidget("column is-12").append(
                     $(`<p>${trackName}</p>`)
                 ),
                 genericDivWidget("column").append(
-                    $("<button>", {
-                        class: `button ${disabledClass}`,
-                        id: `track-${tracksDisplay[i].absoluteIndex}`
-                    }).append(
-                        $("<i>", {
-                            class: "fas fa-edit icon",
-                            id: `track-${tracksDisplay[i].absoluteIndex}-icon`
-                        })
-                    ).on("click", (event) => updateEvent(bindings.onTrackClick, event)))
-                ,
-                genericDivWidget("column").append(
-                    $("<button>", {
-                        class: `button ${disabledClass}`,
-                        id: `trackdisp-${tracksDisplay[i].absoluteIndex}`
-                    }).append(
-                        displayingIcon
-                    ).on("click", (event) => updateEvent(bindings.onTrackDisplay, event))
+                    // Edit track icon
+                    iconButtonWidget(
+                        disabledClass,
+                        `track-${tracksDisplay[i].absoluteIndex}`,
+                        "fa-edit",
+                        `track-${tracksDisplay[i].absoluteIndex}-icon`,
+                        (event) => updateEvent(bindings.onTrackClick, event)
+                    )
                 ),
                 genericDivWidget("column").append(
-                    $("<button>", {
-                        class: 'button',
-                        id: `trackdelete-${tracksDisplay[i].absoluteIndex}`
-                    }).append(
-                        $("<i>", {
-                            class: `fas fa-trash-alt icon`,
-                            id: `trackdelete-${tracksDisplay[i].absoluteIndex}-icon`
-                        })
-                    ).on("click", (event) => updateEvent(bindings.onTrackDelete, event))
+                    // Display track icon
+                    iconButtonWidget(
+                        disabledClass,
+                        `trackdisp-${tracksDisplay[i].absoluteIndex}`,
+                        displayingIcon,
+                        `trackdisp-${tracksDisplay[i].absoluteIndex}-icon`,
+                        (event) => updateEvent(bindings.onTrackDisplay, event)
+                    )
                 ),
                 genericDivWidget("column").append(
+                    // Delete track icon
+                    iconButtonWidget(
+                        "",
+                        `trackdelete-${tracksDisplay[i].absoluteIndex}`,
+                        "fa-trash-alt",
+                        `trackdelete-${tracksDisplay[i].absoluteIndex}-icon`,
+                        (event) => updateEvent(bindings.onTrackDelete, event)
+                    )
+                ),
+                genericDivWidget("column").append(
+                    // Note that this is not an IconButton as it requires the spectrum call in order
+                    // to function properly. Now one could add this as an option in the IconButton function,
+                    // however, this is the only time it is used.
                     $("<button>", {
                         class: 'button',
                         id: `trackcolor-${tracksDisplay[i].absoluteIndex}`
@@ -1131,23 +1155,48 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
                         change: (color) => bindings.onTrackColorChange(tracksDisplay[i].absoluteIndex, color)
                     })
                 )
-            ));
+            ),
+        );
+
         if (i === 0) {
             currentTrack.append($("<hr>"));
         }
         tracks.append(currentTrack);
+        if (i === 0 && paginateRequired && startIndex !== 0) {
+            tracks.append(
+                genericDivWidget("column is-12 has-text-centered").append(
+                    iconButtonWidget("", "track-change-up", "fa-arrow-up", "track-change-up-icon", (event)=>updateEvent(()=>startIndex, event))
+                )
+            );
+        }
+    }
+    if (paginateRequired && downArrow) {
+        tracks.append(
+            genericDivWidget("column is-12 has-text-centered").append(
+                iconButtonWidget("", "track-change-down", "fa-arrow-down", "track-change-down-icon", (event)=>updateEvent(()=>startIndex, event))
+            )
+        );
     }
     return tracks;
 }
 
 function trackManagementWidgets(bindings) {
+    let startIndex = 0;
     let updateEvent = (updateCallback, event) => {
         event.stopPropagation();
         updateCallback(event);
         let currentTrack = bindings.getCurrentTrack();
         let allTracks = bindings.getSelectableTracks();
         let selectedTracks = bindings.getSelectedTracks();
-        let newPaginationWidget = trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEvent, bindings);
+        let eventType = "";
+        if (event.target.id === "track-change-up" || event.target.id === "track-change-up-icon" ) {
+            eventType = "up";
+            startIndex = updateCallback() - (3 - selectedTracks.length);
+        } else if (event.target.id === "track-change-down" || event.target.id === "track-change-down-icon" ) {
+            eventType = "down";
+            startIndex = updateCallback() + (3 - selectedTracks.length);
+        }
+        let newPaginationWidget = trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEvent, bindings, startIndex, eventType);
         paginationWidget.replaceWith(newPaginationWidget);
         paginationWidget = newPaginationWidget;
     }
@@ -1595,7 +1644,7 @@ function loadSavedStateWidget(videos, onValidSubmit) {
         $("#modal-content-container").empty();
         $("#generic-input-modal").off();
         $("#generic-input-modal").removeClass("is-active");
-        $("#blurrable").css("filter", "");
+        $(".blurrable").css("filter", "");
         genericContainer.css("width", "");
         genericContainer.css("max-height", "");
         genericContainer.css("height", "");
@@ -1696,7 +1745,7 @@ function setScaleSaveOriginWidget(bindings) {
                                 $("<p>", {id: "unit-name-error-message", class: "help is-danger"})
                             )),
                         genericDivWidget("column").append(
-                            $("<button>", {class: "button"}).text("Save").on("click", ()=>bindings.saveScale(generateError))
+                            $("<button>", {class: "button"}).text("Save").on("click", () => bindings.saveScale(generateError))
                         )
                     ),
                 ))
@@ -1746,8 +1795,9 @@ function loadSavedStateFromFileWidget() {
 function projectInfoWidget(bindings) {
     return genericDivWidget("column has-text-centered").append(
         genericDivWidget("box").append(
-            $("<p>", {class: "subtitle"}).text(`Project: ${PROJECT_NAME}`),
+            $(`<p class="subtitle">Project Settings</p>`),
             $("<hr>"),
+            $(`<p class="subtitle">Title: ${PROJECT_NAME}</p>`),
             loadCameraInfoWidget(),
             saveProjectWidget(bindings.saveProjectBindings),
             exportButtonWidget("Export Points", bindings.exportPointBindings, {
@@ -1761,16 +1811,20 @@ function projectInfoWidget(bindings) {
 }
 
 function trackWidget(bindings) {
-    return genericDivWidget("column has-text-centered").append(
+    return genericDivWidget("column is-12 has-text-centered").append(
         genericDivWidget("box").append(
+            $(`<p class="subtitle">Track Management</p>`),
+            $("<hr>"),
             trackManagementWidgets(bindings),
         )
     )
 }
 
 function miscSettingsWidget(bindings) {
-    return genericDivWidget("column has-text-centered").append(
+    return genericDivWidget("column is-12 has-text-centered").append(
         genericDivWidget("box").append(
+            $(`<p class="subtitle">Control Settings</p>`),
+            $("<hr>"),
             frameMovementSettingsWidget(bindings.frameMovementBindings),
             changeForwardBackwardOffsetWidget(bindings.forwardBackwardOffsetBindings)
         )

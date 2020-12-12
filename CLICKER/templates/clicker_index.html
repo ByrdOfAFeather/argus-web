@@ -46,6 +46,7 @@
     <link type="text/css" href="{% static 'css/spectrum.css' %}" rel="stylesheet">
     <link type="text/css"
           href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.5/css/bulma.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
     <link href="https://fonts.googleapis.com/css?family=Julius+Sans+One|Roboto&display=swap" rel="stylesheet">
 
 
@@ -60,30 +61,26 @@
         </div>
     </div>
 </div>
-<div id="blurrable" class="flexable-div">
+<div id="blurrable" class="flexable-div blurrable">
     <section id="starter-menu">
         <div id="title-section" class="section">
             <!-- title section -->
-            {#    <div class="container">#}
             <div class="columns is-centered is-vcentered is-multiline">
                 <div class="column has-text-centered is-narrow justify-right">
-                    <img style="display:none; height: auto" class="animated image" src="{% static 'images/icon.gif' %}">
+                    <img style="height: auto" class="image" src="{% static 'images/icon.gif' %}">
                 </div>
 
                 <div id="title-div" class="column has-text-centered is-narrow justify-left">
-                    <h1 id="clicker-title" class="title-has-julius animated" style="height: auto;">CLICKER</h1>
-                    <h2 id="clicker-subtitle" class="subtitle-has-julius  has-text-grey animated" style="height: auto;">
+                    <h1 id="clicker-title" class="title-has-julius" style="height: auto;">CLICKER</h1>
+                    <h2 id="clicker-subtitle" class="subtitle-has-julius  has-text-grey" style="height: auto;">
                         Software for clicking</h2>
                 </div>
             </div>
-
-            {#    </div>#}
         </div>
 
         <section id="file-input-section" class="section">
             <div class="container">
                 <div class="columns is-centered is-vcentered is-multiline">
-
                     <div class="column is-narrow">
                         <button id="new-project-button"
                                 class="button has-background-dark has-text-white is-size-4 fade-on-hover">New Project
@@ -95,9 +92,47 @@
                             Working
                         </button>
                     </div>
+                    <div class="column is-narrow">
+                        <a style="text-decoration: none" href="{% url 'clicker:documentation' %}"><button id="help-button"
+                                class="button has-background-dark has-text-white is-size-4 fade-on-hover">Help
+                        </button></a>
+                    </div>
                 </div>
             </div>
         </section>
+
+
+        <hr>
+        <div class="columns is-vcentered">
+            <div class="column">
+                <h1 class="subtitle has-text-centered">
+                    <i>
+                        ARGUS<sup>WEB</sup> is an open-source, freely available tool <br>
+                        with an easy to use graphical interface designed for performing multi-camera <br>
+                        3D data acquisition using consumer-grade cameras such as the GoPro Hero series.
+                    </i>
+                </h1>
+            </div>
+            <div class="column">
+                <div class="columns">
+                    <div class="column">
+                        <video autoplay loop muted>
+                            <source src="{% static 'images/output_1.webm' %}" type="video/webm"/>
+                        </video>
+                    </div>
+                    <div class="column">
+                        <video autoplay loop muted>
+                            <source src="{% static 'images/output_2.webm' %}" type="video/webm"/>
+                        </video>
+                    </div>
+                    <div class="column">
+                        <video autoplay loop muted>
+                            <source src="{% static 'images/output_3.webm' %}" type="video/webm"/>
+                        </video>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <script type="text/javascript">
 
@@ -210,7 +245,7 @@
                                 // TODO: Disabled for presentation
                                 // generateError("You have to login before you can access this feature!",
                                 //    $(`<button class="button" onclick="goToLogin()">Login</button>
-                           // <button class="button" onclick="genericInputCleanUp($('#modal-content-container'), $('#generic-input-modal'));">Cancel</button>`))
+                                // <button class="button" onclick="genericInputCleanUp($('#modal-content-container'), $('#generic-input-modal'));">Cancel</button>`))
                             }
                         }
                     }
@@ -314,60 +349,27 @@
         <div id="settings" class="column is-3">
         </div>
         <div id="canvasesBuffer" class="column">
-            {#            <div class="container">#}
             <div id="canvases" class="columns is-multiline is-centered"></div>
-            {#            </div>#}
         </div>
     </div>
 </div>
 
-<!-- TODO: Figure out what you are going to do with this guy -->
-{#<footer id="footer" class="">#}
-{#    <section class="section">#}
-{#        <!-- fun facts section -->#}
-{#        <div class="columns">#}
-{#            <!-- TODO: REMOVE INLINE STYLE -->#}
-{#            <div class="column is-4" style="border-right: 2px solid">#}
-{#                <div class="columns is-multiline">#}
-{#                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">#}
-{#                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>#}
-{#                    </div>#}
-{#                    <div class="column is-narrow">#}
-{#                        <img class="image" src="{% static 'images/icon.gif' %}">#}
-{#                    </div>#}
-{#                    <div class="column is-narrow">#}
-{#                        ARGUS INFORMATION#}
-{#                    </div>#}
-{#                </div>#}
-{#            </div>#}
-{#            <div class="column is-4">#}
-{#                <div class="columns is-multiline" style="border-right: 2px solid">#}
-{#                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">#}
-{#                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>#}
-{#                    </div>#}
-{#                    <div class="column is-narrow">#}
-{#                        <img class="image" src="{% static 'images/icon.gif' %}">#}
-{#                    </div>#}
-{#                    <div class="column is-narrow">#}
-{#                        ARGUS INFORMATION#}
-{#                    </div>#}
-{#                </div>#}
-{#            </div>#}
-{#            <div class="column is-4">#}
-{#                <div class="columns is-multiline">#}
-{#                    <div class="column is-12 has-text-centered" style="border-bottom: 2px solid">#}
-{#                        <h1 class="title-has-julius">ARGUS INFORMATION</h1>#}
-{#                    </div>#}
-{#                    <div class="column is-narrow">#}
-{#                        <img class="image" src="{% static 'images/icon.gif' %}">#}
-{#                    </div>#}
-{#                    <div class="column is-narrow">#}
-{#                        ARGUS INFORMATION#}
-{#                    </div>#}
-{#                </div>#}
-{#            </div>#}
-{#        </div>#}
-{#    </section>#}
-{#</footer>#}
+<footer id="footer">
+    <div class="columns is-vcentered blurrable" style="background-color: #4B9CD3">
+        <hr>
+        <div class="column">
+            <figure class="figure">
+                <img class="image" src="{% static 'images/Research_logo_white_h.png' %}">
+            </figure>
+        </div>
+        <div class="column">
+            <h1 class="subtitle has-text-centered has-text-white">
+                <i>
+                    ARGUS<sup>WEB</sup> was developed at UNC based off the work of and under the supervision of Dr. Tyson Hedrick
+                </i>
+            </h1>
+        </div>
+    </div>
+</footer>
 </body>
 </html>

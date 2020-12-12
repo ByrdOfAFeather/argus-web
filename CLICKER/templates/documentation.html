@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:x="https://www.texmacs.org/2002/extensions" xmlns:m="http://www.w3.org/1998/Math/MathML">
+  <head>
+    <title>ARGUS^WEB Documentation</title>
+    <meta content="TeXmacs 1.99.16" name="generator"></meta>
+    <style type="text/css">
+      body { text-align: justify } h5 { display: inline; padding-right: 1em }
+      h6 { display: inline; padding-right: 1em } table { border-collapse:
+      collapse } td { padding: 0.2em; vertical-align: baseline } dt { float:
+      left; min-width: 1.75em; text-align: right; padding-right: 0.75em;
+      font-weight: bold; } dd { margin-left: 2.75em; padding-bottom: 0.25em; }
+      dd p { padding-top: 0em; } .subsup { display: inline; vertical-align:
+      -0.2em } .subsup td { padding: 0px; text-align: left} .fraction {
+      display: inline; vertical-align: -0.8em } .fraction td { padding: 0px;
+      text-align: center } .wide { position: relative; margin-left: -0.4em }
+      .accent { position: relative; margin-left: -0.4em; top: -0.1em }
+      .title-block { width: 100%; text-align: center } .title-block p {
+      margin: 0px } .compact-block p { margin-top: 0px; margin-bottom: 0px }
+      .left-tab { text-align: left } .center-tab { text-align: center }
+      .balloon-anchor { border-bottom: 1px dotted #000000; outline: none;
+      cursor: help; position: relative; } .balloon-anchor [hidden] {
+      margin-left: -999em; position: absolute; display: none; }
+      .balloon-anchor: hover [hidden] { position: absolute; left: 1em; top:
+      2em; z-index: 99; margin-left: 0; width: 500px; display: inline-block; }
+      .balloon-body { } .ornament { border-width: 1px; border-style: solid;
+      border-color: black; display: inline-block; padding: 0.2em; } .right-tab
+      { float: right; position: relative; top: -1em; } .no-breaks {
+      white-space: nowrap; } 
+    </style>
+  </head>
+  {% load static %}
+  <body>
+    <table class="title-block" style="margin-bottom: 2em">
+      <tr>
+        <td><table class="title-block" style="margin-top: 0.5em; margin-bottom: 0.5em">
+          <tr>
+            <td><font style="font-size: 168.2%"><strong>ARGUS<img src="{% static 'images/DocumentationWeb.png' %}" style="margin-left: -0.0124121212121212em; margin-bottom: -0.0248242424242424em; margin-right: -0.0248242424242424em; margin-top: -0.022690909090909em; vertical-align: 0em; height: 0.917236363636364em"></img>
+            Documentation</strong></font></td>
+          </tr>
+        </table><div class="compact-block" style="margin-top: 1em; margin-bottom: 1em">
+          <table class="title-block">
+            <tr>
+              <td><p style="margin-top: 0.5em; margin-bottom: 0.5em">
+                <div style="display: inline">
+                  <span style="margin-left: 0pt"></span>
+                </div>
+                <table style="display: inline-table; vertical-align: middle">
+                  <tbody><tr>
+                    <td style="text-align: center; padding-left: 0em; padding-right: 0em; padding-bottom: 0em; padding-top: 0em; width: 100%"><center>
+                      <p>
+                        <class style="font-variant: small-caps">by Matthew Byrd (byrdof@ad.unc.edu),
+                        Tyson Hedrick</class>
+                      </p>
+                    </center></td>
+                  </tr></tbody>
+                </table>
+              </p></td>
+            </tr>
+          </table>
+        </div></td>
+      </tr>
+    </table>
+    <h2 id="auto-1">1<span style="margin-left: 1em"></span>Keyboard Shortcuts<span style="margin-left: 1em"></span></h2>
+    <p>
+      <span style="margin-left: 4em"></span>ARGUS<img src="{% static 'images/DocumentationWeb.png' %}" style="margin-left: -0.0124121212121212em; margin-bottom: -0.0248242424242424em; margin-right: -0.0248242424242424em; margin-top: -0.022690909090909em; vertical-align: 0em; height: 0.917236363636364em"></img> uses a variety of
+      keyboard shortcuts to allow for speedy and accurate work.
+    </p>
+    <p>
+      <span style="margin-left: 4em"></span>When hovering over a video (notice a thin black
+      border) with the page focused:
+    </p>
+    <p>
+      <span style="margin-left: 6em"></span>x - Zoom out
+    </p>
+    <p>
+      <span style="margin-left: 6em"></span>z - Zoom in
+    </p>
+    <p>
+      <span style="margin-left: 6em"></span>L - Lock to epipolar lines (This will let you only
+      click points on the present epipolar lines)
+    </p>
+    <p>
+      <span style="margin-left: 6em"></span>SPACE - clicks a point with the location noted in
+      the zoom window 
+    </p>
+    <p>
+      <span style="margin-left: 6em"></span>ENTER - clicks a point with the location noted in
+      the zoom window
+    </p>
+    <p>
+      <span style="margin-left: 6em"></span>Arrow Keys - Allows for precise movement of the zoom
+      window (allows for precise clicking)
+    </p>
+    <p>
+      <span style="margin-left: 6em"></span>ALT + Arrow Keys - Moves the zoom window by a very
+      small amount 
+    </p>
+    <p>
+      <span style="margin-left: 6em"></span>SHIFT + Arrow Keys - Moves the zoom window by a
+      large amount
+    </p>
+    <h2 id="auto-2">2<span style="margin-left: 1em"></span>Load DLT Coefficents<span style="margin-left: 1em"></span></h2>
+    <p>
+      <span style="margin-left: 4em"></span>DLT Coefficients (Direct-linear-transformation
+      coefficients) are used to help locate a point in multiple different
+      angles of the same scene. They can be obtained by ().
+    </p>
+    <h2 id="auto-3">3<span style="margin-left: 1em"></span>Saving/Loading<span style="margin-left: 1em"></span></h2>
+    <p>
+      <span style="margin-left: 4em"></span>In the <img src="{% static 'images/DocumentationArgusWeb.png' %}" style="margin-left: -0.0248242424242424em; margin-bottom: -0.0620606060606061em; margin-right: -0.0248242424242422em; margin-top: -0.0226909090909091em; vertical-align: 0em; height: 0.954327272727273em"></img> beta, saving and
+      loading are done through json files. You can obtain a save file for your
+      project with the save button <span class="no-breaks"><img class="image" src="{% static 'images/DocumentationSave.png' %}" height="20"
+      width="20"></img>.</span> This can then be loaded from the main menu with
+      the button labeled &ldquo;continue working.&rdquo;
+    </p>
+    <h2 id="auto-4">4<span style="margin-left: 1em"></span>Track Mangement<span style="margin-left: 1em"></span></h2>
+    <h2 id="auto-5">5<span style="margin-left: 1em"></span>Exporting Points<span style="margin-left: 1em"></span></h2>
+    <p>
+      <span style="margin-left: 4em"></span>Exporting points can export a variety of point types
+      depending on the settings. Since multiple .csv files could be created
+      when exporting points, all files are placed into a .zip file before the
+      download.
+    </p>
+    <p>
+      <span style="margin-left: 4em"></span>For 1-camera projects:
+    </p>
+    <p>
+      <span style="margin-left: 8em"></span>If you have the origin set (via the set-origin
+      button), all points will be exported in their raw coordinates as well as
+      their origin-based coordinates with proper units from the origin. If the
+      origin is not set, only the raw coordinates are set. The raw coordinates
+      have origin in the upper left corner with down, right being the positive
+      direction. The exported points will have rows representing the frames of
+      the videos and the columns being the x,y coordinates.
+    </p>
+    <p>
+      <span style="margin-left: 4em"></span>For 2-camera projects:
+    </p>
+    <p>
+      <span style="margin-left: 8em"></span>If you have DLT Coefficients loaded, 2D and 3D
+      points will be exported. 3D points will only have non-null values for
+      frames where every video has a point. The exported points will follow
+      the same format mentioned above. 
+    </p>
+    <h2 id="auto-6">6<span style="margin-left: 1em"></span>Control Settings<span style="margin-left: 1em"></span></h2>
+    <h2 id="auto-7">7<span style="margin-left: 1em"></span>Video Settings<span style="margin-left: 1em"></span></h2>
+    <h2 id="auto-8">8<span style="margin-left: 1em"></span>Popping out a video<span style="margin-left: 1em"></span></h2>
+  </body>
+</html>

@@ -182,6 +182,15 @@ input.input.small-input {
     box-shadow: 0 0 3px rgba(81, 203, 238, 1);
 }
 
+.card-hoverless:hover {
+    cursor: default;
+}
+
+/*.has-vertical-borders {*/
+/*    border-top: 1px black;*/
+/*    border-bottom: 1px black;*/
+/*}*/
+
 .large-checkbox {
     width: 20px;
     height: 20px;

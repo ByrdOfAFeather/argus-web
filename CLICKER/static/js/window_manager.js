@@ -251,7 +251,7 @@ class WindowManager {
             $(this).attr("width", width);
             $(this).attr("height", height);
         });
-        $(".zoom-focused-point-canvas").each(function() {
+        $(".zoom-focused-point-canvas").each(function () {
             let width = parseFloat($(this).css("width"));
             let height = width;
             $(this.parentElement).css("height", `${height}px`);
@@ -266,7 +266,7 @@ class WindowManager {
         previewContrast = initSettings.filter.contrastFilter;
         previewSaturation = initSettings.filter.saturationFilter;
 
-        $("#blurrable").css("filter", "blur(10px)");
+        $(".blurrable").css("filter", "blur(10px)");
 
         // Setup in-place functions that will be later used to update the preview \\
         let drawPreviewPoint = (ctx, x, y) => {
@@ -695,7 +695,7 @@ class WindowManager {
         }
         this.emptyInputModal();
         $("#generic-input-modal").removeClass("is-active");
-        $("#blurrable").css("filter", "");
+        $(".blurrable").css("filter", "");
     }
 
     createSettingsContext(initialization, saveSettings, index) {
@@ -989,7 +989,7 @@ class MainWindowManager extends WindowManager {
         $("#generic-input-modal").removeClass("is-active");
         $("#starter-menu").remove();
         $("#footer").remove();
-        $("#blurrable").css("filter", "");
+        $(".blurrable").css("filter", "");
 
         for (let i = 0; i < videos.length; i++) {
             this.videosToSizes[videos[i].index] = videos[i].orgSize;
@@ -1048,7 +1048,7 @@ class MainWindowManager extends WindowManager {
         let videoGetter = loadSavedStateWidget(state.videos, (videos) => this.loadSavedStateVideos(videos));
         let modal = $("#generic-input-modal");
         $("#modal-content-container").append(videoGetter);
-        $("#blurrable").css("filter", "blur(10px)");
+        $(".blurrable").css("filter", "blur(10px)");
         this.fadeInputModalIn(700);
         modal.addClass("is-active");
     }
@@ -1196,7 +1196,7 @@ class MainWindowManager extends WindowManager {
         this.trackManager.findTrack(trackID).color = `rgb(${color._r}, ${color._g}, ${color._b})`;
         let redrawPoints = this.trackManager.hasSubTrack(trackID) || this.trackManager.currentTrack.absoluteIndex == trackID;
         if (redrawPoints) {
-            for (let i = 0; i<this.videos.length; i++) {
+            for (let i = 0; i < this.videos.length; i++) {
                 this.drawAllPoints(i);
                 if (this.trackManager.currentTrack.absoluteIndex == trackID) {
                     this.videos[i].drawZoomWindows(this.trackManager.findTrack(trackID).color);
@@ -1326,8 +1326,6 @@ class MainWindowManager extends WindowManager {
             "saveProjectBindings": saveBinding,
             "exportPointBindings": exportPointsBindings
         };
-        let projectInfo = projectInfoWidget(projectInfoBindings);
-        allSettings.append(projectInfo);
 
         let trackBindings = {
             onTrackClick: (event) => this.onTrackClick(event),
@@ -1339,15 +1337,17 @@ class MainWindowManager extends WindowManager {
             getSelectableTracks: () => this.trackManager.tracks.filter((track) => track.absoluteIndex !== this.trackManager.currentTrack.absoluteIndex),
             getSelectedTracks: () => this.trackManager.subTracks.trackIndicies.map((index) => this.trackManager.findTrack(index))
         };
-
         let trackWidgets = trackWidget(trackBindings);
         allSettings.append(trackWidgets);
+
+        let projectInfo = projectInfoWidget(projectInfoBindings);
+        allSettings.append(projectInfo);
 
         let frameMovementSettingsBindings = {
             inverseSetting: (setting) => {
                 this.settings[setting] = !this.settings[setting];
                 if (this.settings["sync"] && setting === "sync") {
-                    for (let i = 0; i<this.videos.length; i++) {
+                    for (let i = 0; i < this.videos.length; i++) {
                         this.videos[i].goToFrame(frameTracker[this.lastFocusedCanvas]);
                     }
                 }
@@ -1418,7 +1418,7 @@ class MainWindowManager extends WindowManager {
                         generateError("unitName", "The name can't be empty");
                     }
 
-                    if(valid) {
+                    if (valid) {
                         this.locks.can_click = true;
                         this.drawAllPoints(0);
                         this.scaleMode.isActive = false;
@@ -1719,7 +1719,7 @@ class MainWindowManager extends WindowManager {
                 this.loadSettings();
                 this.emptyInputModal();
                 $("#generic-input-modal").removeClass("is-active");
-                $("#blurrable").css("filter", "");
+                $(".blurrable").css("filter", "");
                 this.loadVideoIntoDOM(parsedInputs);
                 // TODO: Disabled for presentation
                 // AUTO_SAVE_INTERVAL_ID = setInterval(() => {
@@ -1776,6 +1776,13 @@ class MainWindowManager extends WindowManager {
             let index = event.target.id.split("-")[1];
             this.clearEpipolarCanvases();
             this.getEpipolarInfo(index, frameTracker[index]);
+            // We know there is a focused point that has to be drawn in this case
+            // but normally this check is only preformed on a frame change, thus, we need to manually trigger it
+            // and redraw the zoom window to reflect this
+            this.videos[index].clearFocusedPointCanvas();
+            this.videos[index].drawFocusedPoint(point.x, point.y);
+            this.videos[index].isDisplayingFocusedPoint = true;
+            this.videos[index].drawZoomWindows(this.trackManager.currentTrack.color);
         }
     }
 
