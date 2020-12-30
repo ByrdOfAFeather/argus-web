@@ -528,6 +528,7 @@ function genericInputCleanUp(modalContentContainer, modal) {
     modalContentContainer.empty();
     modal.removeClass("is-active");
     $(".blurrable").css("filter", "blur(0px)");
+    $("#footer").css("filter", "blur(0px)");
     // Removes any previous keyboard bindings prevent calling the function multiple times
     modal.off();
 }

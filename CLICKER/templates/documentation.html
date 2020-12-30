@@ -29,8 +29,8 @@
       white-space: nowrap; } 
     </style>
   </head>
-  {% load static %}
   <body>
+  {% load static %}
     <table class="title-block" style="margin-bottom: 2em">
       <tr>
         <td><table class="title-block" style="margin-top: 0.5em; margin-bottom: 0.5em">
@@ -104,7 +104,10 @@
     <p>
       <span style="margin-left: 4em"></span>DLT Coefficients (Direct-linear-transformation
       coefficients) are used to help locate a point in multiple different
-      angles of the same scene. They can be obtained by ().
+      angles of the same scene. DLT Coefficents aren't produced by clicker,
+      instead these are obtained on a per-setup basis. Consult the
+      documentation for the command-line version of argus for more
+      information: (FILL IN URL HERE)
     </p>
     <h2 id="auto-3">3<span style="margin-left: 1em"></span>Saving/Loading<span style="margin-left: 1em"></span></h2>
     <p>
@@ -115,6 +118,20 @@
       the button labeled &ldquo;continue working.&rdquo;
     </p>
     <h2 id="auto-4">4<span style="margin-left: 1em"></span>Track Mangement<span style="margin-left: 1em"></span></h2>
+    <p>
+      <span style="margin-left: 4em"></span>The track management widget is located on the left
+      of the workspace. Tracks are meant to track conceptually different
+      things. For example, different body parts of a moving animal should be
+      put on different tracks. A practically infinite number of tracks can be
+      created, depending on the project, but after 5, you will need to use the
+      buttons to navigate through the list of tracks. Each track has an
+      associated color and visibility setting. The visibility settings will
+      allow multiple tracks to be displayed at once (note that you can only
+      edit one track at a time). The first icon is the edit icon; when this is
+      pressed, you will be allowed to edit this track. The last icon is the
+      delete icon; this deletes the track and all associated points from
+      memory. There is no way to undo this, so be careful!
+    </p>
     <h2 id="auto-5">5<span style="margin-left: 1em"></span>Exporting Points<span style="margin-left: 1em"></span></h2>
     <p>
       <span style="margin-left: 4em"></span>Exporting points can export a variety of point types
@@ -144,7 +161,51 @@
       the same format mentioned above. 
     </p>
     <h2 id="auto-6">6<span style="margin-left: 1em"></span>Control Settings<span style="margin-left: 1em"></span></h2>
+    <p>
+      <span style="margin-left: 4em"></span>The lock to DLT setting (L) will lock the zoom
+      window to the DLT routines' lines. This will allow for more accurate
+      clicking when using this setting. This feature will have no differences
+      between enabled or disabled if DLT coefficients aren't loaded.
+    </p>
+    <p>
+      <span style="margin-left: 4em"></span>The forward/backward offset will determine how many
+      frames the video moves forwards/backward after a point it clicked (if
+      auto-advance is enabled) or after the f/b keys are pressed. 
+    </p>
+    <p>
+      <span style="margin-left: 4em"></span>The auto-advance setting determines if a video will
+      automatically move forward a frame after a point is clicked.
+    </p>
+    <p>
+      <span style="margin-left: 4em"></span>The sync setting determines if all videos will
+      always be on the same frame; when this is disabled, you will have to
+      manually move videos to the same frame if so desired.
+    </p>
     <h2 id="auto-7">7<span style="margin-left: 1em"></span>Video Settings<span style="margin-left: 1em"></span></h2>
+    <p>
+      <span style="margin-left: 4em"></span>The video settings for individual videos can be
+      accessed by pressing the gear icon at their associated title bar's top
+      right. This will show a menu similar to the one seen during the initial
+      project setup. Here you can change contrast, saturation, brightness, as
+      well as offset, and colorspace. For more information, consult the
+      tooltips provided.
+    </p>
     <h2 id="auto-8">8<span style="margin-left: 1em"></span>Popping out a video<span style="margin-left: 1em"></span></h2>
+    <p>
+      <span style="margin-left: 4em"></span>Videos can be put into pop-out windows to make
+      better use of screen real estate. The popped-out windows will be
+      reloaded on the main page as soon as they are closed; it is typically
+      very safe to use these without risking the page crashing. However, there
+      are a few problems. There is a bug in the Vivaldi browser that will
+      crash it when the webpage is closed without closing the popped-out
+      windows first. For all other browsers, closing the main webpage will
+      close all the pop-out windows.
+    </p>
+    <p>
+      
+    </p>
+    <p>
+      
+    </p>
   </body>
 </html>
