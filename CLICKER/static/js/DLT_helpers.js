@@ -43,7 +43,7 @@ function getPointsInFrame(videosWithTheSameFrame, frameNumber, currentTrack, vid
 
 
 async function getEpipolarLinesOrUnifiedCoord(videoCalledFrom, frameNumber, currentTrack,
-                                              videosToSizes, pointHelper) {
+                                              videosToSizes, pointHelper, exportingPoints=false) {
     /*
      */
     let videosWithTheSameFrame = getVideosWithTheSameFrame(videoCalledFrom);
@@ -51,48 +51,60 @@ async function getEpipolarLinesOrUnifiedCoord(videoCalledFrom, frameNumber, curr
         let pointsAndLines = getPointsInFrame(videosWithTheSameFrame, frameNumber, currentTrack, videosToSizes, pointHelper);
         let points = pointsAndLines[0];
         let lines = pointsAndLines[1];
-
-        if (points.length >= NUMBER_OF_CAMERAS) {
-            let pointsToReconstruct = [];
-            for (let i = 0; i < points.length; i++) {
-                let currentVideoIndex = points[i].videoIndex;
-                let currentPointIndex = points[i].pointIndex;
-                pointsToReconstruct.push([pointHelper(currentVideoIndex, currentTrack)[currentPointIndex]]);
+        if (points.length >= 2) {
+            if (points.length < NUMBER_OF_CAMERAS) {
+                let pointsToReconstruct = {};
+                let pointIndices = {};
+                for (let i = 0; i < points.length; i++) {
+                    pointIndices[points[i].videoIndex] = true;
+                    let currentVideoIndex = points[i].videoIndex;
+                    let currentPointIndex = points[i].pointIndex;
+                    pointsToReconstruct[parseInt(currentVideoIndex)] = [pointHelper(currentVideoIndex, currentTrack)[currentPointIndex]];
+                }
+                for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                    if (pointIndices[i] !== undefined) {
+                        continue;
+                    }
+                    let lineData1 = lines[i][0];
+                    let lineData2 = lines[i][1];
+                    let bias1 = lineData1[0][1];
+                    let slope1 = (lineData1[1][1] - lineData1[0][1]) / (lineData1[1][0]);
+                    let bias2 = lineData2[0][1];
+                    let slope2 = (lineData2[1][1] - lineData2[0][1]) / (lineData2[1][0])
+                    let x = (bias1 - bias2) / (slope2 - slope1);
+                    pointsToReconstruct[i] = [{x: x, y: (slope1 * x) + bias1, frame: pointsToReconstruct[0][0].frame}];
+                }
+                let xyz = await uvToXyz(pointsToReconstruct,
+                    null, DLT_COEFFICIENTS);
+                if (exportingPoints) {
+                    return {
+                        "type": "unified",
+                        "result": [xyz, points]
+                    };
+                }
+                return {
+                    "type": 'epipolar-unified',
+                    'result': [xyz, lines, points, pointIndices]
+                };
+            } else {
+                let pointsToReconstruct = [];
+                for (let i = 0; i < points.length; i++) {
+                    let currentVideoIndex = points[i].videoIndex;
+                    let currentPointIndex = points[i].pointIndex;
+                    pointsToReconstruct.push([pointHelper(currentVideoIndex, currentTrack)[currentPointIndex]]);
+                }
+                let xyz = await uvToXyz(pointsToReconstruct,
+                    null, DLT_COEFFICIENTS);
+                return {
+                    'type': 'unified',
+                    'result': [xyz, points]
+                };
             }
-            let xyz = await uvToXyz(pointsToReconstruct,
-                null, DLT_COEFFICIENTS);
-            return {
-                'type': 'unified',
-                'result': [xyz, points]
-            };
-            //     .then(
-            //     (result) => {
-            //         for (let i = 0; i < 1; i++) {
-            //             for (let j = 0; j < points.length; j++) {
-            //                 let videoIndex = points[j].videoIndex;
-            //                 drawDiamondCallback(videoIndex, result);
-            //             }
-            //         }
-            //     }
-            // );
         } else {
             return {
                 'type': 'epipolar',
                 'result': lines
             };
-            // for (let i = 0; i < lines.length; i++) {
-            // let lineInformation = lines[i][0][0];
-            // let videoIndex = lines[i][0][1];
-
-            // let callback = (i) => {
-            //     drawEpipolarLineCallback(lineInformation)
-            // };
-            // let message = messageCreator("drawEpipolarLines", {
-            //     "tmp": lineInformation
-            // });
-            //
-            // updateCommunicator(videoIndex, callback, message);
-            // }
         }
     } else {
         return null;
@@ -368,7 +380,7 @@ async function uvToXyz(points, profiles, dltCoefficents) {
     let uvs = [];
     for (let pointIndex = 0; pointIndex < points[0].length; pointIndex++) {
         uvs = [];
-        for (let cameraIndex = 0; cameraIndex < points.length; cameraIndex++) {
+        for (let cameraIndex = 0; cameraIndex < NUMBER_OF_CAMERAS; cameraIndex++) {
             let currentPoint = points[cameraIndex][pointIndex];
             // TODO: These are supposed to be undistorted
             uvs.push([[currentPoint.x, currentPoint.y], cameraIndex]);

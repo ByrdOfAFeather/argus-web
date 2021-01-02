@@ -297,7 +297,14 @@
                     error: function (error) {
                         if (error.status === 403) {
                             let successText = $("#auto-save-placeholder");
-                            download(`${PROJECT_NAME}.json`, JSON.stringify(outputJson));
+                            let curDate = new Date();
+                            let month = "";
+                            if (curDate.getMonth() + 1 <= 9) {
+                                month = `0${curDate.getMonth() + 1}`;
+                            } else {
+                                month = curDate.getMonth();
+                            }
+                            download(`${PROJECT_NAME}_${curDate.getFullYear()}-${month}-${curDate.getDate()}T${curDate.getTime()}.json`, JSON.stringify(outputJson));
                             let now = new Date();
                             successText.text(`Last saved : ${now.toString()}`);
                             // TODO: Log in/ log out is not enabled for the demo

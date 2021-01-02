@@ -1792,13 +1792,14 @@ function loadSavedStateFromFileWidget() {
 }
 
 
-function projectInfoWidget(bindings) {
+function projectInfoWidget(bindings, loadDLTButton) {
+    let DLTButton = loadDLTButton ? loadCameraInfoWidget() : null;
     return genericDivWidget("column has-text-centered").append(
         genericDivWidget("box").append(
             $(`<p class="subtitle">Project Settings</p>`),
             $("<hr>"),
             $(`<p class="subtitle">Title: ${PROJECT_NAME}</p>`),
-            loadCameraInfoWidget(),
+            DLTButton,
             saveProjectWidget(bindings.saveProjectBindings),
             exportButtonWidget("Export Points", bindings.exportPointBindings, {
                 tooltipText: "This will export x,y points in ARGUS format. If DLT coefficients are loaded, this will also " +

@@ -101,6 +101,67 @@ class WindowManager {
         this.communicatorsManager.updateLocalOrCommunicator(parseInt(videoIndex, 10), callback, message);
     }
 
+    processEpipolarPoint(xyz, points) {
+        for (let j = 0; j < points.length; j++) {
+            let videoIndex = points[j].videoIndex;
+            this.curEpipolarInfo[videoIndex] = {
+                type: EPIPOLAR_TYPES.POINT,
+                data: null
+            };
+            this.drawDiamonds(videoIndex, xyz);
+        }
+    }
+
+    processEpipolarLine(videosToLines, ignoreIndices = {}, epipolarUnified=false) {
+        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+            if (ignoreIndices[i] !== undefined) {
+                continue;
+            }
+            let linePoints = videosToLines[i];
+            if ((linePoints === undefined || linePoints.length === 0) && !epipolarUnified) {
+                this.curEpipolarInfo[i] = {
+                    type: EPIPOLAR_TYPES.NONE
+                };
+                this.videos[i].drawEpipolarZoomWindow();
+                continue;
+            }
+            this.curEpipolarInfo[i] = {
+                type: EPIPOLAR_TYPES.LINE,
+                data: linePoints
+            };
+            let callback = (index) => {
+                this.videos[index].drawEpipolarLines(linePoints)
+            };
+            let message = messageCreator("drawEpipolarLine", {
+                "lineInfo": linePoints
+            });
+            this.communicatorsManager.updateLocalOrCommunicator(i, callback, message);
+        }
+    }
+
+    processEpipolarInfo(result) {
+        if (result === null) {
+            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+                this.curEpipolarInfo[i] = {
+                    type: EPIPOLAR_TYPES.NONE,
+                }
+                this.videos[i].drawEpipolarZoomWindow();
+            }
+            return;
+        } else if (result.type === 'epipolar') {
+            this.processEpipolarLine(result.result);
+        } else if (result.type === 'unified') {
+            this.processEpipolarPoint(result.result[0], result.result[1]);
+        } else if (result.type === 'epipolar-unified') {
+            let xyz = result.result[0];
+            let lines = result.result[1];
+            let points = result.result[2];
+            let pointIndices = result.result[3];
+            this.processEpipolarPoint(xyz, points);
+            this.processEpipolarLine(lines, pointIndices, true);
+        }
+    }
+
 
     getEpipolarInfo(referenceVideo, frame) {
         let currentTrack = this.trackManager.currentTrack.absoluteIndex;
@@ -109,52 +170,7 @@ class WindowManager {
         };
 
         getEpipolarLinesOrUnifiedCoord(referenceVideo, frame, currentTrack, this.videosToSizes, pointHelper).then(
-            (result) => {
-                if (result === null) {
-                    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                        this.curEpipolarInfo[i] = {
-                            type: EPIPOLAR_TYPES.NONE,
-                        }
-                        this.videos[i].drawEpipolarZoomWindow();
-                    }
-                    return;
-                }
-                if (result.type === 'epipolar') {
-                    let videosToLines = result.result;
-                    for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                        let linePoints = videosToLines[i];
-                        if (linePoints === undefined || linePoints.length === 0) {
-                            this.curEpipolarInfo[i] = {
-                                type: EPIPOLAR_TYPES.NONE
-                            };
-                            this.videos[i].drawEpipolarZoomWindow();
-                            continue;
-                        }
-                        this.curEpipolarInfo[i] = {
-                            type: EPIPOLAR_TYPES.LINE,
-                            data: linePoints
-                        };
-                        let callback = (index) => {
-                            this.videos[index].drawEpipolarLines(linePoints)
-                        };
-                        let message = messageCreator("drawEpipolarLine", {
-                            "lineInfo": linePoints
-                        });
-                        this.communicatorsManager.updateLocalOrCommunicator(i, callback, message);
-                    }
-                } else if (result.type === 'unified') {
-                    let points = result.result[1];
-                    let xyz = result.result[0];
-                    for (let j = 0; j < points.length; j++) {
-                        let videoIndex = points[j].videoIndex;
-                        this.curEpipolarInfo[videoIndex] = {
-                            type: EPIPOLAR_TYPES.POINT,
-                            data: null
-                        };
-                        this.drawDiamonds(videoIndex, xyz);
-                    }
-                }
-            });
+            (result) => this.processEpipolarInfo(result));
     }
 
     updateVideoObject(newSettings) {
@@ -1292,7 +1308,7 @@ class MainWindowManager extends WindowManager {
                     let frame = i;
                     let pointHelper = (videoIndex, trackIndex) => this.clickedPointsManager.getClickedPoints(videoIndex, trackIndex)
 
-                    let coord = await getEpipolarLinesOrUnifiedCoord(0, frame, this.trackManager.tracks[j].absoluteIndex, this.videosToSizes, pointHelper)
+                    let coord = await getEpipolarLinesOrUnifiedCoord(0, frame, this.trackManager.tracks[j].absoluteIndex, this.videosToSizes, pointHelper, true)
                     if (coord.type === "unified") {
                         let xyz = coord.result[0];
                         local_xyzs.push(xyz[0][0]);
@@ -1311,7 +1327,8 @@ class MainWindowManager extends WindowManager {
         zip.generateAsync({type: "blob"})
             .then(function (content) {
                 // see FileSaver.js
-                saveAs(content, "example.zip");
+                let curDate = new Date();
+                saveAs(content, `${PROJECT_NAME}_${curDate.getFullYear()}-${curDate.getTwoDigitMonth()}-${curDate.getDate()}T${curDate.getTime()}.zip`);
             });
     }
 
@@ -1340,7 +1357,8 @@ class MainWindowManager extends WindowManager {
         let trackWidgets = trackWidget(trackBindings);
         allSettings.append(trackWidgets);
 
-        let projectInfo = projectInfoWidget(projectInfoBindings);
+        let loadDLTButton = NUMBER_OF_CAMERAS > 1;
+        let projectInfo = projectInfoWidget(projectInfoBindings, loadDLTButton);
         allSettings.append(projectInfo);
 
         let frameMovementSettingsBindings = {
@@ -1357,7 +1375,6 @@ class MainWindowManager extends WindowManager {
 
         let forwardBackwardsBindings = {
             onChange: (event) => {
-                let type = event.target.id.split("-")[0];
                 this.settings["movementOffset"] = parseInt($("#" + event.target.id).val()); // TODO: error checking
                 this.communicatorsManager.updateCommunicators(this.messageCreator("updateSettings", {"settings": this.settings}));
             },
@@ -1492,11 +1509,11 @@ class MainWindowManager extends WindowManager {
     // End Settings Module
 
     autoAdvance(context, ignoreIndex) {
-        frameTracker[context.index] += 1;
+        frameTracker[context.index] += this.settings["movementOffset"];
         if (this.settings['sync']) {
-            this.syncVideos({frame: context.frame + 1, index: context.index}, ignoreIndex);
+            this.syncVideos({frame: frameTracker[context.index], index: context.index}, ignoreIndex);
         } else {
-            let message = messageCreator("goToFrame", {"frame": context.frame + 1});
+            let message = messageCreator("goToFrame", {"frame": frameTracker[context.index]});
             this.communicatorsManager.updateLocalOrCommunicator(context.index, message);
         }
     }

@@ -298,10 +298,6 @@ function download(filename, text) {
 }
 
 
-function exportPoints() {
-
-}
-
 
 function fadeInputModalIn(animationTime, postAnimationCallback) {
     let modalContentContainer = $("#modal-content-container");
