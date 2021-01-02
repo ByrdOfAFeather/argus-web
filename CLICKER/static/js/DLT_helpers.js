@@ -72,7 +72,7 @@ async function getEpipolarLinesOrUnifiedCoord(videoCalledFrom, frameNumber, curr
                     let bias2 = lineData2[0][1];
                     let slope2 = (lineData2[1][1] - lineData2[0][1]) / (lineData2[1][0])
                     let x = (bias1 - bias2) / (slope2 - slope1);
-                    pointsToReconstruct[i] = [{x: x, y: (slope1 * x) + bias1, frame: pointsToReconstruct[0][0].frame}];
+                    pointsToReconstruct[i] = [{x: x, y: (slope1 * x) + bias1}];
                 }
                 let xyz = await uvToXyz(pointsToReconstruct,
                     null, DLT_COEFFICIENTS);

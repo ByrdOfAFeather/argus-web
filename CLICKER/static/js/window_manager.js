@@ -112,7 +112,7 @@ class WindowManager {
         }
     }
 
-    processEpipolarLine(videosToLines, ignoreIndices = {}, epipolarUnified=false) {
+    processEpipolarLine(videosToLines, ignoreIndices = {}, epipolarUnified = false) {
         for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
             if (ignoreIndices[i] !== undefined) {
                 continue;
@@ -1238,10 +1238,14 @@ class MainWindowManager extends WindowManager {
         let header = [];
         for (let j = 0; j < this.trackManager.tracks.length; j++) {
             for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x_rel`);
-                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y_rel`);
-                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x_org`);
-                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y_org`);
+                let addon = "";
+                if (NUMBER_OF_CAMERAS === 1) {
+                    header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x_rel`);
+                    header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y_rel`);
+                    addon = "_org";
+                }
+                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x${addon}`);
+                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y${addon}`);
             }
         }
         exportablePoints.push(header.join(",") + ",\n");
@@ -1328,7 +1332,13 @@ class MainWindowManager extends WindowManager {
             .then(function (content) {
                 // see FileSaver.js
                 let curDate = new Date();
-                saveAs(content, `${PROJECT_NAME}_${curDate.getFullYear()}-${curDate.getTwoDigitMonth()}-${curDate.getDate()}T${curDate.getTime()}.zip`);
+                let month = "";
+                if (curDate.getMonth() + 1 <= 9) {
+                    month = `0${curDate.getMonth() + 1}`;
+                } else {
+                    month = curDate.getMonth();
+                }
+                saveAs(content, `${PROJECT_NAME}_${curDate.getFullYear()}-${month}-${curDate.getDate()}T${curDate.getTime()}.zip`);
             });
     }
 
@@ -1506,7 +1516,7 @@ class MainWindowManager extends WindowManager {
         reader.readAsText(selectedFiles[0]);
     }
 
-    // End Settings Module
+// End Settings Module
 
     autoAdvance(context, ignoreIndex) {
         frameTracker[context.index] += this.settings["movementOffset"];
@@ -1555,7 +1565,7 @@ class MainWindowManager extends WindowManager {
         this.getEpipolarInfo(id, frame);
     }
 
-    // Keyboard Inputs \\
+// Keyboard Inputs \\
     goForwardFrames(id) {
         let frame = frameTracker[id] + this.settings["movementOffset"];
         this.goToFrame(id, frame);
@@ -1570,7 +1580,7 @@ class MainWindowManager extends WindowManager {
         this.goToFrame(id, frame);
     }
 
-    // Keyboard Inputs End \\
+// Keyboard Inputs End \\
 
     changeTrack(newTrack) {
         this.trackManager.changeCurrentTrack(newTrack);
