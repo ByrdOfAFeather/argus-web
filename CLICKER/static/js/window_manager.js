@@ -1234,24 +1234,29 @@ class MainWindowManager extends WindowManager {
         let duration = this.videos[0].video.duration;
         let frames = Math.floor(duration * FRAME_RATE);
 
-        let exportablePoints = [];
-        let header = [];
+        let exportablePointsOriginal = [];
+        let headerOriginal = [];
+        let exportablePointsScale = [];
+        let headerScale = [];
         for (let j = 0; j < this.trackManager.tracks.length; j++) {
             for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                let addon = "";
                 if (NUMBER_OF_CAMERAS === 1) {
-                    header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x_rel`);
-                    header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y_rel`);
-                    addon = "_org";
+                    headerScale.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x_rel`);
+                    headerScale.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y_rel`);
+                    // addon = "_org";
                 }
-                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x${addon}`);
-                header.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y${addon}`);
+                headerOriginal.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x`);
+                headerOriginal.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y`);
             }
         }
-        exportablePoints.push(header.join(",") + ",\n");
+        exportablePointsOriginal.push(headerOriginal.join(",") + ",\n");
+        if (NUMBER_OF_CAMERAS === 1) {
+            exportablePointsScale.push(headerScale.join(",") + ",\n")
+        }
         let masterFrameArray = [];
         for (let i = 0; i < frames; i++) {
             let frameArray = [];
+            let scaleArray = [];
             for (let q = 0; q < this.trackManager.tracks.length; q++) {
                 for (let j = 0; j < NUMBER_OF_CAMERAS; j++) {
                     let trackIndex = this.trackManager.tracks[q].absoluteIndex;
@@ -1262,32 +1267,38 @@ class MainWindowManager extends WindowManager {
                         frameArray.push(NaN);
                     } else {
                         if (NUMBER_OF_CAMERAS === 1) {
-                            let yDist = Math.abs(this.scaleMode.initialPoint.y - this.scaleMode.finalPoint.y);
-                            yDist = yDist === 0 ? 1 : yDist;
-                            let xDist = Math.abs(this.scaleMode.initialPoint.x - this.scaleMode.finalPoint.x);
-                            xDist = xDist === 0 ? 1 : xDist;
-                            let dxunits = (parseFloat(this.scaleMode.unitRatio) * (xDist)) / this.distanceBetweenPoints(this.scaleMode.initialPoint, this.scaleMode.finalPoint);
-                            let dyunits = (parseFloat(this.scaleMode.unitRatio) * (yDist)) / this.distanceBetweenPoints(this.scaleMode.initialPoint, this.scaleMode.finalPoint);
-                            let scaledX = (dxunits * (localPoints[index].x - this.scaleMode.originPoint.x)) / (xDist);
-                            let scaledY = (dyunits * (this.scaleMode.originPoint.y - localPoints[index].y)) / (yDist);
-                            frameArray.push(scaledX);
-                            frameArray.push(scaledY);
+                            if (this.scaleMode.unitRatio !== undefined) {
+                                let yDist = Math.abs(this.scaleMode.initialPoint.y - this.scaleMode.finalPoint.y);
+                                yDist = yDist === 0 ? 1 : yDist;
+                                let xDist = Math.abs(this.scaleMode.initialPoint.x - this.scaleMode.finalPoint.x);
+                                xDist = xDist === 0 ? 1 : xDist;
+                                let dxunits = (parseFloat(this.scaleMode.unitRatio) * (xDist)) / this.distanceBetweenPoints(this.scaleMode.initialPoint, this.scaleMode.finalPoint);
+                                let dyunits = (parseFloat(this.scaleMode.unitRatio) * (yDist)) / this.distanceBetweenPoints(this.scaleMode.initialPoint, this.scaleMode.finalPoint);
+                                let scaledX = (dxunits * (localPoints[index].x - this.scaleMode.originPoint.x)) / (xDist);
+                                let scaledY = (dyunits * (this.scaleMode.originPoint.y - localPoints[index].y)) / (yDist);
+                                scaleArray.push(scaledX);
+                                scaleArray.push(scaledY);
+                            }
                             frameArray.push(localPoints[index].x);
                             frameArray.push(localPoints[index].y);
                         } else {
-                            // TODO: This is the case where there are multiple cameras exporting xy points
-                            // We will basically have x,y for relative (on the origin etc) and original
                             frameArray.push(localPoints[index].x);
                             frameArray.push(localPoints[index].y);
                         }
                     }
                 }
             }
-            exportablePoints.push(frameArray.join(",") + ",\n");
-            masterFrameArray.push(frameArray); // TODO: Note this is now doubled with duplicates due to the note above
+            exportablePointsOriginal.push(frameArray.join(",") + ",\n");
+            if (this.scaleMode.unitRatio !== undefined) {
+                exportablePointsScale.push(scaleArray.join(",") + ",\n");
+            }
+            masterFrameArray.push(frameArray);
         }
-        zip.file("xy_points_system.csv", exportablePoints.join(""));
-        if (NUMBER_OF_CAMERAS === 1) {
+        zip.file("xy_coordinates.csv", exportablePointsOriginal.join(""));
+        if (this.scaleMode.unitRatio !== undefined) {
+            zip.file("xy_scaled.csv", exportablePointsScale.join(""));
+        }
+        if (NUMBER_OF_CAMERAS === 1 && this.scaleMode.unitRatio !== undefined) {
             zip.file("origin_system.json", JSON.stringify({
                 origin: this.scaleMode.originPoint,
                 point1: this.scaleMode.initialPoint,
