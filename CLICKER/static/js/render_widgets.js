@@ -696,7 +696,8 @@ function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, save
     // The margin: 0 lets animation smoothly transition from one modal-state to the next ( if there are multiple ).
     return genericDivWidget("columns is-centered is-multiline is-mobile").css("margin", "0").append(
         genericDivWidget("column is-12 has-text-centered").append(
-            $("<h1>", {class: "has-julius has-text-white title"}).text(`Video Properties for ${videoTitle}`)
+            $("<h1>", {class: "has-julius has-text-white title"}).text(`Video Properties for ${videoTitle}`),
+            genericDivWidget("", `test-video-${context.index}`)
         ),
 
         genericDivWidget("column").append(

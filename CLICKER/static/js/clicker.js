@@ -452,3 +452,7 @@ $(document).ready(async function () {
 
     $(window).on('beforeunload', sendKillNotification);
 });
+
+function getWindowManagerForTesting() {
+    return windowManager;
+}

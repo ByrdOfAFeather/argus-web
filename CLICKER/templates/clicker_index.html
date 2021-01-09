@@ -28,7 +28,7 @@
     <!-- External Dependencies -->
     <script src="{% static 'js/broadcast_channel.js' %}"></script>
     <script src="{% static 'js/bulma-slider.js' %}"></script>
-    <script src="{% static 'js/spectrum.js'%}"></script>
+    <script src="{% static 'js/spectrum.js' %}"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.2/dist/tf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/6.2.2/math.js"></script>
@@ -93,14 +93,29 @@
                         </button>
                     </div>
                     <div class="column is-narrow">
-                        <a style="text-decoration: none" href="{% url 'clicker:documentation' %}"><button id="help-button"
-                                class="button has-background-dark has-text-white is-size-4 fade-on-hover">Help
-                        </button></a>
+                        <a style="text-decoration: none" href="{% url 'clicker:documentation' %}">
+                            <button id="help-button"
+                                    class="button has-background-dark has-text-white is-size-4 fade-on-hover">Help
+                            </button>
+                        </a>
+                    </div>
+                    <div class="column is-12 has-text-centered">
+                        <div class="columns is-centered is-vcentered">
+                            <div class="column is-1">
+                                <a style="text-decoration: none" href="https://github.com/ByrdOfAFeather/argus-web"><img
+                                        src="{% static 'images/Github_logo.png' %}"
+                                        class="" alt="Link to github">
+                                </a>
+                            </div>
+                            <div class="column is-2">
+                                Check us out on github!
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
         </section>
-
 
         <hr>
         <div class="columns is-vcentered">
@@ -372,7 +387,8 @@
         <div class="column">
             <h1 class="subtitle has-text-centered has-text-white">
                 <i>
-                    ARGUS<sup>WEB</sup> was developed at UNC based off the work of and under the supervision of Dr. Tyson Hedrick
+                    ARGUS<sup>WEB</sup> was developed at UNC based off the work of and under the supervision of Dr.
+                    Tyson Hedrick
                 </i>
             </h1>
         </div>
