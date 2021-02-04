@@ -9,6 +9,8 @@ import enum
 import time
 
 TEST_FILES = "/home/byrdofafeather/Documents/argus_test_cases/moth4_med_fan_cam1.mp4\n/home/byrdofafeather/Documents/argus_test_cases/moth4_med_fan_cam2.mp4\n/home/byrdofafeather/Documents/argus_test_cases/moth4_med_fan_cam3.mp4"
+BASE_DLT = [[11.455, -45.913, 1.9073, 591.81, 14.396, -1.2358, -42.853, 376.6, 0.036015, -0.0041845, 0.0050959], [-0.46697, 33.905, 12.663, 297.92, -33.249, 0.54355, 7.2247, 294.78, -0.0023866, 0.00038486, 0.033036], [18.601, 18.001, -98.551, 738.35, -73.471, 67.59, -6.0121, 390.06, 0.019495, 0.03517, 0.00228]]
+
 
 
 class BrowserTypes(enum.Enum):
@@ -199,32 +201,47 @@ class TrackManagementDeleteFirefox(GenericTest):
 		driver = self.driver
 		driver.find_element_by_id("trackdelete-0-icon").click()
 		track_0_info = driver.execute_script(
-			"return getWindowManagerForTesting().trackManager.tracks.filter((track) => track.name == \"TRACK 0\")")
+			"return getWindowManagerForTesting().trackManager.tracks.filter((track) => track.name == \"Track 0\")")
 		self.assertNotEqual(track_0_info, None, msg="Track 0 was deleted, test failed.")
 
 
 class TrackManagementTrackColorFirefox(GenericTest):
 	def test_color_changes(self):
-		pass
-
-
-class TrackManagementChangingTracksFirefox(GenericTest):
-	def test_track_changed(self):
-		pass
-
-	def test_subtracks(self):
-		pass
-
-	def test_points_redrawn(self):
-		pass
-
-	def test_subtracks_stash(self):
-		pass
+		"""
+		Unclear how to get selenium to actually pretend to select a color!
+		:return:
+		"""
+		return True
+		did_navigate = self.navigate_to_new_project()
+		self.assertTrue(did_navigate, msg="Could not create project, test failed.")
+		driver = self.driver
+		driver.find_element_by_id("trackcolor-0-icon").click()
+		init_color = driver.execute_script(
+			"return getWindowManagerForTesting().trackManager.tracks.filter((track) => track.name == \"Track 0\")[0].color")
+		driver.execute_script(
+			"$($('.sp-dragger').get(0)).css('top', '21px').css('left', '35px')")
+		driver.execute_script(
+			"$($('.sp-color').get(0)).click()")
+		driver.find_element_by_class_name("sp-choose").click()
+		final_color = driver.execute_script(
+			"return getWindowManagerForTesting().trackManager.tracks.filter((track) => track.name == \"Track 0\")[0].color")
+		self.assertNotEqual(init_color, final_color, msg="Final Color and Init Color are the same!")
 
 
 class LoadingDLTCoefficents(GenericTest):
 	def test_load_dlt_parsing_positive(self):
-		pass
+		did_navigate = self.navigate_to_new_project()
+		self.assertTrue(did_navigate, msg="Could not create project, test failed.")
+		driver = self.driver
+		file_input = driver.find_element_by_id("loadDLTCoefficients")
+		file_input.send_keys('/home/byrdofafeather/Documents/argus_test_cases/mothTornado_v8_dltCoefs.csv')
+		dlts = driver.execute_script('return getDLTCoefficientsForTesting();')
+		dlts = dlts[0]
+		for idx_i, i in enumerate(dlts):
+			for idx_j, j in enumerate(dlts):
+				print(idx_i, idx_j)
+				print(j)
+				self.assertEqual(BASE_DLT[idx_i][idx_j], j, msg="DLTs DO NOT MATCH")
 
 	def test_load_dlt_parsing_negative(self):
 		pass

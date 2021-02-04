@@ -186,12 +186,12 @@ class WindowManager {
 
     drawAllPoints(videoIndex) {
         let mainTrack = this.trackManager.currentTrack;
-        let mainTrackPoints = this.clickedPointsManager.getClickedPoints(videoIndex, mainTrack.absoluteIndex);
+        let mainTrackPoints = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(videoIndex, mainTrack.absoluteIndex);
         this.videos[videoIndex].redrawPoints(mainTrackPoints, mainTrack.color);
         for (let i = 0; i < this.trackManager.subTracks.trackIndicies.length; i++) {
             let absoluteSubTrackIndex = this.trackManager.subTracks.trackIndicies[i];
             let subTrack = this.trackManager.tracks[absoluteSubTrackIndex];
-            let subTrackPoints = this.clickedPointsManager.getClickedPoints(videoIndex, subTrack.absoluteIndex);
+            let subTrackPoints = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(videoIndex, subTrack.absoluteIndex);
             let clearPoints = i === 0;
             this.videos[videoIndex].redrawPoints(
                 subTrackPoints,
@@ -247,7 +247,7 @@ class WindowManager {
                     mainWindow.videos[videoID].goToFrame(frameTracker[videoID]);
                 } else {
                     let currentTrack = mainWindow.trackManager.currentTrack
-                    let points = mainWindow.clickedPointsManager.getClickedPoints(videoID, currentTrack.absoluteIndex);
+                    let points = mainWindow.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(videoID, currentTrack.absoluteIndex);
                     currentTrack.points = points;
                     mainWindow.videos[videoID].loadFrame(currentTrack);
                 }
@@ -341,7 +341,7 @@ class WindowManager {
 
         // Smooths animations
         $("#generic-input-modal-content").css("margin", "0");
-        $("#modal-content-container").append(videoSettingsWidget(
+        $("#modal-content-container").append(videoSettingsPopoutWidget(
             name,
             loadPreviewFrame,
             context,
@@ -434,12 +434,18 @@ class WindowManager {
                     currentTrack: this.trackManager.currentTrack.absoluteIndex
                 }
             );
-            let localPoints = this.clickedPointsManager.getClickedPoints(index, this.trackManager.currentTrack.absoluteIndex);
+            let localPoints = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(index, this.trackManager.currentTrack.absoluteIndex);
             let override = pointIndexInfo.override;
             if (override) {
                 this.videos[index].redrawPoints(localPoints);
             } else {
-                this.videos[index].drawNewPoint(point, localPoints);
+                if (this.clickedPointsManager.frameViewOffset !== - 1) {
+                    this.videos[index].redrawPoints(localPoints);
+                } else {
+                    // The only reason we reserve this else is that there is performance gain when not using
+                    // the point offset. (e.g. we don't have to redraw points)
+                    this.videos[index].drawNewPoint(point, localPoints);
+                }
             }
 
             this.locks["can_click"] = !this.settings["auto-advance"];
@@ -582,7 +588,7 @@ class WindowManager {
         for (let j = 0; j < this.trackManager.subTracks.length(); j++) {
             let currentIndex = this.trackManager.subTracks.trackIndicies[j];
             let currentTrack = this.trackManager.findTrack(currentIndex);
-            let currentPoints = this.clickedPointsManager.getClickedPoints(videoIndex, currentIndex);
+            let currentPoints = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(videoIndex, currentIndex);
             infos.push({"points": currentPoints, "color": currentTrack.color});
         }
         return infos;
@@ -592,7 +598,7 @@ class WindowManager {
         e.preventDefault();
         let video = e.target.id.split("-")[1];
         this.clickedPointsManager.removePoint(video, this.trackManager.currentTrack.absoluteIndex, frameTracker[video]);
-        let points = this.clickedPointsManager.getClickedPoints(video, this.trackManager.currentTrack.absoluteIndex);
+        let points = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(video, this.trackManager.currentTrack.absoluteIndex);
         this.videos[video].redrawPoints(points, this.trackManager.currentTrack.color);
         this.videos[video].clearFocusedPointCanvas();
         this.clearEpipolarCanvases();
@@ -666,7 +672,7 @@ class WindowManager {
         let currentTrack = this.trackManager.currentTrack;
         let currentPoints = []
         if (!this.scaleMode.isActive) {
-            currentPoints = this.clickedPointsManager.getClickedPoints(videoIndex, currentTrack.absoluteIndex);
+            currentPoints = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(videoIndex, currentTrack.absoluteIndex);
         }
         let mainTrackInfo = {"points": currentPoints, "color": currentTrack.color};
         this.videos[videoIndex].loadFrame(mainTrackInfo);
@@ -923,7 +929,7 @@ class MainWindowManager extends WindowManager {
                 // END TODO
                 let pointIndex = context.pointIndex;
                 let videoIndex = context.index;
-                let localPoints = this.clickedPointsManager.getClickedPoints(videoIndex, track);
+                let localPoints = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(videoIndex, track);
                 localPoints[pointIndex] = point;
                 frameTracker[videoIndex] = point.frame;
 
@@ -947,7 +953,6 @@ class MainWindowManager extends WindowManager {
         };
         this.communicatorsManager = new CommunicatorsManager(STATES.MAIN_WINDOW, communicationsCallbacks);
     }
-
 
     saveProject(autoSaved) {
         let videoObjects = [];
@@ -1353,6 +1358,11 @@ class MainWindowManager extends WindowManager {
             });
     }
 
+    onFrameViewOffsetChange(newOffset) {
+        this.clickedPointsManager.setFrameViewOffset(newOffset);
+        for (let i = 0; i<NUMBER_OF_CAMERAS; i++) {this.drawAllPoints(i);}
+    }
+
 
     loadSettings() {
         let allSettings = genericDivWidget("columns is-multiline is-centered is-mobile");
@@ -1371,6 +1381,7 @@ class MainWindowManager extends WindowManager {
             onTrackDelete: (event) => this.onTrackDelete(event),
             onTrackAdd: (event) => this.onTrackAdd(event),
             onTrackColorChange: (trackID, color) => this.onTrackColorChange(trackID, color),
+            onFrameViewOffsetChange: (newOffset) => {this.onFrameViewOffsetChange(newOffset)},
             getCurrentTrack: () => this.trackManager.currentTrack,
             getSelectableTracks: () => this.trackManager.tracks.filter((track) => track.absoluteIndex !== this.trackManager.currentTrack.absoluteIndex),
             getSelectedTracks: () => this.trackManager.subTracks.trackIndicies.map((index) => this.trackManager.findTrack(index))
@@ -1846,7 +1857,7 @@ class PopOutWindowManager extends WindowManager {
             },
             "changeTrack": (newTrackAbsoluteIndex) => {
                 this.trackManager.changeCurrentTrack(newTrackAbsoluteIndex);
-                let points = this.clickedPointsManager.getClickedPoints(currentVideo, newTrackAbsoluteIndex);
+                let points = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(currentVideo, newTrackAbsoluteIndex);
                 let color = this.trackManager.currentTrack.color;
                 this.clearEpipolarCanvases(this.absoluteIndex);
                 this.videos[currentVideo].changeTracks(points, color);
@@ -1866,13 +1877,13 @@ class PopOutWindowManager extends WindowManager {
                 }
                 this.trackManager.removeTrack(trackIndex);
                 let track = this.trackManager.currentTrack;
-                let points = this.clickedPointsManager.getClickedPoints(this.absoluteIndex, track.absoluteIndex);
+                let points = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(this.absoluteIndex, track.absoluteIndex);
                 this.videos[this.absoluteIndex].changeTracks(points, track.color);
                 this.videos[this.absoluteIndex].clearPoints(this.videos[this.absoluteIndex].subTrackCanvasContext);
                 for (let j = 0; j < this.trackManager.subTracks.length(); j++) {
                     let absoluteSubTrackIndex = this.trackManager.subTracks.trackIndicies[j];
                     let subTrack = this.trackManager.findTrack(absoluteSubTrackIndex);
-                    let subTrackPoints = this.clickedPointsManager.getClickedPoints(this.absoluteIndex, subTrack.absoluteIndex);
+                    let subTrackPoints = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(this.absoluteIndex, subTrack.absoluteIndex);
                     this.videos[this.absoluteIndex].redrawPoints(
                         subTrackPoints,
                         subTrack.color,
@@ -1884,7 +1895,7 @@ class PopOutWindowManager extends WindowManager {
             "addSubTrack": (subTrackID) => {
                 this.trackManager.addSubTrack(subTrackID);
                 let track = this.trackManager.findTrack(subTrackID);
-                let points = this.clickedPointsManager.getClickedPoints(currentVideo, subTrackID);
+                let points = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(currentVideo, subTrackID);
                 this.videos[currentVideo].addSubTrack({"points": points, "color": track.color});
             },
             "removeSubTrack": (subTrackID) => {

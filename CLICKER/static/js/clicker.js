@@ -89,77 +89,6 @@ let PROJECT_ID = null;
 let windowManager = null;
 
 
-function loadPoints(text) {
-    // TODO : rework
-    colorIndex = 0;
-    clickedPoints = [];
-    let iterationLength = trackTracker.tracks.length - 1;
-    for (let i = 0; i < iterationLength; i++) {
-        removeTrackFromDropDown(1);
-    }
-    removeTrackFromDropDown(0);
-
-    let reader = new FileReader();
-    reader.onload = function () {
-        let frameIndexed = reader.result.split("\n");
-        for (let i = 0; i < frameIndexed.length; i++) {
-            let localPoints = frameIndexed[i].split(",");
-            localPoints.pop();
-            let numberOfTracks = localPoints.length / (2 * NUMBER_OF_CAMERAS);
-            for (let j = 0; j < numberOfTracks; j++) {
-                let trackStartIndex = NUMBER_OF_CAMERAS * 2 * j;
-                if (i === 0) {
-                    let trackName = localPoints[trackStartIndex].split("_")[0];
-                    if (j === 0) {
-                        addTrackToDropDown(trackName, false);
-                    } else {
-                        addTrackToDropDown(trackName);
-                    }
-                } else {
-                    for (let q = 0; q < NUMBER_OF_CAMERAS; q++) {
-                        if (clickedPoints[q] === undefined) {
-                            clickedPoints[q] = [];
-                        }
-
-                        if (clickedPoints[q][j] === undefined) {
-                            clickedPoints[q][j] = [];
-                        }
-
-                        let pointStartIndex = trackStartIndex + (q * 2);
-                        if (Number.isNaN(parseInt(localPoints[pointStartIndex]))) {
-                            continue;
-                        }
-                        let point = {
-                            x: parseFloat(localPoints[pointStartIndex]),
-                            y: parseFloat(localPoints[pointStartIndex + 1]),
-                            frame: i + .001,
-                        };
-                        clickedPoints[q][j].push(point);
-                    }
-                }
-            }
-        }
-        clickedPoints.sort(sortByFrame);
-        for (let i = 0; i < clickedPoints.length; i++) {
-            let currentTrack = trackTracker.currentTrack;
-            let currentClickedPoints = getClickedPoints(i, currentTrack);
-
-            let callback = function (i) {
-                videos[i].clearPoints();
-                videos[i].drawPoints(currentClickedPoints);
-                videos[i].drawLines(currentClickedPoints);
-            };
-            let message = messageCreator("loadPoints", {
-                points: currentClickedPoints
-            });
-            updateLocalOrCommunicator(i, callback, message);
-        }
-    };
-
-    reader.readAsText(text[0]);
-}
-
-
 function loadSavedState(config) {
     PROJECT_NAME = config.title;
     PROJECT_DESCRIPTION = config.description;
@@ -305,18 +234,6 @@ function fadeInputModalIn(animationTime, postAnimationCallback) {
     modalContentContainer.fadeIn(animationTime, postAnimationCallback);
 }
 
-function mainWindowDeletePoint(e) {
-    e.preventDefault();
-    let video = e.target.id.split("-")[1];
-    let localPoints = getClickedPoints(video, trackTracker.currentTrack);
-    let pointIndex = Video.checkIfPointAlreadyExists(localPoints, frameTracker[video]);
-    if (pointIndex !== null) {
-        localPoints.splice(pointIndex, 1);
-        videos[video].clearPoints();
-        videos[video].drawPoints(localPoints);
-        videos[video].drawLines(localPoints);
-    }
-}
 
 /// END LOAD FUNCTIONS ///
 
@@ -455,4 +372,8 @@ $(document).ready(async function () {
 
 function getWindowManagerForTesting() {
     return windowManager;
+}
+
+function getDLTCoefficientsForTesting() {
+    return DLT_COEFFICIENTS;
 }

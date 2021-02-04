@@ -415,6 +415,8 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
         }
         loadPreviewFrameFunction(videoIndex);
     };
+
+    let drawingPoints = true;
     return genericDivWidget("column is-12", `masterColumn-${videoIndex}`).append(
         // genericDivWidget("container").append(
         genericDivWidget("columns has-text-centered is-multiline", `canvas-columns-${videoIndex}`).append(
@@ -443,7 +445,8 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
                 genericDivWidget("container", `zoom-text-${videoIndex}`).append(
                     genericDivWidget("container", `zoom-canvas-${videoIndex}`).append(
                         canvas(`zoomEpipolarCanvas-${videoIndex}`, "zoom-epipolar-canvas absolute", "z-index: 3;").css("height", "100%").css("width", "100%"),
-                        canvas(`zoomFocusedPointCanvas-${videoIndex}`, "absolute zoom-focused-point-canvas", "z-index: 4;").css("height", "100%").css("width", "100%"),
+                        canvas(`zoomFocusedPointCanvas-${videoIndex}`, "absolute zoom-focused-point-canvas", "z-index: 5;").css("height", "100%").css("width", "100%"),
+                        canvas(`zoomPointCanvas-${videoIndex}`, "absolute zoom-focused-point-canvas", "z-index: 4;").css("height", "100%").css("width", "100%"),
                         canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas absolute", "z-index: 2;").css("height", "100%").css("width", "100%"),
                     ),
                     $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In<br></p>"),
@@ -451,6 +454,20 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
                         class: "render-unselectable",
                         id: `epipolar-lock-${videoIndex}`
                     }).text("L = Lock To Epipolar [Disabled]"),
+                    // genericDivWidget("columns is-vcentered is-centered").append(
+                    //     genericDivWidget("column is-narrow").append(
+                    //         $("<label>", {class: "label"}).text("Draw Points:"),
+                    //     ),
+                    //     genericDivWidget("column is-narrow").append(
+                    //         $("<input>", {
+                    //             id: "draw-points-checkbox",
+                    //             type: "checkbox",
+                    //             class: "checkbox",
+                    //         }).on("click", function () {
+                    //             bindings.inverseSetting('auto-advance');
+                    //         }).prop("checked", drawingPoints),
+                    //     ),
+                    // )
                 )
             ),
         )
@@ -513,7 +530,7 @@ function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, upda
         )]
 }
 
-function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, saveCallback, currentSettings) {
+function videoSettingsPopoutWidget(videoTitle, loadPreviewFrameFunction, context, saveCallback, currentSettings) {
     previewCOLORSPACE = currentSettings.filter.colorspace; // Default to RGB, also will just reassign
     previewFRAMERATE = currentSettings.frameRate;
     previewPOINT_SIZE = currentSettings.pointSize;
@@ -720,7 +737,6 @@ function videoSettingsWidget(videoTitle, loadPreviewFrameFunction, context, save
                         frameRateInput
                     )
                 ),
-
 
                 genericDivWidget("column").append(
                     genericDivWidget("columns is-multiline is-vcentered is-mobile").append(
@@ -1061,7 +1077,7 @@ function createProjectWidget(onSubmit, cleanFunction) {
 }
 
 
-function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEvent, bindings, startIndex=0, updateType="none") {
+function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEvent, bindings, startIndex = 0, updateType = "none") {
     /*
      * currentTrack: track object obtained from the trackManager
      *  - name, absoluteIndex, color, and display are the keys that make up this object
@@ -1087,7 +1103,7 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
         selectedTracks.map((track) => track.absoluteIndex).forEach(setOfTracks.add, setOfTracks)
         let localTracks = allTracks.filter((track) => !setOfTracks.has(track.absoluteIndex));
         localTracks = localTracks.map((track) => mod(track, false));
-        if (localTracks.length <= startIndex +  (3 - selectedTracks.length)) {
+        if (localTracks.length <= startIndex + (3 - selectedTracks.length)) {
             downArrow = false;
         }
         tracksDisplay.push(...localTracks.splice(startIndex, tracksToPush));
@@ -1166,7 +1182,7 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
         if (i === 0 && paginateRequired && startIndex !== 0) {
             tracks.append(
                 genericDivWidget("column is-12 has-text-centered").append(
-                    iconButtonWidget("", "track-change-up", "fa-arrow-up", "track-change-up-icon", (event)=>updateEvent(()=>startIndex, event))
+                    iconButtonWidget("", "track-change-up", "fa-arrow-up", "track-change-up-icon", (event) => updateEvent(() => startIndex, event))
                 )
             );
         }
@@ -1174,7 +1190,7 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
     if (paginateRequired && downArrow) {
         tracks.append(
             genericDivWidget("column is-12 has-text-centered").append(
-                iconButtonWidget("", "track-change-down", "fa-arrow-down", "track-change-down-icon", (event)=>updateEvent(()=>startIndex, event))
+                iconButtonWidget("", "track-change-down", "fa-arrow-down", "track-change-down-icon", (event) => updateEvent(() => startIndex, event))
             )
         );
     }
@@ -1190,10 +1206,10 @@ function trackManagementWidgets(bindings) {
         let allTracks = bindings.getSelectableTracks();
         let selectedTracks = bindings.getSelectedTracks();
         let eventType = "";
-        if (event.target.id === "track-change-up" || event.target.id === "track-change-up-icon" ) {
+        if (event.target.id === "track-change-up" || event.target.id === "track-change-up-icon") {
             eventType = "up";
             startIndex = updateCallback() - (3 - selectedTracks.length);
-        } else if (event.target.id === "track-change-down" || event.target.id === "track-change-down-icon" ) {
+        } else if (event.target.id === "track-change-down" || event.target.id === "track-change-down-icon") {
             eventType = "down";
             startIndex = updateCallback() + (3 - selectedTracks.length);
         }
@@ -1202,6 +1218,7 @@ function trackManagementWidgets(bindings) {
         paginationWidget = newPaginationWidget;
     }
 
+    // Lists the tracks along with current track
     let paginationWidget = trackPaginationWidget(bindings.getCurrentTrack(),
         bindings.getSelectedTracks(),
         bindings.getSelectableTracks(),
@@ -1212,6 +1229,7 @@ function trackManagementWidgets(bindings) {
     return [
         paginationWidget,
         $("<hr>"),
+        // This is how we add new tracks
         genericDivWidget("field").append(
             $("<label>", {class: "label"}).text("Add New Track: "),
             genericDivWidget("control has-text-centered").append(
@@ -1230,6 +1248,43 @@ function trackManagementWidgets(bindings) {
                             class: "fas fa-plus",
                         })).on("click", (event) => updateEvent(bindings.onTrackAdd, event))
                     )
+                )
+            )
+        ),
+        genericDivWidget("field").append(
+            $("<label>", {class: "label"}).text("Limit Points to frames within +/-: "),
+            genericDivWidget("control has-text-centered").append(
+                genericDivWidget("columns is-gapless").append(
+                    genericDivWidget("column").append(
+                        genericDivWidget("field").append(
+                            $("<input>", {
+                                id: "frame-view-offset-input",
+                                type: "text",
+                                class: "input"
+                            }).on("change", (e) => {
+                                let viewOffsetError = $("#frame-view-offset-error");
+                                let frameViewInput = $(e.target);
+                                let parsed = parseInt(frameViewInput.val(), 10);
+
+                                if (!isNaN(parsed) && parsed > 0) {
+                                    if (!viewOffsetError.hasClass("hidden")) {
+                                        viewOffsetError.addClass("hidden");
+                                    }
+                                    frameViewInput.val(parsed);
+                                    bindings.onFrameViewOffsetChange(parsed);
+                                } else {
+                                    console.log("Parse Error/Jquery Error");
+                                    viewOffsetError.removeClass("hidden");
+                                    frameViewInput.val("");
+                                    bindings.onFrameViewOffsetChange(-1);
+                                }
+                            }),
+                            $("<p>", {
+                                class: "help is-danger hidden",
+                                id: "frame-view-offset-error"
+                            }).text("Must be a positive integer!")
+                        )
+                    ),
                 )
             )
         )
@@ -1831,4 +1886,9 @@ function miscSettingsWidget(bindings) {
             changeForwardBackwardOffsetWidget(bindings.forwardBackwardOffsetBindings)
         )
     )
+}
+
+function getVideoSettingsPage(videoTitle, loadPreviewFrameFunction, context, saveCallback, currentSettings) {
+    // TODO: This will be a new setup page where all videos are displayed on the same page
+    // this will clean up the setup process and make it faster.
 }

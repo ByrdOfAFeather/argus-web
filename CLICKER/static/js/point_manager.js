@@ -1,5 +1,5 @@
 class ClickedPointsManager {
-    constructor(numberOfCameras, initTracks = [0], clickedPoints = null) {
+    constructor(numberOfCameras, initTracks = [0], clickedPoints = null, frameViewOffset=null) {
         this.NO_CAMERAS = numberOfCameras;
         if (clickedPoints !== null) {
             this.clickedPoints = clickedPoints;
@@ -12,6 +12,16 @@ class ClickedPointsManager {
                 }
             }
         }
+
+        if (frameViewOffset === null) {
+            this.frameViewOffset = -1;
+        } else {
+            this.frameViewOffset = frameViewOffset;
+        }
+    }
+
+    setFrameViewOffset(newOffset) {
+        this.frameViewOffset = newOffset;
     }
 
     actionOnAllCameras(action) {
@@ -39,6 +49,15 @@ class ClickedPointsManager {
 
     getClickedPoints(index, currentAbsoluteTrackIndex) {
         return this.clickedPoints[index][currentAbsoluteTrackIndex];
+    }
+
+    getClickedPointsFrameViewOffsetSensitive(index, currentAbsoluteTrackIndex) {
+        let localPoints = this.clickedPoints[index][currentAbsoluteTrackIndex];
+        if (this.frameViewOffset === -1) {
+            return localPoints;
+        }
+        localPoints = localPoints.filter((point) => frameTracker[index] - this.frameViewOffset <= point.frame && point.frame <= frameTracker[index] + this.frameViewOffset);
+        return localPoints
     }
 
     addPoint(point, pointContext) {

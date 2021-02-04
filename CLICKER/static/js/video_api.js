@@ -38,6 +38,11 @@ class Video {
         this.zoomFocusedPointCanvas = document.getElementById(`zoomFocusedPointCanvas-${videoIndex}`);
         this.zoomFocusedPointCanvasContext = this.zoomFocusedPointCanvas.getContext("2d");
         this.zoomFocusedPointCanvas = $(this.zoomFocusedPointCanvas);
+
+        this.zoomPointCanvas = document.getElementById(`zoomPointCanvas-${videoIndex}`);
+        this.zoomPointCanvasContext = this.zoomPointCanvas.getContext("2d");
+        this.zoomPointCanvas = $(this.zoomPointCanvas);
+
         this.zoomOffset = 10;
     }
 
@@ -106,7 +111,6 @@ class Video {
     drawNewPoint(point, localPoints) {
         let newIndex = localPoints.indexOf(point);
         if (localPoints.length > 1) {
-
             // Check if there is a point after this one
             if (localPoints[newIndex + 1] !== undefined) {
                 // Check if consecutive
@@ -224,6 +228,8 @@ class Video {
         // Draws the remaining details
         this.drawZoom(this.zoomEpipolarCanvasContext, this.epipolarCanvas, .4);
         this.drawZoom(this.zoomFocusedPointCanvasContext, this.focusedPointCanvas);
+
+        this.drawZoom(this.zoomPointCanvasContext, this.canvas);
     }
 
     inverseEpipolarLocked(color) {
