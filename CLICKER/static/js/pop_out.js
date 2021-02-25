@@ -57,6 +57,11 @@ function setup(message) {
         message.settings
     );
 
+    // This may seem odd to do it this way - otherwise we would have to add a parameter
+    // to the constructor of the popout manager that only goes to the clickedpoints manager.
+    // that seems just as odd.
+    windowManager.clickedPointsManager.setFrameViewOffset(message.frameViewOffset);
+
     // Step 2 : Globals
     let videoSource = message["dataURL"];
     document.title = message["videoName"];

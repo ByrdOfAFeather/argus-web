@@ -44,6 +44,8 @@ class Video {
         this.zoomPointCanvas = $(this.zoomPointCanvas);
 
         this.zoomOffset = 10;
+
+        this.drawZoomPoints = false; // TODO: Make this able to be changed via the constructor
     }
 
     constructor(videoIndex, videoName, offset, isEpipolarLocked, epipolarProjection) {
@@ -130,23 +132,15 @@ class Video {
     }
 
 
-    static parseVideoLabel(videoLabelText) {
-        let parsedData = {};
-        let splicedData = videoLabelText.split(" ");
-        for (let i = 0; i < splicedData.length; i++) {
-            let localSplice = splicedData[i].split(":");
-            parsedData[localSplice[0]] = localSplice[1];
-        }
-        return parsedData;
-    }
-
-    static videoLabelDataToString(videoLabelObject) {
-        let keys = Object.keys(videoLabelObject);
-        let returnString = "";
-        for (let i = 0; i < keys.length; i++) {
-            returnString += `${keys[i]}:${videoLabelObject[keys[i]]} `;
-        }
-        return returnString;
+    parseVideoLabel() {
+        let title = $(`videoTitle-${this.index}`).text().split(":")[1].splice(1);
+        let frame = $(`videoFrame-${this.index}`).text().split(":")[1].splice(1);
+        let offset = $(`videoOffset-${this.index}`).text().split(":")[1].splice(1);
+        return  {
+            "TITLE": title,
+            "FRAME": frame,
+            "OFFSET": offset
+        };
     }
 
 
@@ -173,9 +167,7 @@ class Video {
         this.video.currentTime = frameNumber / FRAME_RATE;
 
         frameTracker[this.index] = orgFrame;
-        let parsedLabel = Video.parseVideoLabel(document.getElementById(this.videoLabelID).innerText);
-        parsedLabel["FRAME"] = Math.floor(frameTracker[this.index]);
-        document.getElementById(this.videoLabelID).innerText = Video.videoLabelDataToString(parsedLabel);
+        $(`#videoFrame-${this.index}`).text(`FRAME: ${ Math.floor(frameTracker[this.index])}`);
     }
 
     moveToNextFrame() {
@@ -229,7 +221,9 @@ class Video {
         this.drawZoom(this.zoomEpipolarCanvasContext, this.epipolarCanvas, .4);
         this.drawZoom(this.zoomFocusedPointCanvasContext, this.focusedPointCanvas);
 
-        this.drawZoom(this.zoomPointCanvasContext, this.canvas);
+        if (this.drawZoomPoints) {
+            this.drawZoom(this.zoomPointCanvasContext, this.canvas);
+        }
     }
 
     inverseEpipolarLocked(color) {
@@ -244,6 +238,20 @@ class Video {
         }
         let lockText = this.isEpipolarLocked ? "Enabled" : "Disabled";
         $(`#epipolar-lock-${this.index}`).text(`L = Lock To Epipolar [${lockText}]`);
+    }
+
+    inverseDrawZoomPoints(color) {
+        this.clearZoomPointCanvas();
+        this.drawZoomPoints = !this.drawZoomPoints;
+        this.drawZoomWindows(color);
+        let drawZoomPointsText = this.drawZoomPoints? "Enabled": "Disabled";
+        $(`#drawzoompoints-${this.index}`).text(`P = Draw Points in Zoom Window [${drawZoomPointsText}]`);
+    }
+
+    clearZoomPointCanvas() {
+        let canvasHeight = this.canvas.height;
+        let canvasWidth = this.canvas.width;
+        this.zoomPointCanvasContext.clearRect(0,0, canvasWidth, canvasHeight);
     }
 
 

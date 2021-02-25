@@ -176,15 +176,24 @@ function removeTrackFromDropDown(trackID) {
 
 // The following two functions are helpful functions that are used exclusively during setup. This is mostly done so that
 // if we ever wanted to change the style of labels and tooltips, we wouldn't have to change 10 anon. functions
-function setupLabelGenerator(labelText) {
+// function setupLabelGenerator(labelText) {
+//     return $("<label>", {class: `label ${LABEL_STYLES.LIGHT}`}).text(labelText);
+// }
+
+function labelLight(labelText) {
     return $("<label>", {class: `label ${LABEL_STYLES.LIGHT}`}).text(labelText);
 }
 
-function setupTooltipPropertiesGenerator(tooltipText, direction) {
+function labelDark(labelText) {
+    return $("<label>", {class: `label ${LABEL_STYLES.DARK}`}).text(labelText);
+}
+
+function setupTooltipPropertiesGenerator(tooltipText, direction, labelStyle) {
+    labelStyle = {labelDark: LABEL_STYLES.DARK, labelLight: LABEL_STYLES.LIGHT}
     return {
         tooltipText: tooltipText,
         multiline: true,
-        tooltipStyle: LABEL_STYLES.LIGHT,
+        tooltipStyle: labelStyle,
         direction: direction
     };
 }
@@ -318,10 +327,10 @@ function popOutButtonWidget(videoIndex, videoURL, popOutFunction) {
     popOutFunction: (event: jquery event object, videoURL: str same as above) { handles popping a video into a new
     tab and adding it to the current communicators }
     */
-    let
-        popOutButton = $("<button>", {class: "button", id: `popVideo-${videoIndex}`}).append(
-            $("<i>", {class: "fa fa-window-restore"}).attr("aria-hidden", "true")
-        );
+    let popOutButton = $("<i>", {class: "fa fa-window-restore clickable fade-on-hover fa-2x"}).attr("aria-hidden", "true")
+    // popOutButton = $("<button>", {class: "button", id: `popVideo-${videoIndex}`}).append(
+
+    // );
     popOutButton.on("click", function (_) {
         popOutFunction(videoIndex, videoURL)
     });
@@ -423,15 +432,26 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
             genericDivWidget("column is-12 video-label-container").append(
                 genericDivWidget("level").append(
                     genericDivWidget("level-left").append(
-                        $('<p>', {class: "video-label render-unselectable", id: `videoLabel-${videoIndex}`})
+                        genericDivWidget("columns is-vcentered").append(
+                            genericDivWidget("column is-narrow").append(
+                                $('<p>', {class: "video-label render-unselectable", id: `videoTitle-${videoIndex}`})
+                            ),
+                            genericDivWidget("column is-narrow").append(
+                                $('<p>', {class: "video-label render-unselectable", id: `videoFrame-${videoIndex}`})
+                            ),
+                            genericDivWidget("column is-narrow").append(
+                                $('<p>', {class: "video-label render-unselectable", id: `videoOffset-${videoIndex}`})
+                            ),
+                        ),
+                        // $('<p>', {class: "video-label render-unselectable", id: `videoLabel-${videoIndex}`})
                     ),
                     genericDivWidget("level-right").append(
-                        genericDivWidget("columns").append(
+                        genericDivWidget("columns is-vcentered").append(
                             genericDivWidget("column", `pop-out-${videoIndex}-placeholder`),
                             genericDivWidget("column").append(
-                                $("<button>", {class: "button", id: `openSettings-${videoIndex}`}).append(
-                                    $("<i>", {class: "fa fa-cog"}).attr("aria-hidden", "true")
-                                ).on("click", displaySettings)
+                                // $("<button>", {class: "button", id: `openSettings-${videoIndex}`}).append(
+                                $("<i>", {class: "fa fa-cog clickable fa-2x fade-on-hover"}).attr("aria-hidden", "true").on("click", displaySettings)
+                                // )
                             )
                         )
                     )
@@ -440,7 +460,7 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
 
             genericDivWidget("column is-7").append(
                 clickerCanvasWidget(videoIndex, videoWidth, videoHeight, onKeyboardInput, onClick, onRightClick, setMousePos)
-            ),
+            ).css("padding", ".75rem 0 0 0"),
             genericDivWidget("column").append(
                 genericDivWidget("container", `zoom-text-${videoIndex}`).append(
                     genericDivWidget("container", `zoom-canvas-${videoIndex}`).append(
@@ -454,6 +474,10 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
                         class: "render-unselectable",
                         id: `epipolar-lock-${videoIndex}`
                     }).text("L = Lock To Epipolar [Disabled]"),
+                    $("<p>", {
+                        class: "render-unselectable",
+                        id: `drawzoompoints-${videoIndex}`
+                    }).text("P = Draw Points in Zoom Window [Disabled]"),
                     // genericDivWidget("columns is-vcentered is-centered").append(
                     //     genericDivWidget("column is-narrow").append(
                     //         $("<label>", {class: "label"}).text("Draw Points:"),
@@ -469,7 +493,7 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
                     //     ),
                     // )
                 )
-            ),
+            ).css("padding", ".75rem 0 0 .75rem"),
         )
     );
 }
@@ -503,7 +527,7 @@ function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, upda
     return [
         genericDivWidget("column is-12").append(
             tooltipDualColumnWidget(
-                setupLabelGenerator("Brightness"),
+                labelStyle("Brightness"),
                 setupTooltipPropertiesGenerator(brightnessTooltipText, "up")
             ),
             sliderWidget(`${brightnessID}`, "0", "200", initValues.brightness, function () {
@@ -512,7 +536,7 @@ function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, upda
         ),
         genericDivWidget("column is-12").append(
             tooltipDualColumnWidget(
-                setupLabelGenerator("Contrast"),
+                labelStyle("Contrast"),
                 setupTooltipPropertiesGenerator(contrastTooltipText, "up")
             ),
             sliderWidget(`${contrastID}`, '0', '100', initValues.contrast, function () {
@@ -521,7 +545,7 @@ function videoPropertySlidersWidget(brightnessID, contrastID, saturationID, upda
         ),
         genericDivWidget("column is-12").append(
             tooltipDualColumnWidget(
-                setupLabelGenerator("Saturation"),
+                labelStyle("Saturation"),
                 setupTooltipPropertiesGenerator(saturationTooltipText, "up")
             ),
             sliderWidget(`${saturationID}`, '0', '100', initValues.saturation, function () {
@@ -550,28 +574,10 @@ function videoSettingsPopoutWidget(videoTitle, loadPreviewFrameFunction, context
     optionMenu.addClass("has-text-centered");
     optionMenu.css("width", "100%");
 
-    let parseSettings = (context) => {
-        function validatePositiveFloatValue(stringValue, nonzero = false) {
-            let parsedFloat = parseFloat(stringValue);
-            if (!isNaN(parsedFloat) && !(parsedFloat === 0 && nonzero)) {
-                return {"valid": true, value: parsedFloat};
-            } else {
-                return {"valid": false, value: null};
-            }
-        }
-
-        // Returns if settings are valid and if not which ones are invalid
-        let parsed = {};
-        parsed["offset"] = validatePositiveFloatValue(context.offset);
-        parsed["frameRate"] = validatePositiveFloatValue(context.frameRate, true);
-        parsed["pointSize"] = validatePositiveFloatValue(context.pointSize);
-        return parsed;
-    };
-
 
     let frameRateInput = genericDivWidget("column is-narrow", "framerate-column").append(
         tooltipDualColumnWidget(
-            setupLabelGenerator("Global Framerate"),
+            labelLight("Global Framerate"),
             setupTooltipPropertiesGenerator("Argus-web doesn't support multiple " +
                 "framerates across videos, this value should be the framerate of all of the videos selected",
                 "right")
@@ -602,23 +608,6 @@ function videoSettingsPopoutWidget(videoTitle, loadPreviewFrameFunction, context
             }
         }
         loadPreviewFrameFunction();
-    };
-
-    let appendError = (id, errorText) => {
-        // Don't show error more than once
-        if ($(`#${id}-error`).get(0) !== undefined) {
-            return;
-        } else {
-            $(`#${id}`).append(
-                $("<p>", {id: `${id}-error`, class: "has-text-error"}).text(
-                    errorText
-                )
-            );
-        }
-    };
-
-    let removeError = (id) => {
-        $(`#${id}-error`).remove();
     };
 
     let validateFormAndSubmit = (previous = false) => {
@@ -724,7 +713,7 @@ function videoSettingsPopoutWidget(videoTitle, loadPreviewFrameFunction, context
                         genericDivWidget("column").append(
                             genericDivWidget("field", "offset-field").append(
                                 tooltipDualColumnWidget(
-                                    setupLabelGenerator("Offset"),
+                                    labelLight("Offset"),
                                     setupTooltipPropertiesGenerator(
                                         "Your videos may start at different places, " +
                                         " the difference in starting points is the offset (in frames).",
@@ -742,7 +731,7 @@ function videoSettingsPopoutWidget(videoTitle, loadPreviewFrameFunction, context
                     genericDivWidget("columns is-multiline is-vcentered is-mobile").append(
                         genericDivWidget("column").append(
                             tooltipDualColumnWidget(
-                                setupLabelGenerator("Colorspace"),
+                                labelLight("Colorspace"),
                                 setupTooltipPropertiesGenerator("Your videos may be easier to see by swaping colorspace",
                                     "left")
                             ),
@@ -752,7 +741,7 @@ function videoSettingsPopoutWidget(videoTitle, loadPreviewFrameFunction, context
                             genericDivWidget("columns is-mobile").append(
                                 genericDivWidget("column").append(
                                     tooltipDualColumnWidget(
-                                        setupLabelGenerator("Point Size"),
+                                        labelLight("Point Size"),
                                         setupTooltipPropertiesGenerator(
                                             "This controls the radius of your points, the larger it is, the easier it" +
                                             " will be to see. However, this will cause overlap with other points",
@@ -793,7 +782,7 @@ function videoSettingsPopoutWidget(videoTitle, loadPreviewFrameFunction, context
                                             "preview-contrast",
                                             "preview-saturation",
                                             updateVideoPropertiesGeneric,
-                                            LABEL_STYLES.LIGHT,
+                                            labelLight,
                                             {
                                                 brightness: parsedFilter.brightnessBar,
                                                 contrast: parsedFilter.contrastBar,
@@ -1266,11 +1255,15 @@ function trackManagementWidgets(bindings) {
                                 let frameViewInput = $(e.target);
                                 let parsed = parseInt(frameViewInput.val(), 10);
 
-                                if (!isNaN(parsed) && parsed > 0) {
+                                if ((!isNaN(parsed) && parsed > 0) || frameViewInput.val() === "") {
                                     if (!viewOffsetError.hasClass("hidden")) {
                                         viewOffsetError.addClass("hidden");
                                     }
-                                    frameViewInput.val(parsed);
+                                    if (frameViewInput.val() === "") {
+                                        parsed = -1;
+                                    } else {
+                                        frameViewInput.val(parsed);
+                                    }
                                     bindings.onFrameViewOffsetChange(parsed);
                                 } else {
                                     console.log("Parse Error/Jquery Error");
@@ -1862,7 +1855,14 @@ function projectInfoWidget(bindings, loadDLTButton) {
                     "export recovered x,y,z points. If working with one video and the origin has been set, x_scaled and y_scaled will " +
                     "be exported as well.",
                 multiline: true
-            })
+            }),
+            fileInputWidget("Load Points", "loadPoints", "any", (file) => {
+                let reader = new FileReader();
+                reader.onload = function () {
+                    bindings.loadPoints(reader.result.split("\n"));
+                };
+                reader.readAsText(Array.from($("#loadPoints").prop("files"))[0]);
+            }),
         )
     );
 }
@@ -1888,7 +1888,146 @@ function miscSettingsWidget(bindings) {
     )
 }
 
-function getVideoSettingsPage(videoTitle, loadPreviewFrameFunction, context, saveCallback, currentSettings) {
+function appendError(id, errorText) {
+    // Don't show error more than once
+    if ($(`#${id}-error`).get(0) !== undefined) {
+        return;
+    } else {
+        $(`#${id}`).append(
+            $("<p>", {id: `${id}-error`, class: "has-text-error"}).text(
+                errorText
+            )
+        );
+    }
+}
+
+function removeError(id) {
+    $(`#${id}-error`).remove();
+}
+
+function parseSettings(context) {
+    function validatePositiveFloatValue(stringValue, nonzero = false) {
+        let parsedFloat = parseFloat(stringValue);
+        if (!isNaN(parsedFloat) && !(parsedFloat === 0 && nonzero)) {
+            return {"valid": true, value: parsedFloat};
+        } else {
+            return {"valid": false, value: null};
+        }
+    }
+
+    // Returns if settings are valid and if not which ones are invalid
+    let parsed = {};
+    parsed["offset"] = validatePositiveFloatValue(context.offset);
+    parsed["frameRate"] = validatePositiveFloatValue(context.frameRate, true);
+    parsed["pointSize"] = validatePositiveFloatValue(context.pointSize);
+    return parsed;
+}
+
+function getInitVideoSettingsVideoWidget(videoTitle, bindings) {
+    // loadPreviewFrameFunction, context, saveCallback, currentSettings) {
     // TODO: This will be a new setup page where all videos are displayed on the same page
-    // this will clean up the setup process and make it faster.
+    // this will clean up the setup process and make it faster
+    // let frameRateInput = genericDivWidget("column is-narrow", "framerate-column").append(
+    //     tooltipDualColumnWidget(
+    //         setupLabelGenerator("Global Framerate"),
+    //         setupTooltipPropertiesGenerator("Argus-web doesn't support multiple " +
+    //             "framerates across videos, this value should be the framerate of all of the videos selected",
+    //             "right")
+    //     ),
+    //     frameRateDropDownWidget(currentSettings["frameRate"].toString())
+    // );
+
+    let localBrightness = "brightness(100%)";
+    let localContrast = "contrast(100%)";
+    let localSaturation = "saturate(100%)";
+
+    let filterToBar = (value) => {
+        let tempVal = value.split("(")[1];
+        return tempVal.substring(0, tempVal.length);
+    }
+
+    let parsedFilter = {
+        "brightnessBar": filterToBar(localBrightness),
+        "contrastBar": filterToBar(localContrast),
+        "saturationBar": filterToBar(localSaturation)
+    };
+
+    let offsetInput = genericDivWidget("controller", "offset-controller").append(
+        $("<input>", {
+            class: "input",
+            id: "offset-input",
+            placeholder: "In Frames",
+            value: ""
+        })
+    );
+
+    let updateVideoPropertiesGeneric = (inputID) => {
+        let value = $(`#${inputID}`).val();
+        switch (inputID) {
+            case "preview-brightness": {
+                localBrightness = `brightness(${value}%)`;
+                bindings.setBrightness(localBrightness);
+                break;
+            }
+            case 'preview-contrast': {
+                localContrast = `contrast(${value}%)`;
+                bindings.setContrast(localContrast);
+                break;
+            }
+            case 'preview-saturation': {
+                localSaturation = `saturate(${value}%)`;
+                bindings.setSaturation(localSaturation);
+                break;
+            }
+        }
+        bindings.loadPreviewFrameFunction();
+    };
+
+
+    return genericDivWidget("columns is-vcentered is-centered is-desktop is-multiline").append(
+        genericDivWidget("column is-narrow").append(
+            genericDivWidget("column").append(
+                $("<label>", {class: "label"}).text("Preview:"),
+                $("<canvas>", {
+                    // style: "height: 100%; width: 100%;",
+                    id: "current-settings-preview-canvas"
+                }).attr("height", 300).attr("width", 300)
+            ),
+        ),
+        genericDivWidget("column is-narrow").append(
+            genericDivWidget("columns is-multiline is-centered is-vcentered").append(
+                genericDivWidget("column is-12 has-text-centered").append(
+                    $("<p>", {class: "title"}).append(videoTitle)
+                ),
+                genericDivWidget("column is-6").append(
+                    // TODO: Color space off set point
+                    genericDivWidget("field", "offset-field").append(
+                        tooltipDualColumnWidget(
+                            labelDark("Offset"),
+                            setupTooltipPropertiesGenerator(
+                                "Your videos may start at different places, " +
+                                " the difference in starting points is the offset (in frames).",
+                                "right", LABEL_STYLES.DARK
+                            )
+                        ),
+                        offsetInput
+                    ),
+                    genericDivWidget("columns is-multiline is-mobile").append(
+                        videoPropertySlidersWidget(
+                            "preview-brightness",
+                            "preview-contrast",
+                            "preview-saturation",
+                            updateVideoPropertiesGeneric,
+                            labelDark,
+                            {
+                                brightness: parsedFilter.brightnessBar,
+                                contrast: parsedFilter.contrastBar,
+                                saturateBar: parsedFilter.saturateBar
+                            },
+                        )
+                    ),
+                )
+            )
+        )
+    )
 }

@@ -1,5 +1,5 @@
 class ClickedPointsManager {
-    constructor(numberOfCameras, initTracks = [0], clickedPoints = null, frameViewOffset=null) {
+    constructor(numberOfCameras, initTracks = [0], clickedPoints = null, frameViewOffset = null) {
         this.NO_CAMERAS = numberOfCameras;
         if (clickedPoints !== null) {
             this.clickedPoints = clickedPoints;
@@ -71,25 +71,24 @@ class ClickedPointsManager {
             return {index: indexOfAlreadyExistingPoints, override: true};
         } else {
             localPoints.push(point);
-            localPoints.sort(sortByFrame);
+            // localPoints.sort(sortByFrame); // TODO: Not sure why this was here - could have unforeseen consequences
             return {index: localPoints.length - 1, override: false};
         }
-
-        // // return the Index
-        // if (indexOfAlreadyExistingPoints !== null) {
-        //     return indexOfAlreadyExistingPoints;
-        // } else {
-        //     return localPoints.length - 1;
-        // }
     }
 
     removePoint(video, track, frame) {
         let localPoints = this.getClickedPoints(video, track);
         let index = localPoints.findIndex((point) => Math.floor(point.frame) === Math.floor(frame));
         if (index === -1) {
-            return;
+            return null;
         } else {
             localPoints.splice(index, 1);
+            return {
+                "video": video,
+                "track": track,
+                "frame": frame,
+                "index": index
+            };
         }
     }
 }

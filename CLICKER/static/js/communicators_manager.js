@@ -99,6 +99,8 @@ class CommunicatorsManager {
             this.callbacks["updateSettings"](context.data.settings);
         } else if (context.type === "updateVideoSettings") {
             this.callbacks["updateVideoSettings"](context.data.videoSettings);
+        } else if (context.type === "removePoint") {
+            this.callbacks["removePoint"](context.data);
         }
     }
 
@@ -117,6 +119,8 @@ class CommunicatorsManager {
             this.callbacks["addSubTrack"](messageContent.data.track);
         } else if (messageContent.type === "removeSubTrack") {
             this.callbacks["removeSubTrack"](messageContent.data.track);
+        } else if (messageContent.type === "clearEpipolarCanvas") {
+            this.callbacks["clearEpipolarCanvas"]();
         } else if (messageContent.type === "drawEpipolarLine") {
             this.callbacks['drawEpipolarLine'](messageContent.data.lineInfo);
         } else if (messageContent.type === "drawDiamond") {
