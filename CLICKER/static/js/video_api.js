@@ -87,7 +87,7 @@ class Video {
         };
     }
 
-    redrawPoints(points, color = this.currentStrokeStyle, canvasContext = this.canvasContext, clearPoints = true) {
+    redrawPoints(points, canvasIdx, color = this.currentStrokeStyle, canvasContext = this.canvasContext, clearPoints = true) {
         if (clearPoints) {
             this.clearPoints(canvasContext);
         }
@@ -277,14 +277,11 @@ class Video {
         let pointIndex = Video.checkIfPointAlreadyExists(points, frameTracker[this.index]);
         if (pointIndex !== null) {
             if (this.isDisplayingFocusedPoint) {
-                this.redrawPoints(points);
                 this.clearFocusedPointCanvas();
             }
-            this.isDisplayingFocusedPoint = true;
             this.drawFocusedPoint(points[pointIndex].x, points[pointIndex].y);
         } else {
             if (this.isDisplayingFocusedPoint === true) {
-                this.redrawPoints(points);
                 this.clearFocusedPointCanvas();
             }
             this.isDisplayingFocusedPoint = false;

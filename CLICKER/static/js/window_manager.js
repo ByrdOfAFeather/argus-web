@@ -436,6 +436,8 @@ class WindowManager {
             );
             let localPoints = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(index, this.trackManager.currentTrack.absoluteIndex);
             let override = pointIndexInfo.override;
+            let canvasIdx = Math.floor(pointIndexInfo.index / 10000); // Defines how many points per point canvas
+            // localPoints.slice(canvasIdx*10000, (canvasIdx+1)*10000);
             if (override) {
                 this.videos[index].redrawPoints(localPoints);
             } else {
@@ -1400,36 +1402,48 @@ class MainWindowManager extends WindowManager {
             cameraSet.add(currentCamera);
             trackSet.add(currentTrackName);
         }
-        let initTrackIndexes = []; for (let i=0; i<trackSet.size; i++) {initTrackIndexes.push(i);}
+        let initTrackIndexes = [];
+        for (let i = 0; i < trackSet.size; i++) {
+            initTrackIndexes.push(i);
+        }
         let localTrackManager = new TrackManager();
         let localClickedPointsManager = new ClickedPointsManager(cameraSet.size, initTrackIndexes);
         // Note that we can't initialize the track manager w/ tracks since color, etc is not contained in point sets
         // So we have to add them after the fact
         trackSet.forEach((trackName) => localTrackManager.addTrack(trackName));
         let columnDict = {};
-        for (let i = 1; i<textLines.length; i++) {
+        for (let i = 1; i < textLines.length; i++) {
             let currentLine = textLines[i].split(",");
-            for (let j=0; j<currentLine.length; j++) {
-                if (isNaN(currentLine[j])) { continue; }
-                let factor = (j+2) % 2 === 0 ? (600 / 2028) : (800/27040);
-                try { columnDict[j].push(currentLine[j] * factor); }
-                catch (e) {
+            for (let j = 0; j < currentLine.length; j++) {
+                if (isNaN(currentLine[j])) {
+                    continue;
+                }
+                let factor = (j + 2) % 2 === 0 ? (600 / 2028) : (800 / 2704);
+                try {
+                    columnDict[j].push(currentLine[j] * factor);
+                } catch (e) {
                     columnDict[j] = [];
                     columnDict[j].push(currentLine[j] * factor);
                 }
             }
         }
 
-        let points = {};
-        for (let i=0; i<headerSplit.length / 2; i++) {
-            let localRef = columnDict[i*2+1];
-            try{
-            columnDict[i * 2].map((xval, idx) => {return {"x": xval, "y": localRef, "frame": idx}});
-                } catch (e) {
-                console.log(i);
-                continue;
+        let points = localClickedPointsManager.clickedPoints;
+        let trackIndex = -1;
+        for (let i = 0; i < headerSplit.length / 2; i++) {
+            let localRef = columnDict[i * 2 + 1];
+            let cameraIndex = (i + cameraSet.size) % cameraSet.size;
+            if (cameraIndex === 0) {
+                trackIndex += 1;
             }
+            points[cameraIndex][trackIndex] = columnDict[i * 2].map((xval, idx) => {
+                return {"x": xval, "y": localRef[idx], "frame": idx}
+            });
         }
+
+        windowManager.clickedPointsManager = localClickedPointsManager;
+        windowManager.trackManager = localTrackManager;
+
 
         console.timeEnd("ImportPoints");
         console.log("done");
@@ -1914,6 +1928,7 @@ class MainWindowManager extends WindowManager {
     }
 
     addNewPoint(event) {
+        console.time("AddPoint");
         let point = super.addNewPoint(event).point;
         if (point == null) {
             return;
@@ -1951,6 +1966,7 @@ class MainWindowManager extends WindowManager {
             this.videos[index].isDisplayingFocusedPoint = true;
             this.videos[index].drawZoomWindows(this.trackManager.currentTrack.color);
         }
+        console.timeEnd("AddPoint");
     }
 
     removePoint(e) {
