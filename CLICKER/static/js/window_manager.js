@@ -1390,7 +1390,6 @@ class MainWindowManager extends WindowManager {
         /*
          * Header should be in the format track1_camera_x, track1_camera_y, track1_camera2_x, track1_camera2_y, etc..
          */
-        console.time("ImportPoints");
         let header = textLines[0];
         let headerSplit = header.split(",");
         const trackSet = new Set();
@@ -1414,10 +1413,19 @@ class MainWindowManager extends WindowManager {
         let columnDict = {};
         for (let i = 1; i < textLines.length; i++) {
             let currentLine = textLines[i].split(",");
+            let currentCameraIndex = 0;
             for (let j = 0; j < currentLine.length; j++) {
                 if (isNaN(currentLine[j])) {
                     continue;
                 }
+
+                if ((j + 2) % 2 === 0) {
+                    // The mathematics here is a bit hard to see but write it out and you will understand
+                    // J will be even in this case due to the above statement, when j is odd, the previous
+                    // camera index follows since even-odd == x-y pairs
+                    currentCameraIndex = (j / 2 + cameraSet.size) % cameraSet.size;
+                }
+                // let factor = (j + 2) % 2 === 0 ? (600 / this.videosToSizes[currentCameraIndex].width) : (800 / this.videosToSizes[currentCameraIndex].height);
                 let factor = (j + 2) % 2 === 0 ? (600 / 2028) : (800 / 2704);
                 try {
                     columnDict[j].push(currentLine[j] * factor);
@@ -1429,7 +1437,7 @@ class MainWindowManager extends WindowManager {
         }
 
         let points = localClickedPointsManager.clickedPoints;
-        let trackIndex = -1;
+        let trackIndex = 0;
         for (let i = 0; i < headerSplit.length / 2; i++) {
             let localRef = columnDict[i * 2 + 1];
             let cameraIndex = (i + cameraSet.size) % cameraSet.size;
@@ -1444,42 +1452,10 @@ class MainWindowManager extends WindowManager {
         windowManager.clickedPointsManager = localClickedPointsManager;
         windowManager.trackManager = localTrackManager;
 
-
-        console.timeEnd("ImportPoints");
-        console.log("done");
-        // for (let i = 1; i < textLines.length; i++) {
-        //     let currentLine = textLines[i].split(",");
-        //     let allNan = currentLine.filter((value) => !isNaN(value)).length === 0;
-        //     if (allNan) {
-        //         continue;
-        //     }
-        //     for (let trackNo = 0; trackNo < trackSet.size; trackNo++) {
-        //         let startOfTrackValues = trackNo * cameraSet.size * 2;
-        //         for (let cameraNo = 0; cameraNo < cameraSet.size; cameraNo++) {
-        //             let currentIndex = startOfTrackValues + (cameraNo * 2)
-        //             let currentValX = currentLine[currentIndex] * (800/2704);
-        //             let currentValY = currentLine[currentIndex + 1] * (600/2028);
-        //
-        //             if (isNaN(currentValX)) {
-        //                 continue
-        //             } else {
-        //                 let point = {
-        //                     "x": currentValX,
-        //                     "y": currentValY,
-        //                     "frame": i - 1
-        //                 };
-        //                 let pointContext = {
-        //                     "clickedVideo": cameraNo,
-        //                     "currentTrack": trackNo
-        //                 };
-        //                 localClickedPointsManager.addPoint(point, pointContext);
-        //             }
-        //         }
-        //     }
-        // }
-
         this.clickedPointsManager = localClickedPointsManager;
         this.trackManager = localTrackManager;
+        $("#track-0-icon").click(); // Forces track manager update
+
     }
 
     onFrameViewOffsetChange(newOffset) {

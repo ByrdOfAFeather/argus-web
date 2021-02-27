@@ -279,6 +279,7 @@ class Video {
             if (this.isDisplayingFocusedPoint) {
                 this.clearFocusedPointCanvas();
             }
+            this.isDisplayingFocusedPoint = true;
             this.drawFocusedPoint(points[pointIndex].x, points[pointIndex].y);
         } else {
             if (this.isDisplayingFocusedPoint === true) {

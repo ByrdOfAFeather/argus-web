@@ -1868,7 +1868,7 @@ function projectInfoWidget(bindings, loadDLTButton) {
 }
 
 function trackWidget(bindings) {
-    return genericDivWidget("column is-12 has-text-centered").append(
+    return genericDivWidget("column is-12 has-text-centered", "track-management-widget").append(
         genericDivWidget("box").append(
             $(`<p class="subtitle">Track Management</p>`),
             $("<hr>"),
