@@ -402,16 +402,20 @@ class Video {
 
 
     drawEpipolarLines(points) {
+        // Notes that points is an array in the form [pointsForLine1, pointsForLine2, etc] where each pointsForLineN
+        // is an array.
         for (let i = 0; i < points.length; i++) {
-            this.drawLine(
+            for (let j=0; j<points[i].length - 1; j++){
+             this.drawLine(
                 {
-                    "x": points[i][0][0],
-                    "y": points[i][0][1]
+                    "x": points[i][j][0],
+                    "y": points[i][j][1]
                 },
                 {
-                    "x": points[i][1][0],
-                    "y": points[i][1][1]
+                    "x": points[i][j+1][0],
+                    "y": points[i][j+1][1]
                 }, this.epipolarCanvasContext, "rgb(75, 156, 211)");
+            }
         }
         this.drawEpipolarZoomWindow();
     }

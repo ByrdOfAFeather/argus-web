@@ -1750,6 +1750,17 @@ function loadCameraInfoWidget(bindings) {
                     multiline: true
                 }
             )
+        ),
+        genericDivWidget("column").append(
+                        tooltipDualColumnWidget(
+                fileInputWidget("Load Camera Profile", "loadCameraProfile", "any", (file) => loadCameraProfile(Array.from($("#loadCameraProfile").prop("files")))),
+                {
+                    tooltipText: "If your camera has distortion, the camera profile will allow for 3D point recovery",
+                    tooltipStyle: "has-text-black",
+                    direction: "up",
+                    multiline: true
+                }
+            )
         )
     );
 }
@@ -1856,13 +1867,20 @@ function projectInfoWidget(bindings, loadDLTButton) {
                     "be exported as well.",
                 multiline: true
             }),
-            fileInputWidget("Load Points", "loadPoints", "any", (file) => {
-                let reader = new FileReader();
-                reader.onload = function () {
-                    bindings.loadPoints(reader.result.split("\n"));
-                };
-                reader.readAsText(Array.from($("#loadPoints").prop("files"))[0]);
-            }),
+            tooltipDualColumnWidget(
+                fileInputWidget("Load Points", "loadPoints", "any", (file) => {
+                    let reader = new FileReader();
+                    reader.onload = function () {
+                        bindings.loadPoints(reader.result.split("\n"));
+                    };
+                    reader.readAsText(Array.from($("#loadPoints").prop("files"))[0]);
+                }), {
+                    tooltipText: "If you have a project from a previous ARGUS version (Matlab/Python), you can load your " +
+                        "data here",
+                    tooltipStyle: "has-text-black",
+                    direction: "up",
+                    multiline: true
+                })
         )
     );
 }

@@ -171,6 +171,12 @@ function loadDLTCoefficients(file) {
 }
 
 function loadCameraProfile(file) {
+    let reader = new FileReader();
+    reader.onload = function () {
+        CAMERA_PROFILE = parseCameraProfile(reader.result, " ");
+        windowManager.getEpipolarInfo(0, frameTracker[0]);
+    };
+    reader.readAsText(file[0]);
 }
 
 

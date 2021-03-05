@@ -275,16 +275,13 @@ function getDLTLine(xCoord, yCoord, dlcCoeff1, dltCoeff2) {
 }
 
 
-function getBezierCurve(slope, intercept, cameraProfile, videoObject) {
-    let originalVideoWidth = document.getElementById(videoObject["videoCanvasID"]).width;
+function getBezierCurve(slope, intercept, cameraProfile, videoID) {
+    let originalVideoWidth = document.getElementById(`canvas-${videoID}`).width;
     let bezierPoints = [];
     for (let k = -10; k < 60; k++) {
-        bezierPoints.push([originalVideoWidth / 49, slope * (originalVideoWidth / 49) + intercept]);
+        bezierPoints.push([originalVideoWidth*k / 49, slope * (originalVideoWidth*k / 49) + intercept]);
     }
-
-    let redistortedPoints = tf.Tensor(redistortPoints(bezierPoints, cameraProfile));
-    redistortedPoints.reshape([bezierPoints.length, 2]);
-    return redistortedPoints
+    return redistortPoints(bezierPoints, cameraProfile);
 }
 
 function checkCoordintes(x, y, height, width) {
@@ -323,16 +320,19 @@ function getEpipolarLines(videoIndex, DLTCoefficients, pointsIndex, currentTrack
             let yCoord = coord[1][1];
 
             if (CAMERA_PROFILE) {
-                let undistortedPoints = undistortPoints([[xCoord, yCoord]], CAMERA_PROFILE[coord[0]][0]);
-                xCoord = undistortedPoints[0];
-                yCoord = undistortedPoints[1];
+                let undistortedPoints = undistortPoints([[xCoord, yCoord]], CAMERA_PROFILE[coord[0]]);
+                xCoord = undistortedPoints[0][0];
+                yCoord = undistortedPoints[0][1];
 
                 let slopeAndIntercept = getDLTLine(xCoord, yCoord, dlcCoeff1, dltCoeff2);
                 let slope = slopeAndIntercept[0];
                 let intercept = slopeAndIntercept[1];
 
-                tmp = getBezierCurve(slope, intercept, CAMERA_PROFILE[coord[0]]);
-                points.push([coord[0], tmp]);
+                tmp = getBezierCurve(slope, intercept, CAMERA_PROFILE[coord[0]], coord[0]);
+                points.push({
+                        'videoIndex': coord[0],
+                        'line': tmp
+                });
             } else {
                 let slopeAndIntercept = getDLTLine(xCoord, yCoord, dlcCoeff1, dltCoeff2);
                 let slope = slopeAndIntercept[0];

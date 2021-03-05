@@ -479,6 +479,18 @@ class WindowManager {
         } else if (lineData1 !== undefined) {
             let bias = lineData1[0][1];
             let slope = (lineData1[1][1] - lineData1[0][1]) / (lineData1[1][0]);
+            //TODO: This is mostly camera profile sloppy testing
+            if (lineData1.length > 2) {
+                let x_1 = lineData1[0][0];
+                let x_2 = lineData1[lineData1.length - 1][0];
+
+                let y_1 = lineData1[0][1];
+                let y_2 = lineData1[lineData1.length - 1][1];
+
+                slope = (y_2 - y_1) / (x_2 - x_1);
+                bias = y_2 - slope * x_2;
+            }
+            // end
             let a = (-bias / slope);
             let b = (this.videosToSizes[videoID].height - bias) / slope;
             let finalX = a + ((baseX * (b - a)) / this.videosToSizes[videoID].width);
@@ -1400,6 +1412,11 @@ class MainWindowManager extends WindowManager {
             let currentCamera = currentHeader[1];
             cameraSet.add(currentCamera);
             trackSet.add(currentTrackName);
+        }
+        if (cameraSet.size !== NUMBER_OF_CAMERAS) {
+            generateError("The file you are attempting to load has more videos than you have loaded! " +
+                "If you want to load this file you must include more videos when creating a project.");
+            return;
         }
         let initTrackIndexes = [];
         for (let i = 0; i < trackSet.size; i++) {
