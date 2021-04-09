@@ -1740,19 +1740,36 @@ function loadCameraInfoWidget(bindings) {
     // TODO: Make this more inline with how everything else works. Right now it calls a global variable
     return genericDivWidget("columns is-multiline").append(
         genericDivWidget("column").append(
-            tooltipDualColumnWidget(
-                fileInputWidget("Load DLT Coefficents", "loadDLTCoefficients", "any", (file) => loadDLTCoefficients(Array.from($("#loadDLTCoefficients").prop("files")))),
-                {
-                    tooltipText: "This will allow you to load DLT coefficients. Once loaded this will allow for advanced features " +
-                        "such as epipolar lines and 3D point recovery",
-                    tooltipStyle: "has-text-black",
-                    direction: "up",
-                    multiline: true
-                }
+            genericDivWidget("columns is-multiline is-centered").append(
+                genericDivWidget("column is-narrow").append(
+                    tooltipDualColumnWidget(
+                        fileInputWidget("Load DLT Coefficents", "loadDLTCoefficients", "any", (file) => loadDLTCoefficients(Array.from($("#loadDLTCoefficients").prop("files")))),
+                        {
+                            tooltipText: "This will allow you to load DLT coefficients. Once loaded this will allow for advanced features " +
+                                "such as epipolar lines and 3D point recovery",
+                            tooltipStyle: "has-text-black",
+                            direction: "up",
+                            multiline: true
+                        }
+                    )
+                ),
+                genericDivWidget("column is-narrow").append(
+                    $("<button>", {
+                        class: 'button',
+                        id: 'epipolar-color'
+                    }).append(
+                        $("<i>", {
+                            class: 'fas fa-eye-dropper icon',
+                            id: 'epipolar-icon'
+                        })
+                    ).spectrum({
+                        change: (color) => bindings.onEpipolarColorChange(color)
+                    })
+                )
             )
         ),
         genericDivWidget("column").append(
-                        tooltipDualColumnWidget(
+            tooltipDualColumnWidget(
                 fileInputWidget("Load Camera Profile", "loadCameraProfile", "any", (file) => loadCameraProfile(Array.from($("#loadCameraProfile").prop("files")))),
                 {
                     tooltipText: "If your camera has distortion, the camera profile will allow for 3D point recovery",
@@ -1853,7 +1870,7 @@ function loadSavedStateFromFileWidget() {
 
 
 function projectInfoWidget(bindings, loadDLTButton) {
-    let DLTButton = loadDLTButton ? loadCameraInfoWidget() : null;
+    let DLTButton = loadDLTButton ? loadCameraInfoWidget(bindings) : null;
     return genericDivWidget("column has-text-centered").append(
         genericDivWidget("box").append(
             $(`<p class="subtitle">Project Settings</p>`),

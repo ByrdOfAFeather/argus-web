@@ -4,6 +4,8 @@ let EPIPOLAR_TYPES = {
     NONE: 2
 };
 
+let EPIPOLAR_COLOR = "rgb(75,156,211)";
+
 class WindowManager {
     /*ABSTRACT CLASS representing a manager for a window
     This will be the base class for a MainWindowManager and a PopoutWindowManager
@@ -434,19 +436,20 @@ class WindowManager {
                     currentTrack: this.trackManager.currentTrack.absoluteIndex
                 }
             );
-            let localPoints = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(index, this.trackManager.currentTrack.absoluteIndex);
+            let mainTrack = this.trackManager.currentTrack;
+            let localPoints = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(index, mainTrack.absoluteIndex);
             let override = pointIndexInfo.override;
             let canvasIdx = Math.floor(pointIndexInfo.index / 10000); // Defines how many points per point canvas
             // localPoints.slice(canvasIdx*10000, (canvasIdx+1)*10000);
             if (override) {
-                this.videos[index].redrawPoints(localPoints);
+                this.videos[index].redrawPoints(localPoints, mainTrack.color);
             } else {
                 if (this.clickedPointsManager.frameViewOffset !== -1) {
-                    this.videos[index].redrawPoints(localPoints);
+                    this.videos[index].redrawPoints(localPoints, mainTrack.color);
                 } else {
                     // The only reason we reserve this else is that there is performance gain when not using
                     // the point offset. (e.g. we don't have to redraw points)
-                    this.videos[index].drawNewPoint(point, localPoints);
+                    this.videos[index].drawNewPoint(point, localPoints, mainTrack.color);
                 }
             }
 
@@ -1255,14 +1258,24 @@ class MainWindowManager extends WindowManager {
 
     onTrackColorChange(trackID, color) {
         this.trackManager.findTrack(trackID).color = `rgb(${color._r}, ${color._g}, ${color._b})`;
-        let redrawPoints = this.trackManager.hasSubTrack(trackID) || this.trackManager.currentTrack.absoluteIndex == trackID;
+        let isCurrentTrack = this.trackManager.hasSubTrack(trackID);
+        let redrawPoints = isCurrentTrack || this.trackManager.currentTrack.absoluteIndex === trackID;
         if (redrawPoints) {
-            for (let i = 0; i < this.videos.length; i++) {
+            let localCallback = (i) => {
+                // if (isCurrentTrack) {
+                //     this.videos[i].currentStrokeStyle.co
+                // }
                 this.drawAllPoints(i);
-                if (this.trackManager.currentTrack.absoluteIndex == trackID) {
+                if (this.trackManager.currentTrack.absoluteIndex === trackID) {
                     this.videos[i].drawZoomWindows(this.trackManager.findTrack(trackID).color);
                 }
-            }
+            };
+
+            let message = messageCreator("trackColorChange", {
+                trackID: trackID,
+                color: color
+            });
+            this.communicatorsManager.updateAllLocalOrCommunicator(localCallback, message);
         }
     }
 
@@ -1482,6 +1495,13 @@ class MainWindowManager extends WindowManager {
         }
     }
 
+    onEpipolarColorChange(color) {
+        EPIPOLAR_COLOR = `rgb(${color._r}, ${color._g}, ${color._b})`;
+        this.getEpipolarInfo(0, frameTracker[0]);
+        let message = messageCreator("epipolarColorChange", {color: color});
+        this.communicatorsManager.updateCommunicators(message);
+    }
+
 
     loadSettings() {
         let allSettings = genericDivWidget("columns is-multiline is-centered is-mobile");
@@ -1492,7 +1512,8 @@ class MainWindowManager extends WindowManager {
         let projectInfoBindings = {
             "saveProjectBindings": saveBinding,
             "exportPointBindings": exportPointsBindings,
-            "loadPoints": (file) => this.importPoints(file)
+            "loadPoints": (file) => this.importPoints(file),
+            onEpipolarColorChange: (color) => this.onEpipolarColorChange(color)
         };
 
         let trackBindings = {
@@ -1921,7 +1942,6 @@ class MainWindowManager extends WindowManager {
     }
 
     addNewPoint(event) {
-        console.time("AddPoint");
         let point = super.addNewPoint(event).point;
         if (point == null) {
             return;
@@ -1959,7 +1979,6 @@ class MainWindowManager extends WindowManager {
             this.videos[index].isDisplayingFocusedPoint = true;
             this.videos[index].drawZoomWindows(this.trackManager.currentTrack.color);
         }
-        console.timeEnd("AddPoint");
     }
 
     removePoint(e) {
@@ -2022,6 +2041,21 @@ class PopOutWindowManager extends WindowManager {
                         false
                     );
                 }
+            },
+            "trackColorChange": (trackID, color) => {
+                this.trackManager.findTrack(trackID).color = `rgb(${color._r}, ${color._g}, ${color._b})`;
+                let redrawPoints = this.trackManager.hasSubTrack(trackID) || this.trackManager.currentTrack.absoluteIndex === trackID;
+                if (redrawPoints) {
+                    this.drawAllPoints(this.absoluteIndex);
+                    if (this.trackManager.currentTrack.absoluteIndex === trackID) {
+                        this.videos[this.absoluteIndex].drawZoomWindows(this.trackManager.findTrack(trackID).color);
+                    }
+                }
+            },
+            "epipolarColorchange": (color) => {
+                EPIPOLAR_COLOR = `rgb(${color._r}, ${color._g}, ${color._b})`;
+                this.clearEpipolarCanvases(this.absoluteIndex);
+                this.videos[currentVideo].drawEpipolarLines(this.curEpipolarInfo[this.absoluteIndex].data);
             },
             "addSubTrack": (subTrackID) => {
                 this.trackManager.addSubTrack(subTrackID);

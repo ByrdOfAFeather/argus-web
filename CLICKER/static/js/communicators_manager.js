@@ -46,10 +46,8 @@ class CommunicatorsManager {
 
     updateCommunicators(message) {
         /*
-        * This is used by the PopOutWindowManager to go ahead and tell the main window about any changes
-        * It's a bit misleading in that there's a forEach, this is mostly for debugging purposes and should
-        * probably be changed to [0]. Popout will never have more than 1 communicator, and main window never
-        * only notifies popouts of changes - as of writing this that is.
+         * Used by the pop-out to communicate with the main window manager
+         * Used by the main window to communicate global change such as the change in the epipolar line color
         */
         this.communicators.forEach((communicatorContext) => communicatorContext.communicator.postMessage(message));
     }
@@ -106,30 +104,48 @@ class CommunicatorsManager {
 
     handleMainWindowChange(message) {
         let messageContent = message.data;
-        if (messageContent.type === "goToFrame") {
-            // As can be seen below, the message should have a frame value in it's data.
-            this.callbacks['goToFrame'](messageContent.data.frame);
-        } else if (messageContent.type === "changeTrack") {
-            this.callbacks['changeTrack'](messageContent.data.track);
-        } else if (messageContent.type === "addNewTrack") {
-            this.callbacks['addNewTrack'](messageContent.data.name)
-        } else if (messageContent.type === "removeTrack") {
-            this.callbacks["removeTrack"](messageContent.data.track);
-        }else if (messageContent.type === "addSubTrack") {
-            this.callbacks["addSubTrack"](messageContent.data.track);
-        } else if (messageContent.type === "removeSubTrack") {
-            this.callbacks["removeSubTrack"](messageContent.data.track);
-        } else if (messageContent.type === "clearEpipolarCanvas") {
-            this.callbacks["clearEpipolarCanvas"]();
-        } else if (messageContent.type === "drawEpipolarLine") {
-            this.callbacks['drawEpipolarLine'](messageContent.data.lineInfo);
-        } else if (messageContent.type === "drawDiamond") {
-            this.callbacks['drawDiamond'](messageContent.data.x, messageContent.data.y);
-        } else if (messageContent.type === "loadPoints") {
-        } else if (messageContent.type === "mainWindowDeath") {
-            this.callbacks['mainWindowDeath']();
-        } else if (messageContent.type === "updateSettings") {
-            this.callbacks["updateSettings"](messageContent.data.settings);
+        switch (messageContent.type) {
+            case "goToFrame":
+                this.callbacks.goToFrame(messageContent.data.frame);
+                break
+            case "changeTrack":
+                this.callbacks.changeTrack(messageContent.data.track);
+                break
+            case "addNewTrack":
+                this.callbacks.addNewTrack(messageContent.data.name);
+                break
+            case "removeTrack":
+                this.callbacks.removeTrack(messageContent.data.track);
+                break
+            case "addSubTrack":
+                this.callbacks.addSubTrack(messageContent.data.track);
+                break
+            case "removeSubTrack":
+                this.callbacks.removeSubTrack(messageContent.data.track);
+                break
+            case "clearEpipolarCanvas":
+                this.callbacks.clearEpipolarCanvas();
+                break
+            case "drawEpipolarLine":
+                this.callbacks.drawEpipolarLine(messageContent.data.lineInfo);
+                break
+            case "drawDiamond":
+                this.callbacks.drawDiamond(messageContent.data.x, messageContent.data.y);
+                break
+            case "loadPoints":
+                break
+            case "mainWindowDeath":
+                this.callbacks.mainWindowDeath();
+                break
+            case "updateSettings":
+                this.callbacks.updateSettings(messageContent.data.settings);
+                break
+            case "trackColorChange":
+                this.callbacks.trackColorChange(messageContent.data.trackID, messageContent.data.color);
+                break
+            case "epipolarColorChange":
+                this.callbacks.epipolarColorchange(messageContent.data.color);
+                break
         }
     }
 

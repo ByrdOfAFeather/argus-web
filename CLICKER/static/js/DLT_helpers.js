@@ -154,11 +154,8 @@ function undistortPoints(coordinatePair, cameraProfile) {
     let cx = cameraProfile[1];
     let cy = cameraProfile[2];
 
-    let iters = 3;
-
     let undistorted = [];
     let u, v, u_v_pair;
-    let iter_norm_u, iter_norm_v;
     let u_norm_org, v_norm_org;
     for (let i = 0; i < coordinatePair.length; i++) {
         u_v_pair = coordinatePair[i];
@@ -168,32 +165,16 @@ function undistortPoints(coordinatePair, cameraProfile) {
         u_norm_org = (u - cx) / f;
         v_norm_org = (v - cy) / f;
 
-        iter_norm_u = u_norm_org;
-        iter_norm_v = v_norm_org;
+        let r2 = u_norm_org ** 2 + v_norm_org ** 2;
+        let rad = 1 + (cameraProfile[3] * r2) + (cameraProfile[4] * r2 ** 2) + (cameraProfile[6] * r2 ** 4);
+        let tanDistX = 2*cameraProfile[4]*u_norm_org*v_norm_org + cameraProfile[5] * (r2 + 2*u_norm_org**2);
+        let tanDistY = cameraProfile[4]*(r2 * 2*v_norm_org**2) + 2*cameraProfile[5]*u_norm_org*v_norm_org;
 
-        let r2;
-        let rad;
-        let tan_u, tan_v;
-        // for (let j = 1; j < iters; j++) {
-            r2 = iter_norm_u * iter_norm_u + iter_norm_v * iter_norm_v;
-            //+ (cameraProfile[7] * r2 ** 3);
-            rad = 1 + (cameraProfile[3] * r2) + (cameraProfile[4] * r2 ** 2);
-            console.log(rad);
-            // iter_norm_u = iter_norm_u * rad;
-            // iter_norm_v = iter_norm_v * rad;
-            // tan_u = 2 * cameraProfile[5] * iter_norm_u * iter_norm_v + cameraProfile[6] * (r2 + 2 * iter_norm_u ** 2);
-            // tan_v = cameraProfile[5] * (r2 + 2 * iter_norm_v ** 2) + 2 * cameraProfile[6] * iter_norm_u * iter_norm_v;
+        u_norm_org = u_norm_org * rad + tanDistX;
+        v_norm_org = v_norm_org * rad + tanDistY;
 
-            // iter_norm_u = (u_norm_org - tan_u) / rad;
-            // iter_norm_v = (v_norm_org - tan_v) / rad;
-            iter_norm_u = iter_norm_u / rad;
-            iter_norm_v = iter_norm_v / rad;
-        // }
-
-        let final_u = iter_norm_u * f + cx;
-        let final_y = iter_norm_v * f + cy;
-        // let final_u = iter_norm_u;
-        // let final_y = iter_norm_v;
+        let final_u = u_norm_org * f + cx;
+        let final_y = v_norm_org * f + cy;
         undistorted.push([final_u, final_y]);
     }
 

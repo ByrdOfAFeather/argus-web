@@ -87,7 +87,7 @@ class Video {
         };
     }
 
-    redrawPoints(points, canvasIdx, color = this.currentStrokeStyle, canvasContext = this.canvasContext, clearPoints = true) {
+    redrawPoints(points, color = this.currentStrokeStyle, canvasContext = this.canvasContext, clearPoints = true) {
         if (clearPoints) {
             this.clearPoints(canvasContext);
         }
@@ -110,25 +110,25 @@ class Video {
     }
 
 
-    drawNewPoint(point, localPoints) {
+    drawNewPoint(point, localPoints, color=this.currentStrokeStyle) {
         let newIndex = localPoints.indexOf(point);
         if (localPoints.length > 1) {
             // Check if there is a point after this one
             if (localPoints[newIndex + 1] !== undefined) {
                 // Check if consecutive
                 if (Math.floor(point.frame) === Math.floor(localPoints[newIndex + 1].frame) - 1) {
-                    this.drawLine(localPoints[newIndex], localPoints[newIndex + 1]);
+                    this.drawLine(localPoints[newIndex], localPoints[newIndex + 1], this.canvasContext, color);
                 }
             }
             // Check if there is a point before this one
             if (localPoints[newIndex - 1] !== undefined) {
                 // Check if consecutive
                 if (Math.floor(point.frame) === Math.floor(localPoints[newIndex - 1].frame) + 1) {
-                    this.drawLine(localPoints[newIndex - 1], localPoints[newIndex]);
+                    this.drawLine(localPoints[newIndex - 1], localPoints[newIndex], this.canvasContext, color);
                 }
             }
         }
-        this.drawPoint(point.x, point.y, this.canvasContext, this.currentStrokeStyle);
+        this.drawPoint(point.x, point.y, this.canvasContext, color);
     }
 
 
@@ -414,7 +414,7 @@ class Video {
                 {
                     "x": points[i][j+1][0],
                     "y": points[i][j+1][1]
-                }, this.epipolarCanvasContext, "rgb(75, 156, 211)");
+                }, this.epipolarCanvasContext, EPIPOLAR_COLOR);
             }
         }
         this.drawEpipolarZoomWindow();
