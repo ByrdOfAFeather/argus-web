@@ -155,20 +155,14 @@ class CommunicatorsManager {
          * Otherwise updates the video in the Main Window (note that the video is always in the
          * Main Window but if a communicator exists for it, it is also popped out and invisible)
          *
-         * TODO: Is this part of this function ever actually used?
-         * If this function is being called from a popped out window, it must be the main window communicator
          */
-        if (this.state === STATES.POP_OUT) {
-            this.communicators[0].communicator.postMessage(message);
-        } else {
-            for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
-                if (ignoreParam !== null) {
-                    if (ignoreParam == i) {
-                        continue;
-                    }
+        for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
+            if (ignoreParam !== null) {
+                if (ignoreParam == i) {
+                    continue;
                 }
-                this.updateLocalOrCommunicator(i, localCallback, message);
             }
+            this.updateLocalOrCommunicator(i, localCallback, message);
         }
     }
 

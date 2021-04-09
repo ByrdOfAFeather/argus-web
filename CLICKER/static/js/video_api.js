@@ -145,7 +145,6 @@ class Video {
 
 
     goToFrame(frameNumber) {
-        //TODO: NOTE THAT WHEN A USER INPUTS A FRAME NUMBER IT WILL EXTEND ITSELF WITH A .01
         /*
          * TODO: This function is broken in Vivaldi on Windows devices up to a point. For some reason using the base
          *  (converted new1.mp4) video, we end up having a situation where it won't start moving until it is pushed

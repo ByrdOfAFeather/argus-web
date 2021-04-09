@@ -589,7 +589,6 @@ class WindowManager {
             } else {
                 this.videos[index].goToFrame(parsedInput);
             }
-            // TODO this will eventually prevent this from being used twice and that would be sad :[
             this.clearEpipolarCanvases();
             this.getEpipolarInfo(index, parsedInput);
             $("#canvas-0").focus();
@@ -1122,7 +1121,6 @@ class MainWindowManager extends WindowManager {
 
 
     updateCheckboxesOnChangeTrack(oldIndex, newIndex, trackUnstashed) {
-        // TODO Check the stash to see if the checked value needs to be disabled
         let oldTrackCheckbox = $(`#track-${oldIndex}-disp`);
         if (!trackUnstashed) {
             oldTrackCheckbox.prop("checked", false);
@@ -1550,8 +1548,16 @@ class MainWindowManager extends WindowManager {
 
         let forwardBackwardsBindings = {
             onChange: (event) => {
-                this.settings["movementOffset"] = parseInt($("#" + event.target.id).val()); // TODO: error checking
-                this.communicatorsManager.updateCommunicators(this.messageCreator("updateSettings", {"settings": this.settings}));
+                let errorBox = $("#forward-frame-input-error");
+                let newOffset = parseInt($("#" + event.target.id).val());
+                if (!isNaN(newOffset)) {
+                    this.settings["movementOffset"] = newOffset;
+                    errorBox.text("");
+                    this.communicatorsManager.updateCommunicators(this.messageCreator("updateSettings", {"settings": this.settings}));
+
+                } else {
+                    errorBox.text("Must be a valid integer");
+                }
             },
             get: (initValue) => {
                 return this.settings[initValue];
@@ -1806,7 +1812,7 @@ class MainWindowManager extends WindowManager {
                 currentInfo = {x: currentPoint[0][0], y: currentPoint[1][0]};
                 currentInfoType = "unified";
             } else {
-                // TODO: Okay so obviously this function returns to many different things.
+                // TODO: Okay so obviously curEpipolarInfo returns to many different things.
                 // Someone fix this : {
                 if (curEpipolarInfo.result[videoIndex] === undefined) {
                     currentInfo = undefined;
@@ -1889,10 +1895,8 @@ class MainWindowManager extends WindowManager {
         }
         VIDEO_TO_COLORSPACE[parsedInputs.index] = parsedInputs.filter.colorspace;
         VIDEO_TO_POINT_SIZE[parsedInputs.index] = parsedInputs.pointSize;
-        // this.videos[index] = new Video(index, parsedInputs.offset);
 
         // TODO: separate this out probably so it's easier to update
-        // videos[index].filter = parsedInputs.filter;
         let saveSettings = (parsedInputs, previous) => this.initializationSaveSettings(
             parsedInputs, previous
         );
@@ -2013,7 +2017,6 @@ class PopOutWindowManager extends WindowManager {
                 this.videos[currentVideo].changeTracks(points, color);
             },
             "addNewTrack": (newTrackName) => {
-                // TODO: NEEDS WORK
                 this.trackManager.addTrack(newTrackName);
                 let newTrackIndex = this.trackManager.nextUnusedIndex - 1;
                 this.trackManager.changeCurrentTrack(newTrackIndex);

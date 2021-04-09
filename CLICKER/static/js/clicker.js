@@ -1,20 +1,7 @@
-// TODO: Display Error:
-/*
-Media resource blob:http://127.0.0.1:5000/951b0a32-14df-4288-b3e5-cb0a61a32b2f could not be decoded. 127.0.0.1:5000
-Media resource blob:http://127.0.0.1:5000/ee92756a-d549-4788-ad05-6eafbfa0ce16 could not be decoded. 127.0.0.1:5000
-Media resource blob:http://127.0.0.1:5000/951b0a32-14df-4288-b3e5-cb0a61a32b2f could not be decoded, error: Error Code: NS_ERROR_DOM_MEDIA_FATAL_ERR (0x806e0005)
-Details: mozilla::SupportChecker::AddMediaFormatChecker(const mozilla::TrackInfo&)::<lambda()>: Decoder may not have the capability to handle the requested video format with YUV444 chroma subsampling.
- */
-
-
-// ------------- INTERFACE ------------- \\
-
-
 // A LIST OF COLORS THAT DEFINE TRACK COLORS IN ORDER
 const COLORS = ["rgb(228, 26, 28)", "rgb(55, 126, 184)", "rgb(77, 175, 74)", "rgb(152, 78, 163)",
     "rgb(255, 127, 0)", "rgb(255, 255, 51)", "rgb(166, 86, 40)", "rgb(247, 129, 191)"];
 
-let colorIndex = 0;
 let previewBrightness = "brightness(100%)";
 let previewContrast = "contrast(100%)";
 let previewSaturation = "saturate(100%)";
@@ -24,7 +11,7 @@ let previewPOINT_SIZE = 1;
 let hasContinued = false;
 
 // DEBUGGING CONSTANTS
-const PINHOLE = 1;
+// const PINHOLE = 1;
 let FRAME_RATE = null;
 
 // GLOBALS FOR THE CAMERA PROFILE AND DLT COEFFICENTS
@@ -45,42 +32,12 @@ let colorspaceToText = (space) => {
 // Point Radius Manager
 let VIDEO_TO_POINT_SIZE = {};
 
-
-// MANAGER FOR POP OUT WINDOWS
-let communicators = [];
-
-// SETTINGS GLOBAL
-// AUTO-ADVANCE: IF THIS IS TRUE, THE MOVIE WILL BE MOVED FORWARD ONE FRAME AFTER A CLICK
-// SYNC: IF THIS IS TRUE, ALL VIDEOS WILL REMAIN IN THE SAME FRAME
-let settings = {
-    "auto-advance": true,
-    "sync": true
-};
-
 // TRACKS WHICH VIDEOS ARE IN WHICH FRAMES
 // {videoIndex: frameNumber}
 let frameTracker = {};
 
-// MAKES SURE SOME THINGS CAN'T HAPPEN WHILE OTHERS ARE HAPPENING
-let locks = {
-    "can_click": true,
-    "init_frame_loaded": false,
-    "resizing_mov": false,
-    "can_pop_out": true,
-};
-
 // KEEPS TRACK OF THE NUMBER OF CAMERAS
 let NUMBER_OF_CAMERAS = 0;
-
-
-// KEEPS TRACK OF THE CLICKED POINTS
-// [CAMERA INDEX][TRACK INDEX][POINT]
-// POINT: {X: X VALUE, Y: Y_VALUE, FRAME: FRAME_VALUE}
-let clickedPoints = [];
-
-// KEEPS TRACK OF TRACKS, THEIR NAMES, THEIR COLOR AND THEIR INDEX
-// {[ {name: TRACK_NAME, index: TRACK_INDEX, color: TRACK_COLOR} ], currentTrack: TRACK_VALUE}
-let trackTracker = new TrackManager();
 
 // Global to be set by user.
 let PROJECT_NAME = "";

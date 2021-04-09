@@ -71,7 +71,6 @@ class ClickedPointsManager {
             return {index: indexOfAlreadyExistingPoints, override: true};
         } else {
             localPoints.push(point);
-            // localPoints.sort(sortByFrame); // TODO: Not sure why this was here - could have unforeseen consequences
             return {index: localPoints.length - 1, override: false};
         }
     }

@@ -134,7 +134,6 @@ function generateTrackDropDownItem(parsedTrackName, trackIndex, includeDeleteBut
             genericDivWidget('level').append(
                 genericDivWidget('level-left').append(
                     genericDivWidget('column is-narrow').append($("<label>", {class: 'label is-small'}).text("Disp.")),
-                    // TODO: Curindex
                     genericDivWidget('column is-narrow').append($("<input>", {
                             id: `track-${trackIndex}-disp`,
                             type: "checkbox",
@@ -356,9 +355,6 @@ function clickerCanvasWidget(videoIndex, videoWidth, videoHeight, onKeyboardInpu
 
     setMousePos: Callback used whenever the mouse is moved over the canvas
     onMouseMove(event) { sets relative mouse coordinates & probably draws the zoom window }
-
-    TODO: Video Canvas has class-type draggable, don't know for sure why this is
-    I believe it is due to resizing which is a legacy feature.
      */
 
     let clickableCanvas = canvas(`canvas-${videoIndex}`, "clickable-canvas absolute", "z-index: 5;");
@@ -1344,7 +1340,8 @@ function changeForwardBackwardOffsetWidget(bindings) {
             $("<input>", {
                 class: "input",
                 id: "forward-frame-input"
-            }).val(bindings["get"]("movementOffset")).on("change", (event) => bindings["onChange"](event))
+            }).val(bindings["get"]("movementOffset")).on("change", (event) => bindings["onChange"](event)),
+            $("<p>", {id:"forward-frame-input-error", class:"help is-danger"})
         ),
         genericDivWidget("column").append(
             tooltipBuilder(
@@ -1492,7 +1489,7 @@ function savedProjectWidget(projectObject, loadProjectCallback) {
     let deleteProjectCallback = (event) => {
         // event.stopPropagation();
         let id = event.target.id.split("-")[1];
-        deleteProject(id); // TODO : basically this is correct except we want to delete projects not saved states
+        deleteProject(id);
     }
 
     return genericDivWidget("column",).append(
