@@ -244,7 +244,7 @@ class Video {
         this.drawZoomPoints = !this.drawZoomPoints;
         this.drawZoomWindows(color);
         let drawZoomPointsText = this.drawZoomPoints? "Enabled": "Disabled";
-        $(`#drawzoompoints-${this.index}`).text(`P = Draw Points in Zoom Window [${drawZoomPointsText}]`);
+        $(`#drawzoompoints-${this.index}`).text(`P = Show Points [${drawZoomPointsText}]`);
     }
 
     clearZoomPointCanvas() {

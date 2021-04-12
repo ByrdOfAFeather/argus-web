@@ -422,75 +422,84 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
     };
 
     let drawingPoints = true;
+    let slideCol = $(`#slide-${videoIndex}`);
+    let isUp = slideCol.css("display") === "none";
+    let arrow = isUp ? "fa-arrow-down" : "fa-arrow-up";
     return genericDivWidget("column is-12", `masterColumn-${videoIndex}`).append(
-        // genericDivWidget("container").append(
-        genericDivWidget("columns has-text-centered is-multiline", `canvas-columns-${videoIndex}`).append(
-            genericDivWidget("column is-12 video-label-container").append(
-                genericDivWidget("level").append(
-                    genericDivWidget("level-left").append(
-                        genericDivWidget("columns is-vcentered").append(
-                            genericDivWidget("column is-narrow").append(
-                                $('<p>', {class: "video-label render-unselectable", id: `videoTitle-${videoIndex}`})
-                            ),
-                            genericDivWidget("column is-narrow").append(
-                                $('<p>', {class: "video-label render-unselectable", id: `videoFrame-${videoIndex}`})
-                            ),
-                            genericDivWidget("column is-narrow").append(
-                                $('<p>', {class: "video-label render-unselectable", id: `videoOffset-${videoIndex}`})
-                            ),
+        genericDivWidget("column is-12 video-label-container").append(
+            genericDivWidget("level").append(
+                genericDivWidget("level-left").append(
+                    genericDivWidget("columns is-vcentered").append(
+                        genericDivWidget("column is-narrow").append(
+                            $('<p>', {class: "video-label render-unselectable", id: `videoTitle-${videoIndex}`})
                         ),
-                        // $('<p>', {class: "video-label render-unselectable", id: `videoLabel-${videoIndex}`})
+                        genericDivWidget("column is-narrow").append(
+                            $('<p>', {class: "video-label render-unselectable", id: `videoFrame-${videoIndex}`})
+                        ),
+                        genericDivWidget("column is-narrow").append(
+                            $('<p>', {class: "video-label render-unselectable", id: `videoOffset-${videoIndex}`})
+                        ),
                     ),
-                    genericDivWidget("level-right").append(
-                        genericDivWidget("columns is-vcentered").append(
-                            genericDivWidget("column", `pop-out-${videoIndex}-placeholder`),
-                            genericDivWidget("column").append(
-                                // $("<button>", {class: "button", id: `openSettings-${videoIndex}`}).append(
-                                $("<i>", {class: "fa fa-cog clickable fa-2x fade-on-hover"}).attr("aria-hidden", "true").on("click", displaySettings)
-                                // )
+                    // $('<p>', {class: "video-label render-unselectable", id: `videoLabel-${videoIndex}`})
+                ),
+                genericDivWidget("level-right").append(
+                    genericDivWidget("columns is-vcentered").append(
+                        genericDivWidget("column", `pop-out-${videoIndex}-placeholder`),
+                        genericDivWidget("column").append(
+                            // $("<button>", {class: "button", id: `openSettings-${videoIndex}`}).append(
+                            $("<i>", {class: "fa fa-cog clickable fa-2x fade-on-hover"}).attr("aria-hidden", "true").on("click", displaySettings)
+                            // )
+                        ),
+                        genericDivWidget("column").append(
+                            $("<i>", {class: `fa ${arrow} clickable fa-2x fade-on-hover`, id:`arrow-icon-${videoIndex}`}).attr("aria-hidden", "true").on("click", () => {
+                                    let slideCol = $(`#slide-${videoIndex}`);
+                                    let isUp = slideCol.css("display") === "none";
+                                    let arrow = isUp ? "fa-arrow-down" : "fa-arrow-up";
+                                    isUp ? slideCol.slideDown() : slideCol.slideUp();
+                                    $(`#arrow-icon-${videoIndex}`).removeClass(arrow);
+                                    isUp = !isUp
+                                    arrow = isUp ? "fa-arrow-down" : "fa-arrow-up";
+                                    $(`#arrow-icon-${videoIndex}`).addClass(arrow)
+                                    // TODO: Keep Aspect Ratio on resize
+                                }
                             )
                         )
                     )
                 )
-            ),
-
-            genericDivWidget("column is-7").append(
-                clickerCanvasWidget(videoIndex, videoWidth, videoHeight, onKeyboardInput, onClick, onRightClick, setMousePos)
-            ).css("padding", ".75rem 0 0 0"),
-            genericDivWidget("column").append(
-                genericDivWidget("container", `zoom-text-${videoIndex}`).append(
-                    genericDivWidget("container", `zoom-canvas-${videoIndex}`).append(
-                        canvas(`zoomEpipolarCanvas-${videoIndex}`, "zoom-epipolar-canvas absolute", "z-index: 3;").css("height", "100%").css("width", "100%"),
-                        canvas(`zoomFocusedPointCanvas-${videoIndex}`, "absolute zoom-focused-point-canvas", "z-index: 5;").css("height", "100%").css("width", "100%"),
-                        canvas(`zoomPointCanvas-${videoIndex}`, "absolute zoom-focused-point-canvas", "z-index: 4;").css("height", "100%").css("width", "100%"),
-                        canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas absolute", "z-index: 2;").css("height", "100%").css("width", "100%"),
-                    ),
-                    $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In<br></p>"),
-                    $("<p>", {
-                        class: "render-unselectable",
-                        id: `epipolar-lock-${videoIndex}`
-                    }).text("L = Lock To Epipolar [Disabled]"),
-                    $("<p>", {
-                        class: "render-unselectable",
-                        id: `drawzoompoints-${videoIndex}`
-                    }).text("P = Draw Points in Zoom Window [Disabled]"),
-                    // genericDivWidget("columns is-vcentered is-centered").append(
-                    //     genericDivWidget("column is-narrow").append(
-                    //         $("<label>", {class: "label"}).text("Draw Points:"),
-                    //     ),
-                    //     genericDivWidget("column is-narrow").append(
-                    //         $("<input>", {
-                    //             id: "draw-points-checkbox",
-                    //             type: "checkbox",
-                    //             class: "checkbox",
-                    //         }).on("click", function () {
-                    //             bindings.inverseSetting('auto-advance');
-                    //         }).prop("checked", drawingPoints),
-                    //     ),
-                    // )
-                )
-            ).css("padding", ".75rem 0 0 .75rem"),
-        )
+            )
+        ),
+        genericDivWidget("column", `slide-${videoIndex}`).append(
+            genericDivWidget("columns has-text-centered is-multiline", `canvas-columns-${videoIndex}`).append(
+                genericDivWidget("column is-7").append(
+                    clickerCanvasWidget(videoIndex, videoWidth, videoHeight, onKeyboardInput, onClick, onRightClick, setMousePos)
+                ).css("padding", ".75rem 0 0 0"),
+                genericDivWidget("column").append(
+                    genericDivWidget("container", `zoom-text-${videoIndex}`).append(
+                        genericDivWidget("container", `zoom-canvas-${videoIndex}`).append(
+                            canvas(`zoomEpipolarCanvas-${videoIndex}`, "zoom-epipolar-canvas absolute", "z-index: 3;").css("height", "100%").css("width", "100%"),
+                            canvas(`zoomFocusedPointCanvas-${videoIndex}`, "absolute zoom-focused-point-canvas", "z-index: 5;").css("height", "100%").css("width", "100%"),
+                            canvas(`zoomPointCanvas-${videoIndex}`, "absolute zoom-focused-point-canvas", "z-index: 4;").css("height", "100%").css("width", "100%"),
+                            canvas(`zoomCanvas-${videoIndex}`, "zoom-canvas absolute", "z-index: 2;").css("height", "100%").css("width", "100%"),
+                        ),
+                        genericDivWidget("columns").append(
+                            genericDivWidget("column").append(
+                                $("<p class='render-unselectable'>X = Zoom Out<br>Z = Zoom In<br></p>")),
+                            genericDivWidget("column").append(
+                                $("<p>", {
+                                    class: "render-unselectable",
+                                    id: `drawzoompoints-${videoIndex}`
+                                }).text("P = Show Points [Disabled]")
+                            ),
+                            genericDivWidget("column").append(
+                                $("<p>", {
+                                    class: "render-unselectable",
+                                    id: `epipolar-lock-${videoIndex}`
+                                }).text("L = Lock To Epipolar [Disabled]"),
+                            )
+                        )
+                    )
+                ).css("padding", ".75rem 0 0 .75rem"),
+            ))
     );
 }
 
@@ -1094,7 +1103,9 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
         tracksDisplay.push(...localTracks.splice(startIndex, tracksToPush));
     }
     let tracks = genericDivWidget("columns is-multiline");
+
     for (let i = 0; i < tracksDisplay.length; i++) {
+        let firstTrack = i === 0;
         let trackName = tracksDisplay[i].name;
         if (trackName.length > 9) {
             trackName = `${trackName.substring(0, 9)}...`;
@@ -1103,7 +1114,7 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
         let displayingIcon = tracksDisplay[i].display ? "fa-eye-slash" : "fas fa-eye icon";
 
         let disabledClass = ""
-        if (i === 0) {
+        if (firstTrack) {
             disabledClass = "disabled";  // This is for the track currently being edited
         }
         let currentTrack = genericDivWidget("column is-12 has-vertical-borders").append(
@@ -1160,10 +1171,17 @@ function trackPaginationWidget(currentTrack, selectedTracks, allTracks, updateEv
             ),
         );
 
-        if (i === 0) {
+        if (firstTrack) {
             currentTrack.append($("<hr>"));
         }
         tracks.append(currentTrack);
+        if (firstTrack && tracksDisplay.length === 1) {
+            tracks.append(
+                genericDivWidget("column has-text-centered").append(
+                    $("<p>").text("New tracks will go here!")
+                )
+            );
+        }
         if (i === 0 && paginateRequired && startIndex !== 0) {
             tracks.append(
                 genericDivWidget("column is-12 has-text-centered").append(
@@ -1262,7 +1280,6 @@ function trackManagementWidgets(bindings) {
                                     }
                                     bindings.onFrameViewOffsetChange(parsed);
                                 } else {
-                                    console.log("Parse Error/Jquery Error");
                                     viewOffsetError.removeClass("hidden");
                                     frameViewInput.val("");
                                     bindings.onFrameViewOffsetChange(-1);
@@ -1341,7 +1358,7 @@ function changeForwardBackwardOffsetWidget(bindings) {
                 class: "input",
                 id: "forward-frame-input"
             }).val(bindings["get"]("movementOffset")).on("change", (event) => bindings["onChange"](event)),
-            $("<p>", {id:"forward-frame-input-error", class:"help is-danger"})
+            $("<p>", {id: "forward-frame-input-error", class: "help is-danger"})
         ),
         genericDivWidget("column").append(
             tooltipBuilder(
@@ -1902,7 +1919,19 @@ function projectInfoWidget(bindings, loadDLTButton) {
 function trackWidget(bindings) {
     return genericDivWidget("column is-12 has-text-centered", "track-management-widget").append(
         genericDivWidget("box").append(
-            $(`<p class="subtitle">Track Management</p>`),
+            genericDivWidget("level").append(
+                genericDivWidget("level-left").append(
+                    $(`<p class="subtitle">Track Management</p>`),
+                ),
+                genericDivWidget("level-right").append(
+                    $("<i>", {class: "fa fa-arrow-down clickable fa-2x fade-on-hover"}).attr("aria-hidden", "true").on("click", () => {
+                            let slideCol = $(`#slide-0`);
+                            slideCol.css("display") === "none" ? slideCol.slideDown() : slideCol.slideUp();
+                            // TODO: Keep Aspect Ratio on resize
+                        }
+                    )
+                )
+            ),
             $("<hr>"),
             trackManagementWidgets(bindings),
         )

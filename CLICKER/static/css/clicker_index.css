@@ -103,6 +103,10 @@ input.input.small-input {
     cursor: pointer;
 }
 
+.has-background-unc {
+    background-color: #4b9cd3!important;
+}
+
 .flexable-level {
     flex-shrink: 1 !important;
 }

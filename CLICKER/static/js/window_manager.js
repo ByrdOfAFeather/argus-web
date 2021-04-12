@@ -1425,8 +1425,8 @@ class MainWindowManager extends WindowManager {
             trackSet.add(currentTrackName);
         }
         if (cameraSet.size !== NUMBER_OF_CAMERAS) {
-            generateError("The file you are attempting to load has more videos than you have loaded! " +
-                "If you want to load this file you must include more videos when creating a project.");
+            generateError(`The file you are attempting to load has ${cameraSet.size} videos, you have loaded ${NUMBER_OF_CAMERAS} videos! ` +
+                "If you want to load this file you must select only the videos relating to this project.");
             return;
         }
         let initTrackIndexes = [];
@@ -1435,6 +1435,7 @@ class MainWindowManager extends WindowManager {
         }
         let localTrackManager = new TrackManager();
         let localClickedPointsManager = new ClickedPointsManager(cameraSet.size, initTrackIndexes);
+
         // Note that we can't initialize the track manager w/ tracks since color, etc is not contained in point sets
         // So we have to add them after the fact
         trackSet.forEach((trackName) => localTrackManager.addTrack(trackName));
