@@ -1783,7 +1783,7 @@ function loadCameraInfoWidget(bindings) {
 function setScaleWidget(bindings) {
     return genericDivWidget("column is-three-fifths has-text-centered").append(
         genericDivWidget("box").append(
-            $("<button>", {class: "button"}).text("Set Scale").on("click", bindings.setScaleBinding)
+            $("<button>", {class: "button", id:"set-scale-button"}).text("Set Scale").on("click", bindings.setScaleBinding)
         )
     );
 }

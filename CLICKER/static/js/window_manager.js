@@ -1028,21 +1028,23 @@ class MainWindowManager extends WindowManager {
         }
         let date = new Date();
         let output_json = {
-            videos: videoObjects, // ----
-            title: PROJECT_NAME, // -----
-            description: PROJECT_DESCRIPTION, // -----
-            dateSaved: date, // -----
-            pointsManager: this.clickedPointsManager, // ----- () ?
-            frameTracker: frameTracker, // -----
-            trackManager: this.trackManager, // -----
-            cameraProfile: CAMERA_PROFILE, // -----
-            dltCoefficents: DLT_COEFFICIENTS, // -----
-            settings: this.settings, // -----
-            frameRate: FRAME_RATE, // -----
-            colorSpaces: VIDEO_TO_COLORSPACE, // ----
-            pointSizes: VIDEO_TO_POINT_SIZE, // ----
+            videos: videoObjects,
+            title: PROJECT_NAME,
+            description: PROJECT_DESCRIPTION,
+            dateSaved: date,
+            pointsManager: this.clickedPointsManager,
+            frameTracker: frameTracker,
+            trackManager: this.trackManager,
+            cameraProfile: CAMERA_PROFILE,
+            dltCoefficents: DLT_COEFFICIENTS,
+            settings: this.settings,
+            frameRate: FRAME_RATE,
+            colorSpaces: VIDEO_TO_COLORSPACE,
+            pointSizes: VIDEO_TO_POINT_SIZE,
             videoSettings: this.videosToSettings,
-            scaleMode: this.scaleMode
+            scaleMode: this.scaleMode,
+            epipolarColor: EPIPOLAR_COLOR,
+            frameViewOffset: this.clickedPointsManager.frameViewOffset
         };
         createNewSavedState(output_json, autoSaved, PROJECT_ID);
     }
@@ -1101,12 +1103,14 @@ class MainWindowManager extends WindowManager {
         this.trackManager = new TrackManager(state.trackManager);
         let trackIndicies = this.trackManager.tracks;
         trackIndicies.map((track) => track.absoluteIndex);
-        this.clickedPointsManager = new ClickedPointsManager(NUMBER_OF_CAMERAS, trackIndicies, state.pointsManager.clickedPoints);
+        this.clickedPointsManager = new ClickedPointsManager(NUMBER_OF_CAMERAS, trackIndicies, state.pointsManager.clickedPoints, state.frameViewOffset);
         frameTracker = state.frameTracker;
         this.settings = state.settings;
         this.videosToSettings = state.videoSettings;
+        EPIPOLAR_COLOR = state.epipolarColor;
         if (NUMBER_OF_CAMERAS == 1) {
-            this.scaleMode = state.scaleMode;
+            // To preserve functions in case a change of origin is in order
+            this.scaleMode = Object.assign({}, this.scaleMode, state.scaleMode);
         }
         let videoGetter = loadSavedStateWidget(state.videos, (videos) => this.loadSavedStateVideos(videos));
         let modal = $("#generic-input-modal");
@@ -1575,6 +1579,7 @@ class MainWindowManager extends WindowManager {
             /// TODO: So much cleanup
             let scaleModeBindings = {
                 setScale: () => {
+                    $("#set-scale-button").prop("disabled", true);
                     this.videos[0].isDisplayingFocusedPointStore = this.videos[0].isDisplayingFocusedPoint;
                     this.videos[0].isDisplayingFocusedPoint = false; // Otherwise it force-redraws points
                     this.videos[0].clearPoints(this.videos[0].canvasContext);
@@ -1625,6 +1630,7 @@ class MainWindowManager extends WindowManager {
                         this.scaleMode.unitName = $("#unitName").val();
                         this.videos[0].isDisplayingFocusedPoint = this.videos[0].isDisplayingFocusedPointStore;
                         $("#scaleColumn").remove();
+                        $("#set-scale-button").prop("disabled", false);
                     }
                 },
                 cleanUpOrigin: () => {

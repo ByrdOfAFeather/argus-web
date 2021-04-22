@@ -133,9 +133,9 @@ class Video {
 
 
     parseVideoLabel() {
-        let title = $(`videoTitle-${this.index}`).text().split(":")[1].splice(1);
-        let frame = $(`videoFrame-${this.index}`).text().split(":")[1].splice(1);
-        let offset = $(`videoOffset-${this.index}`).text().split(":")[1].splice(1);
+        let title = $(`#videoTitle-${this.index}`).text().split(":")[1].slice(1);
+        let frame = $(`#videoFrame-${this.index}`).text().split(":")[1].slice(1);
+        let offset = $(`#videoOffset-${this.index}`).text().split(":")[1].slice(1);
         return  {
             "TITLE": title,
             "FRAME": frame,
