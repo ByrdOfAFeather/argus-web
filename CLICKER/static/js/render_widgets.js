@@ -422,47 +422,31 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
     };
 
     let drawingPoints = true;
-    let slideCol = $(`#slide-${videoIndex}`);
-    let isUp = slideCol.css("display") === "none";
-    let arrow = isUp ? "fa-arrow-down" : "fa-arrow-up";
     return genericDivWidget("column is-12", `masterColumn-${videoIndex}`).append(
         genericDivWidget("column is-12 video-label-container").append(
             genericDivWidget("level").append(
-                genericDivWidget("level-left").append(
-                    genericDivWidget("columns is-vcentered").append(
-                        genericDivWidget("column is-narrow").append(
+                genericDivWidget("level-left flexable-grow flexable-shrink").append(
+                    genericDivWidget("columns is-vcentered flexable-grow flexable-shrink").append(
+                        genericDivWidget("column").append(
                             $('<p>', {class: "video-label render-unselectable", id: `videoTitle-${videoIndex}`})
                         ),
-                        genericDivWidget("column is-narrow").append(
+                        genericDivWidget("column").append(
                             $('<p>', {class: "video-label render-unselectable", id: `videoFrame-${videoIndex}`})
                         ),
-                        genericDivWidget("column is-narrow").append(
+                        genericDivWidget("column").append(
                             $('<p>', {class: "video-label render-unselectable", id: `videoOffset-${videoIndex}`})
                         ),
                     ),
-                    // $('<p>', {class: "video-label render-unselectable", id: `videoLabel-${videoIndex}`})
                 ),
-                genericDivWidget("level-right").append(
+
+                genericDivWidget("level-right flexable-shrink").append(
                     genericDivWidget("columns is-vcentered").append(
                         genericDivWidget("column", `pop-out-${videoIndex}-placeholder`),
                         genericDivWidget("column").append(
-                            // $("<button>", {class: "button", id: `openSettings-${videoIndex}`}).append(
                             $("<i>", {class: "fa fa-cog clickable fa-2x fade-on-hover"}).attr("aria-hidden", "true").on("click", displaySettings)
-                            // )
                         ),
                         genericDivWidget("column").append(
-                            $("<i>", {class: `fa ${arrow} clickable fa-2x fade-on-hover`, id:`arrow-icon-${videoIndex}`}).attr("aria-hidden", "true").on("click", () => {
-                                    let slideCol = $(`#slide-${videoIndex}`);
-                                    let isUp = slideCol.css("display") === "none";
-                                    let arrow = isUp ? "fa-arrow-down" : "fa-arrow-up";
-                                    isUp ? slideCol.slideDown() : slideCol.slideUp();
-                                    $(`#arrow-icon-${videoIndex}`).removeClass(arrow);
-                                    isUp = !isUp
-                                    arrow = isUp ? "fa-arrow-down" : "fa-arrow-up";
-                                    $(`#arrow-icon-${videoIndex}`).addClass(arrow)
-                                    // TODO: Keep Aspect Ratio on resize
-                                }
-                            )
+                            hideIconWidget(`slide-${videoIndex}`, `slide-icon-${videoIndex}`)
                         )
                     )
                 )
@@ -1887,34 +1871,63 @@ function projectInfoWidget(bindings, loadDLTButton) {
     let DLTButton = loadDLTButton ? loadCameraInfoWidget(bindings) : null;
     return genericDivWidget("column has-text-centered").append(
         genericDivWidget("box").append(
-            $(`<p class="subtitle">Project Settings</p>`),
+            genericDivWidget("level").append(
+                genericDivWidget("level-left").append(
+                    $(`<p class="subtitle">Project Settings</p>`),
+                ),
+                genericDivWidget("level-right").append(
+                    hideIconWidget("slide-project-settings", "slide-project-icon")
+                )
+            ),
             $("<hr>"),
-            $(`<p class="subtitle">Title: ${PROJECT_NAME}</p>`),
-            DLTButton,
-            saveProjectWidget(bindings.saveProjectBindings),
-            exportButtonWidget("Export Points", bindings.exportPointBindings, {
-                tooltipText: "This will export x,y points in ARGUS format. If DLT coefficients are loaded, this will also " +
-                    "export recovered x,y,z points. If working with one video and the origin has been set, x_scaled and y_scaled will " +
-                    "be exported as well.",
-                multiline: true
-            }),
-            tooltipDualColumnWidget(
-                fileInputWidget("Load Points", "loadPoints", "any", (file) => {
-                    let reader = new FileReader();
-                    reader.onload = function () {
-                        bindings.loadPoints(reader.result.split("\n"));
-                    };
-                    reader.readAsText(Array.from($("#loadPoints").prop("files"))[0]);
-                }), {
-                    tooltipText: "If you have a project from a previous ARGUS version (Matlab/Python), you can load your " +
-                        "data here",
-                    tooltipStyle: "has-text-black",
-                    direction: "up",
+            genericDivWidget("container", "slide-project-settings").append(
+                $(`<p class="subtitle">Title: ${PROJECT_NAME}</p>`),
+                DLTButton,
+                saveProjectWidget(bindings.saveProjectBindings),
+                exportButtonWidget("Export Points", bindings.exportPointBindings, {
+                    tooltipText: "This will export x,y points in ARGUS format. If DLT coefficients are loaded, this will also " +
+                        "export recovered x,y,z points. If working with one video and the origin has been set, x_scaled and y_scaled will " +
+                        "be exported as well.",
                     multiline: true
-                })
+                }),
+                tooltipDualColumnWidget(
+                    fileInputWidget("Load Points", "loadPoints", "any", (file) => {
+                        let reader = new FileReader();
+                        reader.onload = function () {
+                            bindings.loadPoints(reader.result.split("\n"));
+                        };
+                        reader.readAsText(Array.from($("#loadPoints").prop("files"))[0]);
+                    }), {
+                        tooltipText: "If you have a project from a previous ARGUS version (Matlab/Python), you can load your " +
+                            "data here",
+                        tooltipStyle: "has-text-black",
+                        direction: "up",
+                        multiline: true
+                    })
+            ),
         )
     );
 }
+
+function hideIconWidget(slideID, iconID) {
+    return $("<i>", {
+        class: `fa fa-arrow-up clickable fa-2x fade-on-hover`,
+        id: `${iconID}`
+    }).attr("aria-hidden", "true").on("click", () => {
+            let icon = $(`#${iconID}`);
+            let slideCol = $(`#${slideID}`);
+            let isUp = slideCol.css("display") === "none";
+            let arrow = isUp ? "fa-arrow-down" : "fa-arrow-up";
+            isUp ? slideCol.slideDown() : slideCol.slideUp();
+            icon.removeClass(arrow);
+            isUp = !isUp
+            arrow = isUp ? "fa-arrow-down" : "fa-arrow-up";
+            icon.addClass(arrow)
+            // TODO: Keep Aspect Ratio on resize
+        }
+    )
+}
+
 
 function trackWidget(bindings) {
     return genericDivWidget("column is-12 has-text-centered", "track-management-widget").append(
@@ -1924,16 +1937,13 @@ function trackWidget(bindings) {
                     $(`<p class="subtitle">Track Management</p>`),
                 ),
                 genericDivWidget("level-right").append(
-                    $("<i>", {class: "fa fa-arrow-down clickable fa-2x fade-on-hover"}).attr("aria-hidden", "true").on("click", () => {
-                            let slideCol = $(`#slide-0`);
-                            slideCol.css("display") === "none" ? slideCol.slideDown() : slideCol.slideUp();
-                            // TODO: Keep Aspect Ratio on resize
-                        }
-                    )
+                    hideIconWidget("slide-track-settings", "slide-track-icon")
                 )
             ),
             $("<hr>"),
-            trackManagementWidgets(bindings),
+            genericDivWidget("container", "slide-track-settings").append(
+                trackManagementWidgets(bindings),
+            )
         )
     )
 }
@@ -1941,10 +1951,19 @@ function trackWidget(bindings) {
 function miscSettingsWidget(bindings) {
     return genericDivWidget("column is-12 has-text-centered").append(
         genericDivWidget("box").append(
-            $(`<p class="subtitle">Control Settings</p>`),
+            genericDivWidget("level").append(
+                genericDivWidget("level-left").append(
+                    $(`<p class="subtitle">Control Settings</p>`),
+                ),
+                genericDivWidget("level-right").append(
+                    hideIconWidget("slide-control-settings", "slide-control-icon")
+                )
+            ),
             $("<hr>"),
-            frameMovementSettingsWidget(bindings.frameMovementBindings),
-            changeForwardBackwardOffsetWidget(bindings.forwardBackwardOffsetBindings)
+            genericDivWidget("container", "slide-control-settings").append(
+                frameMovementSettingsWidget(bindings.frameMovementBindings),
+                changeForwardBackwardOffsetWidget(bindings.forwardBackwardOffsetBindings)
+            )
         )
     )
 }

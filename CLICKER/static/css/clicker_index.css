@@ -107,7 +107,11 @@ input.input.small-input {
     background-color: #4b9cd3!important;
 }
 
-.flexable-level {
+.flexable-grow {
+    flex-grow: 1 !important;
+}
+
+.flexable-shrink {
     flex-shrink: 1 !important;
 }
 
