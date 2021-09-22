@@ -66,12 +66,19 @@
         <div id="title-section" class="section">
             <!-- title section -->
             <div class="columns is-centered is-vcentered is-multiline">
-                <div class="column has-text-centered is-narrow justify-right">
-                    <img style="height: auto" class="image" src="{% static 'images/icon.gif' %}">
-                </div>
-
                 <div id="title-div" class="column has-text-centered is-narrow justify-left">
-                    <h1 id="clicker-title" class="title-has-julius" style="height: auto;">CLICKER</h1>
+                    <div class="columns is-vcentered">
+                        <div class="column">
+                            <img style="height: auto" class="image is-32x32" src="{% static 'images/icon.gif' %}">
+                        </div>
+                        <div class="column">
+                            <h1 id="clicker-title" class="title-has-julius" style="height: auto;">CLICKER</h1>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="columns is-centered is-vcentered">
+                <div class="column has-text-centered is-narrow justify-left">
                     <h2 id="clicker-subtitle" class="subtitle-has-julius  has-text-grey" style="height: auto;">
                         Software for clicking</h2>
                 </div>
@@ -83,61 +90,63 @@
                 <div class="columns is-centered is-vcentered is-multiline">
                     <div class="column is-narrow">
                         <button id="new-project-button"
-                                class="button has-background-unc has-text-white is-size-4 fade-on-hover">New Project
+                                class="button has-background-unc has-text-white is-size-3 fade-on-hover">New Project
                         </button>
                     </div>
                     <div class="column is-narrow">
                         <button id="continue-working-button"
-                                class="button has-background-unc has-text-white is-size-4 fade-on-hover">Continue
+                                class="button has-background-unc has-text-white is-size-3 fade-on-hover">Continue
                             Working
                         </button>
                     </div>
-                    <div class="column is-12 has-text-centered">
-                        <div class="columns is-centered is-vcentered">
-                            <div class="column is-1">
-                                <a style="text-decoration: none" href="https://github.com/ByrdOfAFeather/argus-web"><img
-                                        src="{% static 'images/Github_logo.png' %}"
-                                        class="" alt="Link to github">
-                                </a>
-                            </div>
-                            <div class="column is-2">
-                                Check us out on github!<br>
-                                Get help <a style="text-decoration: none" href="{% url 'clicker:documentation' %}">here</a>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="column is-narrow">
-
-                    </div>
+{#                    <div class="column is-12 has-text-centered">#}
+{#                        <div class="columns is-centered is-vcentered">#}
+{#                            <div class="column is-1">#}
+{#                                <a style="text-decoration: none" href="https://github.com/ByrdOfAFeather/argus-web"><img#}
+{#                                        src="{% static 'images/Github_logo.png' %}"#}
+{#                                        class="" alt="Link to github">#}
+{#                                </a>#}
+{#                            </div>#}
+{#                            <div class="column is-2">#}
+{#                                Check us out on github!<br>#}
+{#                                Get help <a style="text-decoration: none"#}
+{#                                            href="{% url 'clicker:documentation' %}">here</a>#}
+{#                            </div>#}
+{#                        </div>#}
+{#                    </div>#}
+{#                    <div class="column is-narrow">#}
+{##}
+{#                    </div>#}
                 </div>
             </div>
         </section>
 
-        <hr>
-        <div class="columns is-vcentered">
-            <div class="column">
+{#        <hr>#}
+        <div class="columns is-vcentered is-multiline">
+            <div class="column is-12">
                 <h1 class="subtitle has-text-centered">
-                    <i>
-                        ARGUS<sup>WEB</sup> is an open-source, freely available tool <br>
-                        with an easy to use graphical interface designed for performing multi-camera <br>
-                        3D data acquisition using consumer-grade cameras such as the GoPro Hero series.
-                    </i>
+{#                    <i>#}
+                    The Clicker module of ARGUS<sup>WEB</sup> is an open-source, freely available tool <br>
+                    with an easy to use graphical interface designed for performing multi-camera <br>
+                    3D data acquisition using consumer-grade cameras such as the GoPro Hero series.
+                    <br> For more information and tips/keyboard shortcuts check <a style="text-decoration: none" href="{% url 'clicker:documentation' %}">here</a>.
+{#                    </i>#}
                 </h1>
             </div>
-            <div class="column">
-                <div class="columns">
-                    <div class="column">
-                        <video autoplay loop muted>
+            <div class="column is-12">
+                <div class="columns is-centered">
+                    <div class="column is-narrow">
+                        <video autoplay loop muted class="image is-256x256">
                             <source src="{% static 'images/output_1.webm' %}" type="video/webm"/>
                         </video>
                     </div>
-                    <div class="column">
-                        <video autoplay loop muted>
+                    <div class="column is-narrow">
+                        <video autoplay loop muted class="image is-256x256">
                             <source src="{% static 'images/output_2.webm' %}" type="video/webm"/>
                         </video>
                     </div>
-                    <div class="column">
-                        <video autoplay loop muted>
+                    <div class="column is-narrow">
+                        <video autoplay loop muted class="image is-256x256">
                             <source src="{% static 'images/output_3.webm' %}" type="video/webm"/>
                         </video>
                     </div>
@@ -377,13 +386,13 @@
         <hr>
         <div class="column">
             <figure class="figure">
-                <img class="image" src="{% static 'images/Research_logo_white_h.png' %}">
+                <img class="image is-415x75" src="{% static 'images/Research_logo_white_h.png' %}">
             </figure>
         </div>
         <div class="column">
             <h1 class="subtitle has-text-centered has-text-white">
                 <i>
-                    ARGUS<sup>WEB</sup> was developed at UNC based off the work of and under the supervision of Dr.
+                    ARGUS<sup>WEB</sup> was developed at UNC based off the work of<br> and under the supervision of Dr.
                     Tyson Hedrick
                 </i>
             </h1>

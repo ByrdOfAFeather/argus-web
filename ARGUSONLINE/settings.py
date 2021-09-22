@@ -23,9 +23,9 @@ PROJECT_DIR = os.path.dirname(__file__)
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "I'm a secret key!")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DJANGO_DEBUG", "") != "False"
+DEBUG = os.environ.get("DJANGO_DEBUG", "") != "True"
 
-ALLOWED_HOSTS = ['argus-web-beta.herokuapp.com', '127.0.0.1', '192.168.1.236', '*']
+ALLOWED_HOSTS = ['argus-web-beta.herokuapp.com', "127.0.0.1"]
 
 
 # Application definition

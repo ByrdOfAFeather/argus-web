@@ -825,7 +825,8 @@ class WindowManager {
                 'saturation': videoSettingsInfo.saturation,
                 'contrast': videoSettingsInfo.contrast
             },
-            () => getSettings()
+            () => getSettings(),
+            () => this.keepCanvasAspectRatio(false)
         );
         this.setVideoLabelText(
             currentClickerWidget,
@@ -1309,9 +1310,9 @@ class MainWindowManager extends WindowManager {
                 headerOriginal.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y`);
             }
         }
-        exportablePointsOriginal.push(headerOriginal.join(",") + ",\n");
+        exportablePointsOriginal.push(headerOriginal.join(",") + "\n");
         if (NUMBER_OF_CAMERAS === 1) {
-            exportablePointsScale.push(headerScale.join(",") + ",\n")
+            exportablePointsScale.push(headerScale.join(",") + "\n")
         }
         let masterFrameArray = [];
         for (let i = 0; i < frames; i++) {
@@ -1348,9 +1349,9 @@ class MainWindowManager extends WindowManager {
                     }
                 }
             }
-            exportablePointsOriginal.push(frameArray.join(",") + ",\n");
+            exportablePointsOriginal.push(frameArray.join(",") + "\n");
             if (this.scaleMode.unitRatio !== undefined) {
-                exportablePointsScale.push(scaleArray.join(",") + ",\n");
+                exportablePointsScale.push(scaleArray.join(",") + "\n");
             }
             masterFrameArray.push(frameArray);
         }
@@ -1376,7 +1377,7 @@ class MainWindowManager extends WindowManager {
                 header.push(`${this.trackManager.tracks[j].name}_y`);
                 header.push(`${this.trackManager.tracks[j].name}_z`);
             }
-            exportableXYZPoints.push(header.join(",") + ",\n");
+            exportableXYZPoints.push(header.join(",") + "\n");
             for (let i = 0; i < masterFrameArray.length; i++) {
                 let local_xyzs = [];
                 for (let j = 0; j < this.trackManager.tracks.length; j++) {
@@ -1395,7 +1396,7 @@ class MainWindowManager extends WindowManager {
                         local_xyzs.push(NaN);
                     }
                 }
-                exportableXYZPoints.push(local_xyzs.join(",") + ",\n");
+                exportableXYZPoints.push(local_xyzs.join(",") + "\n");
             }
             zip.file("xyz_points.csv", exportableXYZPoints.join(""));
         }
@@ -1413,7 +1414,7 @@ class MainWindowManager extends WindowManager {
             });
     }
 
-    importPoints(textLines) {
+    importPoints(textLines, flipped) {
         /*
          * Header should be in the format track1_camera_x, track1_camera_y, track1_camera2_x, track1_camera2_y, etc..
          */
@@ -1442,13 +1443,16 @@ class MainWindowManager extends WindowManager {
 
         // Note that we can't initialize the track manager w/ tracks since color, etc is not contained in point sets
         // So we have to add them after the fact
-        trackSet.forEach((trackName) => localTrackManager.addTrack(trackName));
+        trackSet.forEach((trackName) => {if (trackName !== "Track 0") localTrackManager.addTrack(trackName)});
         let columnDict = {};
         for (let i = 1; i < textLines.length; i++) {
             let currentLine = textLines[i].split(",");
             let currentCameraIndex = 0;
             for (let j = 0; j < currentLine.length; j++) {
                 if (isNaN(currentLine[j])) {
+                    if (columnDict[j] === undefined) {
+                        columnDict[j] = [];
+                    }
                     continue;
                 }
 
@@ -1458,23 +1462,29 @@ class MainWindowManager extends WindowManager {
                     // camera index follows since even-odd == x-y pairs
                     currentCameraIndex = (j / 2 + cameraSet.size) % cameraSet.size;
                 }
-                // let factor = (j + 2) % 2 === 0 ? (600 / this.videosToSizes[currentCameraIndex].width) : (800 / this.videosToSizes[currentCameraIndex].height);
-                let factor = (j + 2) % 2 === 0 ? (600 / 2028) : (800 / 2704);
+                let factor = (j + 2) % 2 === 0 ? (600 / this.videosToSizes[currentCameraIndex].height) : (800 / this.videosToSizes[currentCameraIndex].width);
+
+                if ((j + 2) % 2 !== 0) {
+                    if (flipped) {
+                        currentLine[j] = this.videosToSizes[currentCameraIndex].height - currentLine[j];
+                    }
+                }
+                let newVal = currentLine[j] * factor;
                 try {
-                    columnDict[j].push(currentLine[j] * factor);
+                    columnDict[j].push(newVal);
                 } catch (e) {
                     columnDict[j] = [];
-                    columnDict[j].push(currentLine[j] * factor);
+                    columnDict[j].push(newVal);
                 }
             }
         }
 
         let points = localClickedPointsManager.clickedPoints;
-        let trackIndex = 0;
+        let trackIndex = trackSet.has("Track 0") ? 0 : 1; // If Track 0 is not present, simply skip track 0.
         for (let i = 0; i < headerSplit.length / 2; i++) {
             let localRef = columnDict[i * 2 + 1];
             let cameraIndex = (i + cameraSet.size) % cameraSet.size;
-            if (cameraIndex === 0) {
+            if (cameraIndex === 0 && i !== 0) {
                 trackIndex += 1;
             }
             points[cameraIndex][trackIndex] = columnDict[i * 2].map((xval, idx) => {
@@ -1488,7 +1498,6 @@ class MainWindowManager extends WindowManager {
         this.clickedPointsManager = localClickedPointsManager;
         this.trackManager = localTrackManager;
         $("#track-0-icon").click(); // Forces track manager update
-
     }
 
     onFrameViewOffsetChange(newOffset) {
@@ -1515,8 +1524,9 @@ class MainWindowManager extends WindowManager {
         let projectInfoBindings = {
             "saveProjectBindings": saveBinding,
             "exportPointBindings": exportPointsBindings,
-            "loadPoints": (file) => this.importPoints(file),
-            onEpipolarColorChange: (color) => this.onEpipolarColorChange(color)
+            "loadPoints": (file, flipped) => this.importPoints(file, flipped),
+            onEpipolarColorChange: (color) => this.onEpipolarColorChange(color),
+            "keepAspectRatio": () => this.keepCanvasAspectRatio(false)
         };
 
         let trackBindings = {

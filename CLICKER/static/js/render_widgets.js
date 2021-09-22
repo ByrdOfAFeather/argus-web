@@ -139,7 +139,7 @@ function generateTrackDropDownItem(parsedTrackName, trackIndex, includeDeleteBut
                             type: "checkbox",
                             class: "checkbox track-display-box",
                             checked: "checked"
-                        })
+                        }) // TODO: It probably makes sense to condense these checkboxes into a genericCheckBox function
                     ),
                     genericDivWidget('dropdown-item has-text-centered', `track-${trackIndex}`).text(parsedTrackName)
                 ),
@@ -384,7 +384,7 @@ function clickerCanvasWidget(videoIndex, videoWidth, videoHeight, onKeyboardInpu
 }
 
 function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyCallback, loadPreviewFrameFunction,
-                       onKeyboardInput, onClick, onRightClick, setMousePos, initStyleValues, displaySettings) {
+                       onKeyboardInput, onClick, onRightClick, setMousePos, initStyleValues, displaySettings, keepAspectRatio) {
     /*
     videoIndex: Integer representing the video that this widget is being rendered for. There should be one
     canvas widget per video.
@@ -446,7 +446,7 @@ function clickerWidget(videoIndex, videoWidth, videoHeight, updateVideoPropertyC
                             $("<i>", {class: "fa fa-cog clickable fa-2x fade-on-hover"}).attr("aria-hidden", "true").on("click", displaySettings)
                         ),
                         genericDivWidget("column").append(
-                            hideIconWidget(`slide-${videoIndex}`, `slide-icon-${videoIndex}`)
+                            hideIconWidget(`slide-${videoIndex}`, `slide-icon-${videoIndex}`, keepAspectRatio)
                         )
                     )
                 )
@@ -973,6 +973,7 @@ function createProjectWidget(onSubmit, cleanFunction) {
                 removedFiles.add(i);
                 if (removedFiles.size === selectedFiles.length) {
                     inputs.fileInput.val('');
+                    inputs.createButton.addClass("disabled");
                 }
             })
         }
@@ -987,10 +988,10 @@ function createProjectWidget(onSubmit, cleanFunction) {
         'video/*',
         displaySelectedVideoTitles,
         true,
-        'has-background-dark has-text-white is-size-5');
+        'has-background-unc has-text-white is-size-5');
 
     videoFileInput.addClass('is-medium');
-    $(videoFileInput.find('.file-cta')[0]).addClass('has-background-dark').css("border", "none");
+    $(videoFileInput.find('.file-cta')[0]).addClass('has-background-unc').css("border", "none");
 
     return genericDivWidget("columns is-centered is-multiline").append(
         genericDivWidget('column').append(
@@ -1033,14 +1034,14 @@ function createProjectWidget(onSubmit, cleanFunction) {
                                     genericDivWidget('column is-narrow is-pulled-right').append(
                                         $("<button>", {
                                             id: 'cancel-button',
-                                            class: 'button has-background-dark has-text-white is-size-5 fade-on-hover',
+                                            class: 'button has-background-unc has-text-white is-size-5 fade-on-hover',
                                             style: 'border: none;'
                                         }).text("Cancel").on('click', cleanFunction)
                                     ),
                                     genericDivWidget('column is-narrow is-pulled-right').append(
                                         $("<button>", {
                                             id: 'submit-button',
-                                            class: 'button disabled has-background-dark has-text-white is-size-5 fade-on-hover',
+                                            class: 'button disabled has-background-unc has-text-white is-size-5 fade-on-hover',
                                             style: 'border: none;'
                                         }).text("Submit")
                                     ),
@@ -1783,7 +1784,10 @@ function loadCameraInfoWidget(bindings) {
 function setScaleWidget(bindings) {
     return genericDivWidget("column is-three-fifths has-text-centered").append(
         genericDivWidget("box").append(
-            $("<button>", {class: "button", id:"set-scale-button"}).text("Set Scale").on("click", bindings.setScaleBinding)
+            $("<button>", {
+                class: "button",
+                id: "set-scale-button"
+            }).text("Set Scale").on("click", bindings.setScaleBinding)
         )
     );
 }
@@ -1868,6 +1872,29 @@ function loadSavedStateFromFileWidget() {
 
 
 function projectInfoWidget(bindings, loadDLTButton) {
+    let currentlyDisplayingLoadPoints = false;
+    let loadPointsButtonID = "load-points";
+    let handleLoadPoints = (e) => {
+        if (e.target.id === loadPointsButtonID) {
+            let loadPoints = $(`#${loadPointsButtonID}`);
+            if (currentlyDisplayingLoadPoints) {
+                $("#load-points-popup").remove();
+                loadPoints.animate({
+                    padding: "calc(.375em - 1px) .75em"
+                }, 500, "swing", function () {
+                });
+                currentlyDisplayingLoadPoints = false;
+            } else {
+                loadPoints.append(loadPointsPopup(bindings));
+                loadPoints.animate({
+                    padding: "15px"
+                }, 500, "swing", function () {
+                });
+                currentlyDisplayingLoadPoints = true;
+            }
+        }
+    };
+
     let DLTButton = loadDLTButton ? loadCameraInfoWidget(bindings) : null;
     return genericDivWidget("column has-text-centered").append(
         genericDivWidget("box").append(
@@ -1891,13 +1918,16 @@ function projectInfoWidget(bindings, loadDLTButton) {
                     multiline: true
                 }),
                 tooltipDualColumnWidget(
-                    fileInputWidget("Load Points", "loadPoints", "any", (file) => {
-                        let reader = new FileReader();
-                        reader.onload = function () {
-                            bindings.loadPoints(reader.result.split("\n"));
-                        };
-                        reader.readAsText(Array.from($("#loadPoints").prop("files"))[0]);
-                    }), {
+                    // fileInputWidget("Load Points", "loadPoints", "any", (file) => {
+                    //     let reader = new FileReader();
+                    //     reader.onload = function () {
+                    //         bindings.loadPoints(reader.result.split("\n"));
+                    //     };
+                    //     reader.readAsText(Array.from($("#loadPoints").prop("files"))[0]);
+                    // })
+                    $("<div>", {class: "contained-button", id: `${loadPointsButtonID}`})
+                        .on("click", (e) => handleLoadPoints(e)).text("Load Points")
+                    , {
                         tooltipText: "If you have a project from a previous ARGUS version (Matlab/Python), you can load your " +
                             "data here",
                         tooltipStyle: "has-text-black",
@@ -1909,7 +1939,7 @@ function projectInfoWidget(bindings, loadDLTButton) {
     );
 }
 
-function hideIconWidget(slideID, iconID) {
+function hideIconWidget(slideID, iconID, keepAspectRatio = null) {
     return $("<i>", {
         class: `fa fa-arrow-up clickable fa-2x fade-on-hover`,
         id: `${iconID}`
@@ -1922,8 +1952,10 @@ function hideIconWidget(slideID, iconID) {
             icon.removeClass(arrow);
             isUp = !isUp
             arrow = isUp ? "fa-arrow-down" : "fa-arrow-up";
-            icon.addClass(arrow)
-            // TODO: Keep Aspect Ratio on resize
+            icon.addClass(arrow);
+            if (keepAspectRatio != null) {
+                keepAspectRatio();
+            }
         }
     )
 }
@@ -2003,111 +2035,34 @@ function parseSettings(context) {
     return parsed;
 }
 
-function getInitVideoSettingsVideoWidget(videoTitle, bindings) {
-    // loadPreviewFrameFunction, context, saveCallback, currentSettings) {
-    // TODO: This will be a new setup page where all videos are displayed on the same page
-    // this will clean up the setup process and make it faster
-    // let frameRateInput = genericDivWidget("column is-narrow", "framerate-column").append(
-    //     tooltipDualColumnWidget(
-    //         setupLabelGenerator("Global Framerate"),
-    //         setupTooltipPropertiesGenerator("Argus-web doesn't support multiple " +
-    //             "framerates across videos, this value should be the framerate of all of the videos selected",
-    //             "right")
-    //     ),
-    //     frameRateDropDownWidget(currentSettings["frameRate"].toString())
-    // );
 
-    let localBrightness = "brightness(100%)";
-    let localContrast = "contrast(100%)";
-    let localSaturation = "saturate(100%)";
-
-    let filterToBar = (value) => {
-        let tempVal = value.split("(")[1];
-        return tempVal.substring(0, tempVal.length);
-    }
-
-    let parsedFilter = {
-        "brightnessBar": filterToBar(localBrightness),
-        "contrastBar": filterToBar(localContrast),
-        "saturationBar": filterToBar(localSaturation)
-    };
-
-    let offsetInput = genericDivWidget("controller", "offset-controller").append(
-        $("<input>", {
-            class: "input",
-            id: "offset-input",
-            placeholder: "In Frames",
-            value: ""
-        })
-    );
-
-    let updateVideoPropertiesGeneric = (inputID) => {
-        let value = $(`#${inputID}`).val();
-        switch (inputID) {
-            case "preview-brightness": {
-                localBrightness = `brightness(${value}%)`;
-                bindings.setBrightness(localBrightness);
-                break;
-            }
-            case 'preview-contrast': {
-                localContrast = `contrast(${value}%)`;
-                bindings.setContrast(localContrast);
-                break;
-            }
-            case 'preview-saturation': {
-                localSaturation = `saturate(${value}%)`;
-                bindings.setSaturation(localSaturation);
-                break;
-            }
-        }
-        bindings.loadPreviewFrameFunction();
-    };
-
-
-    return genericDivWidget("columns is-vcentered is-centered is-desktop is-multiline").append(
-        genericDivWidget("column is-narrow").append(
+function loadPointsPopup(bindings) {
+    let argusChecked = false;
+    return genericDivWidget("box", "load-points-popup").append(
+        genericDivWidget("columns is-vcentered is-centered").append(
             genericDivWidget("column").append(
-                $("<label>", {class: "label"}).text("Preview:"),
-                $("<canvas>", {
-                    // style: "height: 100%; width: 100%;",
-                    id: "current-settings-preview-canvas"
-                }).attr("height", 300).attr("width", 300)
+                $("<input>", {
+                    id: `argus-points-check`,
+                    type: "checkbox",
+                    class: "checkbox",
+                    checked: "checked"
+                }).on("click", function (e) {
+                    e.stopPropagation();
+                    argusChecked = !argusChecked;
+                }).prop("checked", ""),
+                $("<p>").text("Flip Origin")
             ),
-        ),
-        genericDivWidget("column is-narrow").append(
-            genericDivWidget("columns is-multiline is-centered is-vcentered").append(
-                genericDivWidget("column is-12 has-text-centered").append(
-                    $("<p>", {class: "title"}).append(videoTitle)
-                ),
-                genericDivWidget("column is-6").append(
-                    // TODO: Color space off set point
-                    genericDivWidget("field", "offset-field").append(
-                        tooltipDualColumnWidget(
-                            labelDark("Offset"),
-                            setupTooltipPropertiesGenerator(
-                                "Your videos may start at different places, " +
-                                " the difference in starting points is the offset (in frames).",
-                                "right", LABEL_STYLES.DARK
-                            )
-                        ),
-                        offsetInput
-                    ),
-                    genericDivWidget("columns is-multiline is-mobile").append(
-                        videoPropertySlidersWidget(
-                            "preview-brightness",
-                            "preview-contrast",
-                            "preview-saturation",
-                            updateVideoPropertiesGeneric,
-                            labelDark,
-                            {
-                                brightness: parsedFilter.brightnessBar,
-                                contrast: parsedFilter.contrastBar,
-                                saturateBar: parsedFilter.saturateBar
-                            },
-                        )
-                    ),
+            genericDivWidget("column").append(
+                fileInputWidget("Select Points", "point-file-input",
+                    "text/csv", (files) => {
+                        let reader = new FileReader();
+                        reader.onload = function () {
+                            bindings.loadPoints(reader.result.split("\n"), argusChecked);
+                            // bindings.clearLoadPointsGUI(); // todo
+                        };
+                        reader.readAsText(Array.from($("#point-file-input").prop("files"))[0]);
+                    }
                 )
             )
-        )
-    )
+        ))
 }

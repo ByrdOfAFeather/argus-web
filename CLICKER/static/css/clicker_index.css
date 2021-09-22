@@ -91,7 +91,7 @@ input.input.small-input {
     border-radius: 3px;
     color: white;
     text-transform: uppercase;
-    background-color: #1564bf
+    background-color: #4B9CD3;
 }
 
 .centered-file-input {
@@ -237,7 +237,7 @@ input.input.small-input {
 
 #continue-working-button {
     box-shadow: 0px 0px;
-    border-radius: 0px;
+    /*border-radius: 0px;*/
 }
 
 #saved-states-section {
@@ -258,4 +258,26 @@ input.input.small-input {
         box-shadow: 10px 10px 0px 0px rgba(0, 0, 0, 0.9);
         transform: translatey(0px);
     }
+}
+
+.image.is-256x256 {
+    height: 256px;
+    width: 256px;
+}
+
+.image.is-415x75 {
+    height: 75.5px;
+    width: 415.5px;
+}
+
+.contained-button {
+    box-shadow: 0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1);
+    background-color: #fff;
+    border-color: #dbdbdb;
+    border-width: 1px;
+    color: #363636;
+    cursor: pointer;
+    justify-content: center;
+    padding: calc(.375em - 1px) .75em;
+    text-align: center;
 }
