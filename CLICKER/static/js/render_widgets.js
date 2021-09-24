@@ -1835,20 +1835,6 @@ function setScaleSaveOriginWidget(bindings) {
 }
 
 
-function exportPointsGUI(bindings) {
-    // TODO: Implement
-    return null;
-}
-
-function exportButtonWidget(text, bindings, tooltipOptions) {
-    let button = $("<button>", {class: "button"}).on("click", bindings.exportFunction).text(text);
-    if (tooltipOptions != null) {
-        return tooltipDualColumnWidget(button, tooltipOptions);
-    } else {
-        return button;
-    }
-}
-
 function loginWidget(onLogin) {
     // TODO: Implement
     return null;
@@ -1870,27 +1856,64 @@ function loadSavedStateFromFileWidget() {
     return fileInputWidget('Saved State', "saved-state-input", "*.json", onChange).css("display", "none");
 }
 
+function expandingButtonWidget(buttonID, buttonText, tooltipText, expandedGUI, handler, variableWatcher) {
+    return tooltipDualColumnWidget(
+        $("<div>", {
+            class: "contained-button",
+            id: `${buttonID}`
+        }).on("click", (e) => handler(e, buttonID, expandedGUI, variableWatcher)).text(buttonText), {
+            tooltipText: tooltipText,
+            tooltipStyle: "has-text-black",
+            direction: "up",
+            multiline: true
+        }
+    )
+}
+
 
 function projectInfoWidget(bindings, loadDLTButton) {
-    let currentlyDisplayingLoadPoints = false;
+    let currentlyDisplayingWatchers = {"export_points": false, "load_points": false};
     let loadPointsButtonID = "load-points";
-    let handleLoadPoints = (e) => {
-        if (e.target.id === loadPointsButtonID) {
-            let loadPoints = $(`#${loadPointsButtonID}`);
-            if (currentlyDisplayingLoadPoints) {
-                $("#load-points-popup").remove();
-                loadPoints.animate({
-                    padding: "calc(.375em - 1px) .75em"
-                }, 500, "swing", function () {
-                });
-                currentlyDisplayingLoadPoints = false;
+    let loadTooltipText = "If you have a project from a previous ARGUS version (Matlab/Python), " +
+        "you can load your data here."
+    let exportPointsButtonID = "export-points";
+    let exportTooltipText = "This will export x,y points in ARGUS format. If DLT coefficients are loaded, this will also " +
+        "export recovered x,y,z points. If working with one video and the origin has been set, x_scaled and y_scaled will " +
+        "be exported as well.";
+
+    bindings.clearLoadPointsGUI = () => {
+        let loadPoints = $(`#${loadPointsButtonID}`);
+        $("#load-points-popup").remove();
+        loadPoints.animate({
+            padding: "calc(.375em - 1px) .75em"
+        }, 500, "swing", function () {
+        });
+        currentlyDisplayingWatchers["load_points"] = false;
+    }
+
+    bindings.clearExportPointsGUI = () => {
+        let loadPoints = $(`#${exportPointsButtonID}`);
+        $("#export-points-popup").remove();
+        loadPoints.animate({
+            padding: "calc(.375em - 1px) .75em"
+        }, 500, "swing", function () {
+        });
+        currentlyDisplayingWatchers["export_points"] = false;
+    }
+    let clearFunctions = {"export_points": bindings.clearExportPointsGUI, "load_points": bindings.clearLoadPointsGUI};
+
+    let handleGUIChange = (e, buttonID, guiWidget, variableWatcher) => {
+        if (e.target.id === buttonID) {
+            let loadPoints = $(`#${buttonID}`);
+            if (currentlyDisplayingWatchers[variableWatcher]) {
+                clearFunctions[variableWatcher]();
             } else {
-                loadPoints.append(loadPointsPopup(bindings));
+                loadPoints.append(guiWidget(bindings));
                 loadPoints.animate({
                     padding: "15px"
                 }, 500, "swing", function () {
                 });
-                currentlyDisplayingLoadPoints = true;
+                currentlyDisplayingWatchers[variableWatcher] = true;
             }
         }
     };
@@ -1911,29 +1934,12 @@ function projectInfoWidget(bindings, loadDLTButton) {
                 $(`<p class="subtitle">Title: ${PROJECT_NAME}</p>`),
                 DLTButton,
                 saveProjectWidget(bindings.saveProjectBindings),
-                exportButtonWidget("Export Points", bindings.exportPointBindings, {
-                    tooltipText: "This will export x,y points in ARGUS format. If DLT coefficients are loaded, this will also " +
-                        "export recovered x,y,z points. If working with one video and the origin has been set, x_scaled and y_scaled will " +
-                        "be exported as well.",
-                    multiline: true
-                }),
-                tooltipDualColumnWidget(
-                    // fileInputWidget("Load Points", "loadPoints", "any", (file) => {
-                    //     let reader = new FileReader();
-                    //     reader.onload = function () {
-                    //         bindings.loadPoints(reader.result.split("\n"));
-                    //     };
-                    //     reader.readAsText(Array.from($("#loadPoints").prop("files"))[0]);
-                    // })
-                    $("<div>", {class: "contained-button", id: `${loadPointsButtonID}`})
-                        .on("click", (e) => handleLoadPoints(e)).text("Load Points")
-                    , {
-                        tooltipText: "If you have a project from a previous ARGUS version (Matlab/Python), you can load your " +
-                            "data here",
-                        tooltipStyle: "has-text-black",
-                        direction: "up",
-                        multiline: true
-                    })
+                // exportButtonWidget("Export Points", bindings.exportPointBindings, {
+                //     tooltipText: ,
+                //     multiline: true
+                // }),
+                expandingButtonWidget(exportPointsButtonID, "Export Points", exportTooltipText, exportPointsGUI, handleGUIChange, "export_points"),
+                expandingButtonWidget(loadPointsButtonID, "Load Points", loadTooltipText, loadPointsPopup, handleGUIChange, "load_points")
             ),
         )
     );
@@ -2037,7 +2043,9 @@ function parseSettings(context) {
 
 
 function loadPointsPopup(bindings) {
-    let argusChecked = false;
+    let options = {
+        flipped: false
+    };
     return genericDivWidget("box", "load-points-popup").append(
         genericDivWidget("columns is-vcentered is-centered").append(
             genericDivWidget("column").append(
@@ -2048,7 +2056,7 @@ function loadPointsPopup(bindings) {
                     checked: "checked"
                 }).on("click", function (e) {
                     e.stopPropagation();
-                    argusChecked = !argusChecked;
+                    options.flipped = !options.flipped;
                 }).prop("checked", ""),
                 $("<p>").text("Flip Origin")
             ),
@@ -2057,12 +2065,35 @@ function loadPointsPopup(bindings) {
                     "text/csv", (files) => {
                         let reader = new FileReader();
                         reader.onload = function () {
-                            bindings.loadPoints(reader.result.split("\n"), argusChecked);
-                            // bindings.clearLoadPointsGUI(); // todo
+                            bindings.loadPoints(reader.result.split("\n"), options);
+                            bindings.clearLoadPointsGUI();
                         };
                         reader.readAsText(Array.from($("#point-file-input").prop("files"))[0]);
                     }
                 )
             )
         ))
+}
+
+function exportPointsGUI(bindings) {
+    let options = {
+        flipped: false
+    };
+    return genericDivWidget("box", "export-points-popup").append(
+        genericDivWidget("columns is-vcentered is-centered").append(
+            genericDivWidget("column").append(
+                $("<input>", {
+                    id: `argus-points-check`,
+                    type: "checkbox",
+                    class: "checkbox",
+                    checked: "checked"
+                }).on("click", function (e) {
+                    e.stopPropagation();
+                    options.flipped = !options.flipped;
+                }).prop("checked", ""),
+                $("<p>").text("Flip Origin")
+            ),
+            $("<button>", {class: "button"}).on("click",
+                () => bindings.exportPointBindings.exportFunction(options)).text("Save Points")
+        ));
 }

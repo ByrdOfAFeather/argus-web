@@ -344,11 +344,11 @@ class WindowManager {
         // Smooths animations
         $("#generic-input-modal-content").css("margin", "0");
         $("#modal-content-container").append(videoSettingsPopoutWidget(
-            name,
-            loadPreviewFrame,
-            context,
-            (parsedInputs, previous) => context.saveSettings(parsedInputs, previous),
-            initSettings
+                name,
+                loadPreviewFrame,
+                context,
+                (parsedInputs, previous) => context.saveSettings(parsedInputs, previous),
+                initSettings
             )
         );
 
@@ -1109,7 +1109,7 @@ class MainWindowManager extends WindowManager {
         this.settings = state.settings;
         this.videosToSettings = state.videoSettings;
         EPIPOLAR_COLOR = state.epipolarColor;
-        if (NUMBER_OF_CAMERAS == 1) {
+        if (NUMBER_OF_CAMERAS === 1) {
             // To preserve functions in case a change of origin is in order
             this.scaleMode = Object.assign({}, this.scaleMode, state.scaleMode);
         }
@@ -1123,6 +1123,19 @@ class MainWindowManager extends WindowManager {
 
 
     // Settings Module
+    drawTrack(trackID, redrawSubTracks) {
+        let callback = (videoIndex) => {
+            let localPoints = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(videoIndex, trackID);
+            this.videos[videoIndex].changeTracks(localPoints, this.trackManager.currentTrack.color);
+            if (redrawSubTracks) {
+                let infos = this.generateSubTrackInfos(videoIndex);
+                this.videos[videoIndex].removeSubTrack(infos);
+            }
+        };
+        let message = messageCreator("changeTrack", {track: trackID});
+        this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
+        this.getEpipolarInfo(0, frameTracker[0]);
+    }
 
 
     updateCheckboxesOnChangeTrack(oldIndex, newIndex, trackUnstashed) {
@@ -1158,18 +1171,7 @@ class MainWindowManager extends WindowManager {
         this.trackManager.changeCurrentTrack(trackID);
         this.updateCheckboxesOnChangeTrack(oldTrack, trackID, redrawSubTracks);
 
-
-        let callback = (videoIndex) => {
-            let localPoints = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(videoIndex, trackID);
-            this.videos[videoIndex].changeTracks(localPoints, this.trackManager.currentTrack.color);
-            if (redrawSubTracks) {
-                let infos = this.generateSubTrackInfos(videoIndex);
-                this.videos[videoIndex].removeSubTrack(infos);
-            }
-        };
-        let message = messageCreator("changeTrack", {track: trackID});
-        this.communicatorsManager.updateAllLocalOrCommunicator(callback, message);
-        this.getEpipolarInfo(0, frameTracker[0]);
+        this.drawTrack(trackID, redrawSubTracks);
     };
 
     onTrackDisplay(event) {
@@ -1200,7 +1202,7 @@ class MainWindowManager extends WindowManager {
         event.stopPropagation();
         let trackID = event.target.id.split('-')[1];
         // change to default track (can't be deleted)
-        if (this.trackManager.currentTrack.absoluteIndex == trackID) {
+        if (this.trackManager.currentTrack.absoluteIndex === trackID) {
             this.trackManager.changeCurrentTrack(0);
         }
         this.trackManager.removeTrack(trackID);
@@ -1288,7 +1290,7 @@ class MainWindowManager extends WindowManager {
     //     let reconstructPoints = reconstructUV(DLT_COEFFICIENTS[0], xyzPoint);
     // }
 
-    async exportPoints() {
+    async exportPoints(options) {
         // Puts all points in ARGUS format
         let zip = new JSZip();
 
@@ -1341,7 +1343,11 @@ class MainWindowManager extends WindowManager {
                                 scaleArray.push(scaledY);
                             }
                             frameArray.push(localPoints[index].x);
-                            frameArray.push(localPoints[index].y);
+                            if (options.flipped) {
+                                frameArray.push(this.videosToSizes[j].height - localPoints[index].y);
+                            } else {
+                                frameArray.push(localPoints[index].y);
+                            }
                         } else {
                             frameArray.push(localPoints[index].x);
                             frameArray.push(localPoints[index].y);
@@ -1414,7 +1420,7 @@ class MainWindowManager extends WindowManager {
             });
     }
 
-    importPoints(textLines, flipped) {
+    importPoints(textLines, options) {
         /*
          * Header should be in the format track1_camera_x, track1_camera_y, track1_camera2_x, track1_camera2_y, etc..
          */
@@ -1443,7 +1449,14 @@ class MainWindowManager extends WindowManager {
 
         // Note that we can't initialize the track manager w/ tracks since color, etc is not contained in point sets
         // So we have to add them after the fact
-        trackSet.forEach((trackName) => {if (trackName !== "Track 0") localTrackManager.addTrack(trackName)});
+        let track0Present = false;
+        trackSet.forEach((trackName) => {
+            if (trackName !== "Track 0") {
+                localTrackManager.addTrack(trackName);
+            } else {
+                track0Present = true;
+            }
+        });
         let columnDict = {};
         for (let i = 1; i < textLines.length; i++) {
             let currentLine = textLines[i].split(",");
@@ -1465,7 +1478,7 @@ class MainWindowManager extends WindowManager {
                 let factor = (j + 2) % 2 === 0 ? (600 / this.videosToSizes[currentCameraIndex].height) : (800 / this.videosToSizes[currentCameraIndex].width);
 
                 if ((j + 2) % 2 !== 0) {
-                    if (flipped) {
+                    if (options.flipped) {
                         currentLine[j] = this.videosToSizes[currentCameraIndex].height - currentLine[j];
                     }
                 }
@@ -1497,7 +1510,20 @@ class MainWindowManager extends WindowManager {
 
         this.clickedPointsManager = localClickedPointsManager;
         this.trackManager = localTrackManager;
-        $("#track-0-icon").click(); // Forces track manager update
+
+        // Forces track manager update
+        if (!track0Present) {
+            // In this case, the user had no tracks named track 0. We are going to use the first track not
+            // named track 0, which will correspond to track-1.
+            // track-1-icon won't exist until we force an update. Since this is a cheap operation, it matters not
+            $("#track-0-icon").click();
+            $("#track-1-icon").click();
+        } else {
+            $("#track-0-icon").click();
+            if (trackSet.size === 1) {
+                this.drawTrack(0, false);
+            } // Draws the default track
+        }
     }
 
     onFrameViewOffsetChange(newOffset) {
@@ -1519,12 +1545,12 @@ class MainWindowManager extends WindowManager {
         let allSettings = genericDivWidget("columns is-multiline is-centered is-mobile");
         let saveBinding = () => this.saveProject(false);
         let exportPointsBindings = {
-            exportFunction: () => this.exportPoints()
+            exportFunction: (options) => this.exportPoints(options)
         };
         let projectInfoBindings = {
             "saveProjectBindings": saveBinding,
             "exportPointBindings": exportPointsBindings,
-            "loadPoints": (file, flipped) => this.importPoints(file, flipped),
+            "loadPoints": (file, options) => this.importPoints(file, options),
             onEpipolarColorChange: (color) => this.onEpipolarColorChange(color),
             "keepAspectRatio": () => this.keepCanvasAspectRatio(false)
         };
