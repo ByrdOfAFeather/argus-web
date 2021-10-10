@@ -57,14 +57,16 @@ function genericDropDownWidget(id, defaultSelection, dropdownOptions, allItemCal
             ),
 
             genericDivWidget("dropdown-menu", `${id}-dropdown`).attr("role", "menu").append(
-                dropdownOptions
+                genericDivWidget("dropdown-content").append(
+                    dropdownOptions
+                )
             )
         ).on("click", ".dropdown-item:not(.negate-all-callback)", allItemCallBack);
     }
 }
 
 
-function dropDownItemWidget(id, itemText, perItemCallBack = undefined,) {
+function dropDownItemWidget(id, itemText, perItemCallBack = undefined, extraClasses="") {
     /*
      * Generates a Jquery object representing a dropdown-item (see genericDropDownWidget)
      *
@@ -76,27 +78,19 @@ function dropDownItemWidget(id, itemText, perItemCallBack = undefined,) {
      * perItemCallBack(event) { Does whatever needs to be done whenever this item is clicked }
      */
     if (perItemCallBack === undefined) {
-        return genericDivWidget("dropdown-content").append(
-            genericDivWidget("dropdown-item", id).append(
-                itemText
-            )
-        );
+        return $("<a>", {class:`dropdown-item ${extraClasses}`, id: id}).text(itemText)
     } else {
-        return genericDivWidget("dropdown-content").append(
-            genericDivWidget("dropdown-item negate-all-callback", id).append(
-                itemText
-            ).on("click", perItemCallBack)
-        );
+        return $("<a>", {class:`dropdown-item negate-all-callback ${extraClasses}`, id: id}).text(itemText).on("click", perItemCallBack);
     }
 }
 
-function generateDropDownItems(itemNames) {
+function generateDropDownItems(itemNames, extraClasses= "") {
     /*
      * Maps a list of stings to dropDownItems without callbacks. Helpful when using a callback applied to all itmems
      *
      * itemNames: Array[String] a list of names that will become the ID and text (lowercase for ID)
      */
-    return itemNames.map((value) => dropDownItemWidget(value.toLowerCase().replace(".", "-"), value));
+    return itemNames.map((value) => dropDownItemWidget(value.toLowerCase().replace(".", "-"), value, undefined, extraClasses));
 }
 
 function colorSpaceDropDownWidget(colorSpaceIndex, redrawVideosFunction, videoIndex, defaultValue = RGB) {
@@ -106,7 +100,7 @@ function colorSpaceDropDownWidget(colorSpaceIndex, redrawVideosFunction, videoIn
      * colorSpaceIndex: A unique ID, the colorspace is used in setup and settings, thus it needs to be able to have
      *  multiple IDs so they aren't canceling each other out.
      */
-    let items = generateDropDownItems(["RGB", "Grayscale"]);
+    let items = generateDropDownItems(["RGB", "Grayscale"], "has-text-centered");
     return genericDropDownWidget(`colorspace-${colorSpaceIndex}`, colorspaceToText(defaultValue), items, function (e) {
         let container = $(`#colorspace-${colorSpaceIndex}-dropdown-container`);
 
@@ -691,7 +685,7 @@ function videoSettingsPopoutWidget(videoTitle, loadPreviewFrameFunction, context
     // The margin: 0 lets animation smoothly transition from one modal-state to the next ( if there are multiple ).
     return genericDivWidget("columns is-centered is-multiline is-mobile").css("margin", "0").append(
         genericDivWidget("column is-12 has-text-centered").append(
-            $("<h1>", {class: "has-julius has-text-white title"}).text(`Video Properties for ${videoTitle}`),
+            $("<h1>", {class: "title has-text-white title"}).text(`Video Properties for ${videoTitle}`),
             genericDivWidget("", `test-video-${context.index}`)
         ),
 
@@ -1008,16 +1002,16 @@ function createProjectWidget(onSubmit, cleanFunction) {
                         )
                     ),
 
-                    genericDivWidget('column is-12').append(
-                        genericTextInputWithTooltipWidget(
-                            'Project Description',
-                            LABEL_STYLES.LIGHT,
-                            '(Optional) Describe your project!',
-                            'description-input',
-                            null,
-                            0
-                        )
-                    ),
+                    // genericDivWidget('column is-12').append(
+                    //     genericTextInputWithTooltipWidget(
+                    //         'Project Description',
+                    //         LABEL_STYLES.LIGHT,
+                    //         '(Optional) Describe your project!',
+                    //         'description-input',
+                    //         null,
+                    //         0
+                    //     )
+                    // ),
 
                     genericDivWidget('column is-12').append(
                         genericDivWidget('level').append(
@@ -1904,14 +1898,26 @@ function projectInfoWidget(bindings, loadDLTButton) {
 
     let handleGUIChange = (e, buttonID, guiWidget, variableWatcher) => {
         if (e.target.id === buttonID) {
-            let loadPoints = $(`#${buttonID}`);
+            let currentButton = $(`#${buttonID}`);
             if (currentlyDisplayingWatchers[variableWatcher]) {
                 clearFunctions[variableWatcher]();
+                let buttonCopy = currentButton.clone();
+                buttonCopy.id = "";
+                buttonCopy.css("visibility", "hidden");
+                buttonCopy.css("padding", "calc(.375em - 1px) .75em");
+                currentButton.parent().append(buttonCopy);
+                let newPadding = buttonCopy.css("padding");
+                buttonCopy.remove();
+                currentButton.stop();
+                currentButton.animate({
+                    padding: newPadding,
+                }, 350, "swing", function () {
+                });
             } else {
-                loadPoints.append(guiWidget(bindings));
-                loadPoints.animate({
+                currentButton.append(guiWidget(bindings));
+                currentButton.animate({
                     padding: "15px"
-                }, 500, "swing", function () {
+                }, 350, "swing", function () {
                 });
                 currentlyDisplayingWatchers[variableWatcher] = true;
             }

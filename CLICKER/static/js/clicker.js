@@ -254,58 +254,59 @@ function createNewProject() {
     });
 }
 
+// This is helpful if #ACCOUNTS are ever re-enabled
+// function slideSavedStates(savedStatesLength, direction) {
+//     $("#saved-states-columns").show("slide", {direction: direction}, 250, function () {
+//         for (let i = 0; i < savedStatesLength; i++) {
+//             $(`#saved-states-${i}-card`).animate({boxShadow: "0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1)"}, function () {
+//                 $(`#saved-states-${i}-card`).removeAttr("style");
+//             });
+//         }
+//     });
+// }
 
-function slideSavedStates(savedStatesLength, direction) {
-    $("#saved-states-columns").show("slide", {direction: direction}, 250, function () {
-        for (let i = 0; i < savedStatesLength; i++) {
-            $(`#saved-states-${i}-card`).animate({boxShadow: "0 2px 3px rgba(10,10,10,.1), 0 0 0 1px rgba(10,10,10,.1)"}, function () {
-                $(`#saved-states-${i}-card`).removeAttr("style");
-            });
-        }
-    });
-}
+// This is helpful if #ACCOUNTS are ever re-enabled
+// function savedStatePaginationHandler(newPagination, type) {
+//     let direction;
+//     let oppisiteDirection;
+//     if (type === 'forwards') {
+//         direction = 'left';
+//         oppisiteDirection = 'right';
+//     } else {
+//         direction = 'right';
+//         oppisiteDirection = 'left';
+//     }
+//     $("#saved-states-columns").hide("slide", {direction: direction}, 250, function () {
+//         $("#saved-states-columns").empty();
+//         // $("#saved-states-columns").css("display", "");
+//         displaySavedStates(newPagination, oppisiteDirection);
+//     });
+// }
 
-function savedStatePaginationHandler(newPagination, type) {
-    let direction;
-    let oppisiteDirection;
-    if (type === 'forwards') {
-        direction = 'left';
-        oppisiteDirection = 'right';
-    } else {
-        direction = 'right';
-        oppisiteDirection = 'left';
-    }
-    $("#saved-states-columns").hide("slide", {direction: direction}, 250, function () {
-        $("#saved-states-columns").empty();
-        // $("#saved-states-columns").css("display", "");
-        displaySavedStates(newPagination, oppisiteDirection);
-    });
-}
-
-
-async function displaySavedStates(currentPagination, direction = null) {
-    let projects = null;
-    try {
-        projects = await getSavedProjects();
-    } catch (e) {
-        return;
-    }
-    let section = $("#saved-states-section");
-    section.removeClass("no-display");
-    section.hide();
-    if (projects.projects.length === 0) {
-        section.append(`<h3 class="notification has-text-centered has-text-weight-bold is-warning">You don't have any saved projects! Try creating some!</h3>`);
-        $('#new-project-button').addClass("float");
-        section.show("slide", {"direction": "up"}, 750);
-        // return
-    }
-    section.append(searchableProjectsWidget(projects, async (pagination) => {
-        return await getSavedProjects(pagination);
-    }, (config) => {
-        loadSavedState(config)
-    }, 0));
-    section.show("slide", {"direction": "up"}, 750, ()=>{    $("#project-search").focus();});
-}
+// This is helpful if #ACCOUNTS are ever re-enabled
+// async function displaySavedStates(currentPagination, direction = null) {
+//     let projects = null;
+//     try {
+//         projects = await getSavedProjects();
+//     } catch (e) {
+//         return;
+//     }
+//     let section = $("#saved-states-section");
+//     section.removeClass("no-display");
+//     section.hide();
+//     if (projects.projects.length === 0) {
+//         section.append(`<h3 class="notification has-text-centered has-text-weight-bold is-warning">You don't have any saved projects! Try creating some!</h3>`);
+//         $('#new-project-button').addClass("float");
+//         section.show("slide", {"direction": "up"}, 750);
+//         // return
+//     }
+//     section.append(searchableProjectsWidget(projects, async (pagination) => {
+//         return await getSavedProjects(pagination);
+//     }, (config) => {
+//         loadSavedState(config)
+//     }, 0));
+//     section.show("slide", {"direction": "up"}, 750, ()=>{    $("#project-search").focus();});
+// }
 
 
 function loadNewlyCreatedProject(title, description, projectID, files) {
@@ -322,12 +323,15 @@ $(document).ready(async function () {
         createNewProject();
     });
     $("#continue-working-button").on("click", function (_) {
-        if (hasContinued) {
-            return;
-        } else {
-            displaySavedStates(0);
-            hasContinued = true;
-        }
+        // Note the hasContinued logic here is for #ACCOUNTS
+        // if (hasContinued) {
+        //     return;
+        // }
+        // else {
+        $(document.body).append(loadSavedStateFromFileWidget());
+        $("#saved-state-input").click();
+            // hasContinued = true;
+        // }
     });
 
     $(window).on('beforeunload', sendKillNotification);
