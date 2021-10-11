@@ -149,6 +149,10 @@ function redistortPoints(coordinatePair, cameraProfile) {
 }
 
 function undistortPoints(coordinatePair, cameraProfile) {
+    if (cameraProfile === undefined) {
+        return coordinatePair;
+    }
+
     // TODO: Vectorize
     let f = cameraProfile[0];
     let cx = cameraProfile[1];
@@ -377,8 +381,7 @@ async function uvToXyz(points, profiles, dltCoefficents) {
         uvs = [];
         for (let cameraIndex = 0; cameraIndex < NUMBER_OF_CAMERAS; cameraIndex++) {
             let currentPoint = points[cameraIndex][pointIndex];
-            // TODO: These are supposed to be undistorted
-            uvs.push([[currentPoint.x, currentPoint.y], cameraIndex]);
+            uvs.push([undistortPoints([currentPoint.x, currentPoint.y], profiles[cameraIndex]), cameraIndex]);
         }
 
         if (uvs.length > 1) {

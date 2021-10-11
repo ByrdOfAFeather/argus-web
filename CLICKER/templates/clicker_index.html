@@ -247,23 +247,25 @@
             {#    );#}
             {##}
             {#    return results;#}
-            {#}#}
+            {# } #}
 
-            async function search(queryText) {
-                let csrftoken = $("[name=csrfmiddlewaretoken]").val();
-                // TODO error management
-                let res = await $.ajax({
-                    url: "{% url 'api:search-projects' %}",
-                    method: "GET",
-                    data: {
-                        queryText: queryText
-                    },
-                    headers: {
-                        "X-CSRFToken": csrftoken
-                    },
-                });
-                return res;
-            }
+            {# #ACCOUNTS #}
+            {#async function search(queryText) {#}
+            {#    let csrftoken = $("[name=csrfmiddlewaretoken]").val();#}
+            {#    // TODO error management#}
+            {#    let res = await $.ajax({#}
+            {#        url: "{% url 'api:search-projects' %}",#}
+            {#        method: "GET",#}
+            {#        data: {#}
+            {#            queryText: queryText#}
+            {#        },#}
+            {#        headers: {#}
+            {#            "X-CSRFToken": csrftoken#}
+            {#        },#}
+            {#        error: (err) => {}#}
+            {#    });#}
+            {#    return res;#}
+            {# } #}
 
             function createNewSavedState(outputJson, autoSaved, projectID) {
                 let csrftoken = $("[name=csrfmiddlewaretoken]").val();

@@ -21,7 +21,7 @@ class Video {
         this.focusedPointCanvasContext = this.focusedPointCanvas.getContext('2d');
     }
 
-    _initZoomWindow(videoIndex) {
+    _initZoomWindow(videoIndex, drawZoomPoints=false) {
         /*
          * Initialize the zoom window references that will be needed during runtime. The zoom window draws copies of
          * the epipolar canvas, the video canvas, as well as the focused point canvas
@@ -45,10 +45,10 @@ class Video {
 
         this.zoomOffset = 10;
 
-        this.drawZoomPoints = false; // TODO: Make this able to be changed via the constructor
+        this.drawZoomPoints = drawZoomPoints;
     }
 
-    constructor(videoIndex, videoName, offset, isEpipolarLocked, epipolarProjection) {
+    constructor(videoIndex, videoName, offset, isEpipolarLocked, epipolarProjection, drawZoomPoints) {
         this.index = videoIndex;
         this.name = videoName;
         this.offset = offset;
@@ -61,7 +61,7 @@ class Video {
         };
 
         this._initCanvases(videoIndex);
-        this._initZoomWindow(videoIndex);
+        this._initZoomWindow(videoIndex, drawZoomPoints);
 
         this.currentBrightnessFilter = '';
         this.currentContrastFilter = '';
@@ -145,15 +145,6 @@ class Video {
 
 
     goToFrame(frameNumber) {
-        /*
-         * TODO: This function is broken in Vivaldi on Windows devices up to a point. For some reason using the base
-         *  (converted new1.mp4) video, we end up having a situation where it won't start moving until it is pushed
-         *  along to frame 4, at which points it moves normally. I'm certain this is a bug with the browser, as it does
-         *  this with no other browser on no other platforms. This doesn't seem to be present on all videos. I can't
-         *  figure out what is causing it for this specific video. It's possible this is a problem with my setup, however
-         *  I have tried uninstalling and reinstalling the browser, clearing the cache and it still has the same outcome.
-         *  I have also tried using a virtual machine on the same machine to see if it will break in linux - it won't.
-         */
         let orgFrame = frameNumber;
         frameNumber -= this.offset;
         if (frameNumber >= this.lastFrame - 1) {

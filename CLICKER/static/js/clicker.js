@@ -118,15 +118,6 @@ function parseCameraProfile(text, separator) {
 }
 
 
-function loadDLTCoefficients(file) {
-    let reader = new FileReader();
-    reader.onload = function () {
-        DLT_COEFFICIENTS = parseDLTCoefficents(reader.result, ",");
-        windowManager.getEpipolarInfo(0, frameTracker[0]);
-    };
-    reader.readAsText(file[0]);
-}
-
 function loadCameraProfile(file) {
     let reader = new FileReader();
     reader.onload = function () {
@@ -211,7 +202,7 @@ function sendKillNotification(e) {
     );
     windowManager.killPoppedWindows();
     try {
-        // TODO: Disabled for presentation
+        // #ACCOUNTS
         // windowManager.saveProject(true);
     } catch (e) {
     }

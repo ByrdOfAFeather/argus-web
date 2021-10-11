@@ -66,7 +66,7 @@ function genericDropDownWidget(id, defaultSelection, dropdownOptions, allItemCal
 }
 
 
-function dropDownItemWidget(id, itemText, perItemCallBack = undefined, extraClasses="") {
+function dropDownItemWidget(id, itemText, perItemCallBack = undefined, extraClasses = "") {
     /*
      * Generates a Jquery object representing a dropdown-item (see genericDropDownWidget)
      *
@@ -78,13 +78,16 @@ function dropDownItemWidget(id, itemText, perItemCallBack = undefined, extraClas
      * perItemCallBack(event) { Does whatever needs to be done whenever this item is clicked }
      */
     if (perItemCallBack === undefined) {
-        return $("<a>", {class:`dropdown-item ${extraClasses}`, id: id}).text(itemText)
+        return $("<a>", {class: `dropdown-item ${extraClasses}`, id: id}).text(itemText)
     } else {
-        return $("<a>", {class:`dropdown-item negate-all-callback ${extraClasses}`, id: id}).text(itemText).on("click", perItemCallBack);
+        return $("<a>", {
+            class: `dropdown-item negate-all-callback ${extraClasses}`,
+            id: id
+        }).text(itemText).on("click", perItemCallBack);
     }
 }
 
-function generateDropDownItems(itemNames, extraClasses= "") {
+function generateDropDownItems(itemNames, extraClasses = "") {
     /*
      * Maps a list of stings to dropDownItems without callbacks. Helpful when using a callback applied to all itmems
      *
@@ -1439,91 +1442,92 @@ function generateSavedStateWidgetsAndSort(projectObject, loadProjectCallback) {
     }).map((state) => savedStateWidget(state, loadProjectCallback));
 }
 
-function savedProjectWidget(projectObject, loadProjectCallback) {
-    let projectStateWidgets = generateSavedStateWidgetsAndSort(projectObject, loadProjectCallback);
-    let state = false;
-
-    let projectClickCallback = (event) => {
-        event.stopPropagation();
-        let projectStates = genericDivWidget("column is-12").append(
-            genericDivWidget("columns is-multiline is-centered is-vcentered no-display", `projectstates-${projectObject.projectID}`).append(
-                projectStateWidgets,
-            ));
-
-        let id = event.target.id.split("-")[1];
-        let icon = $("#" + "projecticon-" + id);
-        let projectStatesDisplayColumn = projectStates.find(`#projectstates-${id}`);
-        let cardContent = $("#" + "cardContent-" + id);
-        if (!state) {
-            if (projectObject.savedStates.length !== 0) {
-                projectStatesDisplayColumn.removeClass("no-display");
-                projectStatesDisplayColumn.hide();
-                cardContent.addClass("card-content").append(
-                    genericDivWidget("content").append(projectStates)
-                ); // TODO: animate? "slide", {"direction": "down"}, 750)
-                let initHeight = $(`#card-${id}`).css("height");
-                projectStatesDisplayColumn.show();
-                autoHeightAnimate($(`#card-${id}`), 200, () => {
-                }, initHeight);
-
-            }
-            state = true;
-            icon.removeClass("fa-arrow-down").addClass("fa-arrow-up");
-        } else {
-            icon.removeClass("fa-arrow-up").addClass("fa-arrow-down");
-            $("#" + "projectstates-" + id).addClass("no-display");
-            cardContent.removeClass("card-content").empty();
-            let initHeight = $(`#card-${id}`).css("height");
-
-            autoHeightAnimate($(`#card-${id}`), 200, () => {
-            }, initHeight);
-            state = false;
-        }
-    }
-
-
-    let deleteProjectCallback = (event) => {
-        // event.stopPropagation();
-        let id = event.target.id.split("-")[1];
-        deleteProject(id);
-    }
-
-    return genericDivWidget("column",).append(
-        genericDivWidget("card not-clickable", `card-${projectObject.projectID}`).append(
-            $("<header>", {class: "card-header"}).append(
-                $("<p>", {
-                    class: "card-header-title",
-                    id: `projectName-${projectObject.projectID}`
-                }).text(projectObject.projectName),
-
-                $("<a>", {class: "card-header-icon no-decoration"}).append(
-                    $("<span>", {
-                        id: `projectButton-${projectObject.projectID}`,
-                        class: "icon"
-                    }).append(
-                        $("<i>", {class: "fas fa-trash-alt", id: `projecticonDelete-${projectObject.projectID}`})
-                    ).on("click", deleteProjectCallback),
-                )
-            ),
-            genericDivWidget("", `cardContent-${projectObject.projectID}`).append(
-            ),
-            $("<footer>", {
-                class: "card-footer",
-                id: `cardFooter-${projectObject.projectID}`
-            }).append($("<a>", {
-                class: "card-footer-item has-text-centered no-decoration",
-                id: `test-${projectObject.projectID}`
-            }).append(
-                $("<span>", {
-                    class: "icon",
-                    id: `projectbutton-${projectObject.projectID}`
-                }).append(
-                    $("<i>", {class: "fas fa-arrow-down", id: `projecticon-${projectObject.projectID}`})
-                )
-            ).on("click", projectClickCallback))
-        )
-    );
-}
+// #ACCOUNTS
+// function savedProjectWidget(projectObject, loadProjectCallback) {
+//     let projectStateWidgets = generateSavedStateWidgetsAndSort(projectObject, loadProjectCallback);
+//     let state = false;
+//
+//     let projectClickCallback = (event) => {
+//         event.stopPropagation();
+//         let projectStates = genericDivWidget("column is-12").append(
+//             genericDivWidget("columns is-multiline is-centered is-vcentered no-display", `projectstates-${projectObject.projectID}`).append(
+//                 projectStateWidgets,
+//             ));
+//
+//         let id = event.target.id.split("-")[1];
+//         let icon = $("#" + "projecticon-" + id);
+//         let projectStatesDisplayColumn = projectStates.find(`#projectstates-${id}`);
+//         let cardContent = $("#" + "cardContent-" + id);
+//         if (!state) {
+//             if (projectObject.savedStates.length !== 0) {
+//                 projectStatesDisplayColumn.removeClass("no-display");
+//                 projectStatesDisplayColumn.hide();
+//                 cardContent.addClass("card-content").append(
+//                     genericDivWidget("content").append(projectStates)
+//                 );
+//                 let initHeight = $(`#card-${id}`).css("height");
+//                 projectStatesDisplayColumn.show();
+//                 autoHeightAnimate($(`#card-${id}`), 200, () => {
+//                 }, initHeight);
+//
+//             }
+//             state = true;
+//             icon.removeClass("fa-arrow-down").addClass("fa-arrow-up");
+//         } else {
+//             icon.removeClass("fa-arrow-up").addClass("fa-arrow-down");
+//             $("#" + "projectstates-" + id).addClass("no-display");
+//             cardContent.removeClass("card-content").empty();
+//             let initHeight = $(`#card-${id}`).css("height");
+//
+//             autoHeightAnimate($(`#card-${id}`), 200, () => {
+//             }, initHeight);
+//             state = false;
+//         }
+//     }
+//
+//
+//     let deleteProjectCallback = (event) => {
+//         // event.stopPropagation();
+//         let id = event.target.id.split("-")[1];
+//         deleteProject(id);
+//     }
+//
+//     return genericDivWidget("column",).append(
+//         genericDivWidget("card not-clickable", `card-${projectObject.projectID}`).append(
+//             $("<header>", {class: "card-header"}).append(
+//                 $("<p>", {
+//                     class: "card-header-title",
+//                     id: `projectName-${projectObject.projectID}`
+//                 }).text(projectObject.projectName),
+//
+//                 $("<a>", {class: "card-header-icon no-decoration"}).append(
+//                     $("<span>", {
+//                         id: `projectButton-${projectObject.projectID}`,
+//                         class: "icon"
+//                     }).append(
+//                         $("<i>", {class: "fas fa-trash-alt", id: `projecticonDelete-${projectObject.projectID}`})
+//                     ).on("click", deleteProjectCallback),
+//                 )
+//             ),
+//             genericDivWidget("", `cardContent-${projectObject.projectID}`).append(
+//             ),
+//             $("<footer>", {
+//                 class: "card-footer",
+//                 id: `cardFooter-${projectObject.projectID}`
+//             }).append($("<a>", {
+//                 class: "card-footer-item has-text-centered no-decoration",
+//                 id: `test-${projectObject.projectID}`
+//             }).append(
+//                 $("<span>", {
+//                     class: "icon",
+//                     id: `projectbutton-${projectObject.projectID}`
+//                 }).append(
+//                     $("<i>", {class: "fas fa-arrow-down", id: `projecticon-${projectObject.projectID}`})
+//                 )
+//             ).on("click", projectClickCallback))
+//         )
+//     );
+// }
 
 let debouncer = (debouncee, debounceeArgs, time) => {
     let currentCallbackID = null;
@@ -1730,13 +1734,12 @@ function loadSavedStateWidget(videos, onValidSubmit) {
 }
 
 function loadCameraInfoWidget(bindings) {
-    // TODO: Make this more inline with how everything else works. Right now it calls a global variable
     return genericDivWidget("columns is-multiline").append(
         genericDivWidget("column").append(
             genericDivWidget("columns is-multiline is-centered").append(
                 genericDivWidget("column is-narrow").append(
                     tooltipDualColumnWidget(
-                        fileInputWidget("Load DLT Coefficents", "loadDLTCoefficients", "any", (file) => loadDLTCoefficients(Array.from($("#loadDLTCoefficients").prop("files")))),
+                        fileInputWidget("Load DLT Coefficents", "loadDLTCoefficients", "any", (file) => bindings.loadDLTCoefficients(Array.from($("#loadDLTCoefficients").prop("files")))),
                         {
                             tooltipText: "This will allow you to load DLT coefficients. Once loaded this will allow for advanced features " +
                                 "such as epipolar lines and 3D point recovery",
@@ -1775,18 +1778,7 @@ function loadCameraInfoWidget(bindings) {
     );
 }
 
-function setScaleWidget(bindings) {
-    return genericDivWidget("column is-three-fifths has-text-centered").append(
-        genericDivWidget("box").append(
-            $("<button>", {
-                class: "button",
-                id: "set-scale-button"
-            }).text("Set Scale").on("click", bindings.setScaleBinding)
-        )
-    );
-}
-
-function setScaleSaveOriginWidget(bindings) {
+function scaleWidget(scaleManager, masterBindings) {
     let errorMap = {
         unitRatio: "#units-error-message",
         unitName: "#unit-name-error-message"
@@ -1795,46 +1787,88 @@ function setScaleSaveOriginWidget(bindings) {
         let errorTag = $(errorMap[errorType]);
         errorTag.text(errorText);
     };
+
+    let onScaleSave = (unitName, unitRatio) => {
+        let error = scaleManager.saveScale(unitName, unitRatio);
+        if (error === "") {
+            $("#scaleColumn").remove();
+            $("#set-scale-button").prop("disabled", false);
+            masterBindings.disableScaleMode();
+        } else {
+            if (error === "unitRatio") { generateError(error, "unit ratio must be numeric!");}
+            else if (error === "unitName") { generateError(error, "unit name cannot be empty!");}
+        }
+    }
+    let scaleBindings = {
+        onScaleSave: onScaleSave
+    };
+
+    let onOriginSave = () => {
+        $("#canvas-columns-0").append(
+            setScaleWidget(scaleBindings)
+        );
+        $("#set-origin-button").remove();
+        scaleManager.cleanUpOrigin();
+    }
+
+    let originBindings = {
+        onOriginSave: onOriginSave,
+    };
+    return genericDivWidget("column is-three-fifths has-text-centered").append(
+        genericDivWidget("box").append(
+            $("<button>", {
+                class: "button",
+                id: "set-scale-button"
+            }).text("Set Scale").on("click", () => {
+                if (!scaleManager.isActive) {
+                    $("#set-scale-button").prop("disabled", true);
+                    masterBindings.scaleMode();
+                    scaleManager.startScaleSet();
+                    $("#canvas-columns-0").append(setOriginWidget(originBindings));
+                }
+            })
+        )
+    );
+}
+
+function setScaleWidget(bindings) {
+    return genericDivWidget("column is-12", "scaleColumn").append(
+        genericDivWidget("columns").append(
+            genericDivWidget("column").append(
+                genericDivWidget("field").append(
+                    $("<input>", {
+                        class: "input",
+                        id: "unitRatio",
+                        placeholder: "How many units?"
+                    }),
+                    $("<p>", {id: "units-error-message", class: "help is-danger"})
+                )
+            ),
+            genericDivWidget("column").append(
+                genericDivWidget("field").append(
+                    $("<input>", {class: "input", id: "unitName", placeholder: "Unit name"}),
+                    $("<p>", {id: "unit-name-error-message", class: "help is-danger"})
+                )),
+            genericDivWidget("column").append(
+                $("<button>", {class: "button"}).text("Save").on("click", () => {
+                    let unitRatio = $("#unitRatio").val();
+                    let unitName = $("#unitName").val();
+                    bindings.onScaleSave(unitName, unitRatio);
+                })
+            )
+        ),
+    );
+}
+
+function setOriginWidget(bindings) {
     return genericDivWidget("column is-12").append($("<button>", {
             class: "button",
-            id: "TEMP_DELETE"
-        }).text("Save origin").on("click", () => {
-            $("#canvas-columns-0").append(
-                genericDivWidget("column is-12", "scaleColumn").append(
-                    genericDivWidget("columns").append(
-                        genericDivWidget("column").append(
-                            genericDivWidget("field").append(
-                                $("<input>", {
-                                    class: "input",
-                                    id: "unitRatio",
-                                    placeholder: "How many units?"
-                                }),
-                                $("<p>", {id: "units-error-message", class: "help is-danger"})
-                            )
-                        ),
-                        genericDivWidget("column").append(
-                            genericDivWidget("field").append(
-                                $("<input>", {class: "input", id: "unitName", placeholder: "Unit name"}),
-                                $("<p>", {id: "unit-name-error-message", class: "help is-danger"})
-                            )),
-                        genericDivWidget("column").append(
-                            $("<button>", {class: "button"}).text("Save").on("click", () => bindings.saveScale(generateError))
-                        )
-                    ),
-                ))
-
-            bindings.cleanUpOrigin();
-        })
+            id: "set-origin-button"
+        }).text("Save origin").on("click", () => bindings.onOriginSave())
     )
 }
 
 
-function loginWidget(onLogin) {
-    // TODO: Implement
-    return null;
-}
-
-// TODO: TEMP, Could be kept. Allows user to save/load without logging in
 function loadSavedStateFromFileWidget() {
     let onChange = () => {
         let state = Array.from($("#saved-state-input").prop("files"))[0];

@@ -49,27 +49,7 @@ class WindowManager {
         this.videosToSettings = {};
         this.curEpipolarInfo = {};
         this.communicatorsManager = null;
-        this.scaleMode = {
-            drawCrossAxis: (centerPoint) => {
-                this.videos[0].drawLine(
-                    {x: 0, y: centerPoint.y},
-                    {x: this.videosToSizes[0].width, y: centerPoint.y},
-                    this.videos[0].canvasContext,
-                    this.trackManager.currentTrack.color
-                );
-                this.videos[0].drawLine(
-                    {x: centerPoint.x, y: 0},
-                    {x: centerPoint.x, y: this.videosToSizes[0].height},
-                    this.videos[0].canvasContext,
-                    this.trackManager.currentTrack.color
-                );
-            },
-            redrawScalePoint: () => {
-                this.videos[0].drawScalePoint(this.scaleMode.initialPoint, 15);
-                this.videos[0].drawScalePoint(this.scaleMode.finalPoint, 15);
-                this.videos[0].drawLine(this.scaleMode.initialPoint, this.scaleMode.finalPoint, this.videos[0].canvasContext, COLORS[5]);
-            }
-        } // Used when a user wants to select points for reference in single-video analysis
+        this.scaleManager = {} // Default, TODO: Change set mouse pos to change based on number of videos (callbacks)
         this.focused = true;
         window.addEventListener('blur', () => {
             this.focused = false;
@@ -381,26 +361,26 @@ class WindowManager {
 
 
     onMouseUp(event) {
-        this.scaleMode.mouseDown = false;
+        this.scaleManager.mouseDown = false;
     }
 
     onMouseDown(event) {
-        if (this.scaleMode.isActive) {
-            this.scaleMode.mouseDown = true;
+        if (this.scaleManager.isActive) {
+            this.scaleManager.mouseDown = true;
 
             let currentLocation = this.videos[0].createPointObject();
-            if (!this.scaleMode.originSet) {
-                let inOrigin = this.inPoint(currentLocation, this.scaleMode.originPoint, 15);
-                this.scaleMode.moving = inOrigin ? "origin" : "none";
+            if (!this.scaleManager.originSet) {
+                let inOrigin = this.inPoint(currentLocation, this.scaleManager.originPoint, 15);
+                this.scaleManager.moving = inOrigin ? "origin" : "none";
             } else {
-                let inInitPoint = this.inPoint(currentLocation, this.scaleMode.initialPoint, 15);
-                let inFinalPoint = this.inPoint(currentLocation, this.scaleMode.finalPoint, 15);
+                let inInitPoint = this.inPoint(currentLocation, this.scaleManager.initialPoint, 15);
+                let inFinalPoint = this.inPoint(currentLocation, this.scaleManager.finalPoint, 15);
                 if (inInitPoint) {
-                    this.scaleMode.moving = "init";
+                    this.scaleManager.moving = "init";
                 } else if (inFinalPoint) {
-                    this.scaleMode.moving = "final";
+                    this.scaleManager.moving = "final";
                 } else {
-                    this.scaleMode.moving = "none";
+                    this.scaleManager.moving = "none";
                 }
             }
             return {point: null};
@@ -517,24 +497,24 @@ class WindowManager {
         let baseX = (e.clientX - bounds.left) * scaleX;
         let baseY = (e.clientY - bounds.top) * scaleY;
 
-        if (this.scaleMode.isActive && this.scaleMode.mouseDown && this.scaleMode.moving !== "none") {
+        if (this.scaleManager.isActive && this.scaleManager.mouseDown && this.scaleManager.moving !== "none") {
             this.videos[0].clearPoints(this.videos[0].canvasContext);
-            if (this.scaleMode.originSet === false) {
-                if (this.scaleMode.moving === "origin") {
-                    this.scaleMode.originPoint.x = baseX;
-                    this.scaleMode.originPoint.y = baseY;
-                    this.videos[0].drawScalePoint(this.scaleMode.originPoint, 15);
-                    this.scaleMode.drawCrossAxis(this.scaleMode.originPoint);
+            if (this.scaleManager.originSet === false) {
+                if (this.scaleManager.moving === "origin") {
+                    this.scaleManager.originPoint.x = baseX;
+                    this.scaleManager.originPoint.y = baseY;
+                    this.videos[0].drawScalePoint(this.scaleManager.originPoint, 15);
+                    this.scaleManager.drawCrossAxis(this.scaleManager.originPoint);
                 }
             } else {
-                if (this.scaleMode.moving === "init") {
-                    this.scaleMode.initialPoint.x = baseX;
-                    this.scaleMode.initialPoint.y = baseY;
-                    this.scaleMode.redrawScalePoint();
-                } else if (this.scaleMode.moving === "final") {
-                    this.scaleMode.finalPoint.x = baseX;
-                    this.scaleMode.finalPoint.y = baseY;
-                    this.scaleMode.redrawScalePoint();
+                if (this.scaleManager.moving === "init") {
+                    this.scaleManager.initialPoint.x = baseX;
+                    this.scaleManager.initialPoint.y = baseY;
+                    this.scaleManager.redrawScalePoint();
+                } else if (this.scaleManager.moving === "final") {
+                    this.scaleManager.finalPoint.x = baseX;
+                    this.scaleManager.finalPoint.y = baseY;
+                    this.scaleManager.redrawScalePoint();
                 }
             }
         }
@@ -703,7 +683,7 @@ class WindowManager {
         // this.videos[videoIndex].clearPoints();
         let currentTrack = this.trackManager.currentTrack;
         let currentPoints = []
-        if (!this.scaleMode.isActive) {
+        if (!this.scaleManager.isActive) {
             currentPoints = this.clickedPointsManager.getClickedPointsFrameViewOffsetSensitive(videoIndex, currentTrack.absoluteIndex);
         }
         let mainTrackInfo = {"points": currentPoints, "color": currentTrack.color};
@@ -753,7 +733,6 @@ class WindowManager {
     }
 
     createSettingsContext(initialization, saveSettings, index) {
-        // These booleans strike me as poorly thought out. A rewrite may come one day..... TODO
         let context = {};
         context.loadVideo = initialization; // This gets changed depending on user input
         context.initialization = initialization; // This is constant after being set
@@ -846,7 +825,7 @@ class WindowManager {
 
         $(`#video-${currentVideoIndex}`).on("canplay", () => {
             loadPreviewFrameFunction(currentVideoIndex);
-            if (!this.scaleMode.isActive) {
+            if (!this.scaleManager.isActive) {
                 this.locks.can_click = true;
             }
         });
@@ -1086,8 +1065,6 @@ class MainWindowManager extends WindowManager {
         this.getEpipolarInfo(0, frameTracker[0]);
         this.keepCanvasAspectRatio(true); // A little wasteful as I resize previous videos that don't need it
         $(window).on("resize", () => this.keepCanvasAspectRatio(false));
-        // TODO: AUTO SAVE IS DISABLED FOR THE PRESENTATION
-        // AUTO_SAVE_INTERVAL_ID = setInterval(() => this.saveProject(true), 60000);
         this.loadSettings();
 
         // Smooth scrolls if the window is considered mobile via bulma's framework
@@ -1111,6 +1088,7 @@ class MainWindowManager extends WindowManager {
         EPIPOLAR_COLOR = state.epipolarColor;
         if (NUMBER_OF_CAMERAS === 1) {
             // To preserve functions in case a change of origin is in order
+            // TODO: Remake to work with new ScaleManager
             this.scaleMode = Object.assign({}, this.scaleMode, state.scaleMode);
         }
         let videoGetter = loadSavedStateWidget(state.videos, (videos) => this.loadSavedStateVideos(videos));
@@ -1330,15 +1308,15 @@ class MainWindowManager extends WindowManager {
                         frameArray.push(NaN);
                     } else {
                         if (NUMBER_OF_CAMERAS === 1) {
-                            if (this.scaleMode.unitRatio !== undefined) {
-                                let yDist = Math.abs(this.scaleMode.initialPoint.y - this.scaleMode.finalPoint.y);
+                            if (this.scaleManager.unitRatio !== undefined) {
+                                let yDist = Math.abs(this.scaleManager.initialPoint.y - this.scaleManager.finalPoint.y);
                                 yDist = yDist === 0 ? 1 : yDist;
-                                let xDist = Math.abs(this.scaleMode.initialPoint.x - this.scaleMode.finalPoint.x);
+                                let xDist = Math.abs(this.scaleManager.initialPoint.x - this.scaleManager.finalPoint.x);
                                 xDist = xDist === 0 ? 1 : xDist;
-                                let dxunits = (parseFloat(this.scaleMode.unitRatio) * (xDist)) / this.distanceBetweenPoints(this.scaleMode.initialPoint, this.scaleMode.finalPoint);
-                                let dyunits = (parseFloat(this.scaleMode.unitRatio) * (yDist)) / this.distanceBetweenPoints(this.scaleMode.initialPoint, this.scaleMode.finalPoint);
-                                let scaledX = (dxunits * (localPoints[index].x - this.scaleMode.originPoint.x)) / (xDist);
-                                let scaledY = (dyunits * (this.scaleMode.originPoint.y - localPoints[index].y)) / (yDist);
+                                let dxunits = (parseFloat(this.scaleManager.unitRatio) * (xDist)) / this.distanceBetweenPoints(this.scaleManager.initialPoint, this.scaleManager.finalPoint);
+                                let dyunits = (parseFloat(this.scaleManager.unitRatio) * (yDist)) / this.distanceBetweenPoints(this.scaleManager.initialPoint, this.scaleManager.finalPoint);
+                                let scaledX = (dxunits * (localPoints[index].x - this.scaleManager.originPoint.x)) / (xDist);
+                                let scaledY = (dyunits * (this.scaleManager.originPoint.y - localPoints[index].y)) / (yDist);
                                 scaleArray.push(scaledX);
                                 scaleArray.push(scaledY);
                             }
@@ -1356,22 +1334,22 @@ class MainWindowManager extends WindowManager {
                 }
             }
             exportablePointsOriginal.push(frameArray.join(",") + "\n");
-            if (this.scaleMode.unitRatio !== undefined) {
+            if (this.scaleManager.unitRatio !== undefined) {
                 exportablePointsScale.push(scaleArray.join(",") + "\n");
             }
             masterFrameArray.push(frameArray);
         }
         zip.file("xy_coordinates.csv", exportablePointsOriginal.join(""));
-        if (this.scaleMode.unitRatio !== undefined) {
+        if (this.scaleManager.unitRatio !== undefined) {
             zip.file("xy_scaled.csv", exportablePointsScale.join(""));
         }
-        if (NUMBER_OF_CAMERAS === 1 && this.scaleMode.unitRatio !== undefined) {
+        if (NUMBER_OF_CAMERAS === 1 && this.scaleManager.unitRatio !== undefined) {
             zip.file("origin_system.json", JSON.stringify({
-                origin: this.scaleMode.originPoint,
-                point1: this.scaleMode.initialPoint,
-                point2: this.scaleMode.finalPoint,
-                units: this.scaleMode.unitRatio,
-                unitName: this.scaleMode.unitName
+                origin: this.scaleManager.originPoint,
+                point1: this.scaleManager.initialPoint,
+                point2: this.scaleManager.finalPoint,
+                units: this.scaleManager.unitRatio,
+                unitName: this.scaleManager.unitName
             }));
         }
 
@@ -1418,6 +1396,15 @@ class MainWindowManager extends WindowManager {
                 }
                 saveAs(content, `${PROJECT_NAME}_${curDate.getFullYear()}-${month}-${curDate.getDate()}T${curDate.getTime()}.zip`);
             });
+    }
+
+    loadDLTCoefficients(file) {
+        let reader = new FileReader();
+        reader.onload = function () {
+            DLT_COEFFICIENTS = parseDLTCoefficents(reader.result, ",");
+            windowManager.getEpipolarInfo(0, frameTracker[0]);
+        };
+        reader.readAsText(file[0]);
     }
 
     importPoints(textLines, options) {
@@ -1548,11 +1535,12 @@ class MainWindowManager extends WindowManager {
             exportFunction: (options) => this.exportPoints(options)
         };
         let projectInfoBindings = {
-            "saveProjectBindings": saveBinding,
-            "exportPointBindings": exportPointsBindings,
-            "loadPoints": (file, options) => this.importPoints(file, options),
+            saveProjectBindings: saveBinding,
+            exportPointBindings: exportPointsBindings,
+            loadPoints: (file, options) => this.importPoints(file, options),
             onEpipolarColorChange: (color) => this.onEpipolarColorChange(color),
-            "keepAspectRatio": () => this.keepCanvasAspectRatio(false)
+            keepAspectRatio: () => this.keepCanvasAspectRatio(false),
+            loadDLTCoefficients: (file) => this.loadDLTCoefficients(file)
         };
 
         let trackBindings = {
@@ -1612,84 +1600,21 @@ class MainWindowManager extends WindowManager {
         allSettings.append(miscSettingsWidget(miscSettingsBindings));
 
         if (NUMBER_OF_CAMERAS === 1) {
-            /// TODO: So much cleanup
-            let scaleModeBindings = {
-                setScale: () => {
-                    $("#set-scale-button").prop("disabled", true);
-                    this.videos[0].isDisplayingFocusedPointStore = this.videos[0].isDisplayingFocusedPoint;
-                    this.videos[0].isDisplayingFocusedPoint = false; // Otherwise it force-redraws points
-                    this.videos[0].clearPoints(this.videos[0].canvasContext);
-                    this.videos[0].clearPoints(this.videos[0].subTrackCanvasContext);
-
-                    this.scaleMode.originPoint = {
-                        x: this.videosToSizes[0].width / 2,
-                        y: this.videosToSizes[0].height / 2
-                    }
-
-                    this.videos[0].drawScalePoint(this.scaleMode.originPoint, 20);
-
-                    this.scaleMode.drawCrossAxis(this.scaleMode.originPoint);
-
+            this.scaleManager = new ScaleManager(this.videos[0], this.videosToSizes[0], this.trackManager);
+            let scaleBindings = {
+                scaleMode: () => {
                     this.locks.can_click = false;
-                    this.scaleMode.originSet = false;
-                    this.scaleMode.isActive = true;
-
-                    this.TEMP = () => {
-                        this.onMouseUp();
-                    }
-                    this.TEMP2 = () => {
-                        this.onMouseDown();
-                    }
-
-                    $(document).on("mouseup", this.TEMP);
-                    $(document).on("mousedown", this.TEMP2);
+                    this.TEMP_SCALE_CALLBACK_UP = () => this.onMouseUp();
+                    this.TEMP_SCALE_CALLBACK_DOWN = () => this.onMouseDown();
+                    $(document).on("mouseup", this.TEMP_SCALE_CALLBACK_UP);
+                    $(document).on("mousedown", this.TEMP_SCALE_CALLBACK_DOWN);
                 },
-                saveScale: (generateError) => {
-                    let unitRatio = $("#unitRatio").val();
-                    let valid = true;
-                    if (isNaN(parseFloat(unitRatio))) {
-                        valid = false;
-                        generateError("unitRatio", "This has to be a numeric value!");
-                    }
-
-                    let unitName = $("#unitName").val();
-                    if (unitName.length === 0) {
-                        valid = false;
-                        generateError("unitName", "The name can't be empty");
-                    }
-
-                    if (valid) {
-                        this.locks.can_click = true;
-                        this.drawAllPoints(0);
-                        this.scaleMode.isActive = false;
-                        this.scaleMode.unitRatio = $("#unitRatio").val();
-                        this.scaleMode.unitName = $("#unitName").val();
-                        this.videos[0].isDisplayingFocusedPoint = this.videos[0].isDisplayingFocusedPointStore;
-                        $("#scaleColumn").remove();
-                        $("#set-scale-button").prop("disabled", false);
-                    }
-                },
-                cleanUpOrigin: () => {
-                    this.videos[0].clearPoints(this.videos[0].canvasContext);
-                    this.scaleMode.originSet = true;
-                    this.scaleMode.initialPoint = {
-                        x: (this.videosToSizes[0].width / 2) - (this.videosToSizes[0].width / 3),
-                        y: this.videosToSizes[0].height / 2
-                    }
-                    this.scaleMode.finalPoint = {
-                        x: (this.videosToSizes[0].width / 2) + (this.videosToSizes[0].width / 3),
-                        y: (this.videosToSizes[0].height / 2)
-                    };
-                    this.scaleMode.redrawScalePoint();
-                    $("#TEMP_DELETE").remove();
+                disableScaleMode: () => {
+                    this.locks.can_click = true;
+                    this.drawAllPoints(0);
                 }
             };
-
-            scaleModeBindings.setScaleBinding = () => {
-                scaleModeBindings.setScale();
-                $("#canvas-columns-0").append(setScaleSaveOriginWidget(scaleModeBindings));
-            }
-            allSettings.append(setScaleWidget(scaleModeBindings));
+            allSettings.append(scaleWidget(this.scaleManager, scaleBindings));
         }
 
         $("#settings").append(allSettings);
@@ -1958,11 +1883,11 @@ class MainWindowManager extends WindowManager {
                 this.removeVideoFromDOM(index);
             }
             if (index === NUMBER_OF_CAMERAS) {
+                this.loadVideoIntoDOM(parsedInputs);
                 this.loadSettings();
                 this.emptyInputModal();
                 $("#generic-input-modal").removeClass("is-active");
                 $(".blurrable").css("filter", "");
-                this.loadVideoIntoDOM(parsedInputs);
                 // TODO: Disabled for presentation
                 // AUTO_SAVE_INTERVAL_ID = setInterval(() => {
                 //         this.saveProject(true)
@@ -2236,5 +2161,88 @@ class PopOutWindowManager extends WindowManager {
         let pointInfo = super.removePoint(event);
         let message = messageCreator("removePoint", pointInfo);
         this.communicatorsManager.updateCommunicators(message);
+    }
+}
+
+class ScaleManager {
+    constructor(video, videoSize, trackManagerReference) {
+        this.video = video;
+        this.videoSize = videoSize;
+        this.trackManagerReference = trackManagerReference;
+        this.originPoint = {
+            x: videoSize.width / 2,
+            y: videoSize.height / 2
+        };
+        this.initialPoint = {};
+        this.finalPoint = {};
+        this.isActive = false;
+        this.originSet = false;
+    }
+
+    drawCrossAxis(centerPoint) {
+        this.video.drawLine(
+            {x: 0, y: centerPoint.y},
+            {x: this.videoSize.width, y: centerPoint.y},
+            this.video.canvasContext,
+            this.trackManagerReference.currentTrack.color
+        );
+        this.video.drawLine(
+            {x: centerPoint.x, y: 0},
+            {x: centerPoint.x, y: this.videoSize.height},
+            this.video.canvasContext,
+            this.trackManagerReference.currentTrack.color
+        );
+    }
+
+    redrawScalePoint() {
+        this.video.drawScalePoint(this.initialPoint, 15);
+        this.video.drawScalePoint(this.finalPoint, 15);
+        this.video.drawLine(this.initialPoint, this.finalPoint, this.video.canvasContext, COLORS[5]);
+    }
+
+    startScaleSet(onMouseUpCallback, onMouseDownCallback) {
+        $("#set-scale-button").prop("disabled", true);
+        this.video.isDisplayingFocusedPointStore = this.video.isDisplayingFocusedPoint;
+        this.video.isDisplayingFocusedPoint = false;
+        this.video.clearPoints(this.video.canvasContext);
+        this.video.clearPoints(this.video.subTrackCanvasContext);
+
+        this.video.drawScalePoint(this.originPoint, 20);
+        this.drawCrossAxis(this.originPoint);
+
+        this.originSet = false;
+        this.isActive = true;
+    }
+
+    cleanUpOrigin() {
+        this.video.clearPoints(this.video.canvasContext);
+        this.originSet = true;
+        this.initialPoint = {
+            x: (this.videoSize.width / 2) - (this.videoSize.width / 3),
+            y: this.videoSize.height / 2
+        };
+        this.finalPoint = {
+            x: (this.videoSize.width / 2) + (this.videoSize.width / 3),
+            y: (this.videoSize.height / 2)
+        };
+        this.redrawScalePoint();
+    }
+
+    saveScale(unitName, unitRatio) {
+            if (isNaN(parseFloat(unitRatio))) {
+                return "unitRatio";
+            }
+
+            if (unitName.length === 0) {
+                return "unitName";
+            }
+
+            // this.locks.can_click = true;
+            // this.drawAllPoints(0);
+            this.isActive = false;
+            this.unitRatio = $("#unitRatio").val();
+            this.unitName = $("#unitName").val();
+            this.video.isDisplayingFocusedPoint = this.video.isDisplayingFocusedPointStore;
+            return "";
     }
 }
