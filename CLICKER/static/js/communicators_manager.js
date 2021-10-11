@@ -133,6 +133,7 @@ class CommunicatorsManager {
                 this.callbacks.drawDiamond(messageContent.data.x, messageContent.data.y);
                 break
             case "loadPoints":
+                this.callbacks.loadPoints(messageContent.data.newPoints);
                 break
             case "mainWindowDeath":
                 this.callbacks.mainWindowDeath();

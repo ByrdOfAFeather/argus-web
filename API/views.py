@@ -123,7 +123,6 @@ def saved_projects(request):
             pagination_index = int(request.GET.get("pagination_idx", 0))
         except ValueError:
             pagination_index = 0
-            print("Received a oppsie doopsie")  # TODO: mostly debugging, remove later
 
         projects = ProjectToMostRecentState.objects.filter(project__owner=request.user).order_by(
             "-saved_state__date_created")

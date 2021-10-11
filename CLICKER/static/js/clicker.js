@@ -79,7 +79,6 @@ function parseDLTCoefficents(text, separator) {
 }
 
 function parseCameraProfile(text, separator) {
-    // TODO: Only works with pinhole for now
     const profiles = text.split("\n").filter((value) => value !== "");
     const numberOfProfiles = profiles.length;
 

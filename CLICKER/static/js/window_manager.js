@@ -69,7 +69,6 @@ class WindowManager {
                 "point in 2D space, please check your DLT coefficients and camera profiles");
         }
 
-
         let callback = (i) => {
             this.videos[i].drawDiamond(
                 currentPoint[0][0],
@@ -1282,12 +1281,12 @@ class MainWindowManager extends WindowManager {
         for (let j = 0; j < this.trackManager.tracks.length; j++) {
             for (let i = 0; i < NUMBER_OF_CAMERAS; i++) {
                 if (NUMBER_OF_CAMERAS === 1) {
-                    headerScale.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x_rel`);
-                    headerScale.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y_rel`);
+                    headerScale.push(`${this.trackManager.tracks[j].name}_cam${i + 1}_x_rel`);
+                    headerScale.push(`${this.trackManager.tracks[j].name}_cam${i + 1}_y_rel`);
                     // addon = "_org";
                 }
-                headerOriginal.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_x`);
-                headerOriginal.push(`${this.trackManager.tracks[j].name}_cam_${i + 1}_y`);
+                headerOriginal.push(`${this.trackManager.tracks[j].name}_cam${i + 1}_x`);
+                headerOriginal.push(`${this.trackManager.tracks[j].name}_cam${i + 1}_y`);
             }
         }
         exportablePointsOriginal.push(headerOriginal.join(",") + "\n");
@@ -1498,6 +1497,10 @@ class MainWindowManager extends WindowManager {
         this.clickedPointsManager = localClickedPointsManager;
         this.trackManager = localTrackManager;
 
+        let message = messageCreator("loadPoints", {
+            newPoints: this.clickedPointsManager.clickedPoints
+        });
+        this.communicatorsManager.updateCommunicators(message);
         // Forces track manager update
         if (!track0Present) {
             // In this case, the user had no tracks named track 0. We are going to use the first track not
@@ -1625,15 +1628,6 @@ class MainWindowManager extends WindowManager {
         let distRel = Math.sqrt((point1.x - point2.x) ** 2 + (point1.y - point2.y) ** 2);
         return distRel
     }
-
-
-    loadPoints() {
-        // TODO
-    };
-
-    exportPointsInArgusFormat() {
-        // TODO
-    };
 
     loadCameraProfile(event) {
         let selectedFiles = Array.from($(`#${event.target.id}`).prop("files"));
@@ -1781,7 +1775,10 @@ class MainWindowManager extends WindowManager {
                 currentInfoType = "unified";
             } else {
                 // TODO: Okay so obviously curEpipolarInfo returns to many different things.
-                // Someone fix this : {
+                // curEpipolarInfo can be the following:
+                // undefined: there is already a point in the video for the frame
+                // list with length 0: there COULD be two lines in a video, but this video has no lines
+                // non-empty list.
                 if (curEpipolarInfo.result[videoIndex] === undefined) {
                     currentInfo = undefined;
                     currentInfoType = undefined;
@@ -2053,8 +2050,8 @@ class PopOutWindowManager extends WindowManager {
                 this.curEpipolarInfo[this.absoluteIndex] = {type: EPIPOLAR_TYPES.POINT};
                 this.videos[currentVideo].drawDiamond(x, y, 10, 10);
             },
-            "loadPoints": () => {
-                // TODO
+            "loadPoints": (newPoints) => {
+                this.clickedPointsManager.clickedPoints = newPoints;
             },
             "mainWindowDeath": () => {
                 killSelf = true;
@@ -2113,7 +2110,7 @@ class PopOutWindowManager extends WindowManager {
         super.loadVideoIntoDOM(parsedInputs);
         this.videos[parsedInputs.index].isEpipolarLocked = parsedInputs.isEpipolarLocked;
         this.videos[parsedInputs.index].goToFrame(parsedInputs.frame);
-        this.videosToSettings[parsedInputs.index] = parsedInputs; // TODO: A lot of extra information is now stored in this, but it doesn't really matter that much, would be nice to clean up one day
+        this.videosToSettings[parsedInputs.index] = parsedInputs; // extra info, but removed on update/works.
         this.videoFiles[this.absoluteIndex] = {name: parsedInputs.name};
         videoTag.one("canplay", () => {
             this.drawAllPoints(parsedInputs.index);
