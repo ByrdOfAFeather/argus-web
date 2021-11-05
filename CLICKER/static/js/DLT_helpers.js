@@ -381,7 +381,13 @@ async function uvToXyz(points, profiles, dltCoefficents) {
         uvs = [];
         for (let cameraIndex = 0; cameraIndex < NUMBER_OF_CAMERAS; cameraIndex++) {
             let currentPoint = points[cameraIndex][pointIndex];
-            uvs.push([undistortPoints([currentPoint.x, currentPoint.y], profiles[cameraIndex]), cameraIndex]);
+            let profile;
+            try {
+                profile = profiles[cameraIndex];
+            } catch (e) {
+                // In this case the profiles is undefined
+            }
+            uvs.push([undistortPoints([currentPoint.x, currentPoint.y], profile), cameraIndex]);
         }
 
         if (uvs.length > 1) {
